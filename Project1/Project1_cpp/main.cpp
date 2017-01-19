@@ -21,8 +21,9 @@ int main(int argc, char *argv[])
     double x_eta1 = log(a_init);
     double x_eta2 = 0;
 
+    cout << params.epsilon_0() << endl;
     // Creating new grid fills
-    double *x_grid = new double[n_t];
-    double *a_grid = new double[n_t];
+    //double *x_grid = new double[n_t];
+    //double *a_grid = new double[n_t];
     return 0;
 }
