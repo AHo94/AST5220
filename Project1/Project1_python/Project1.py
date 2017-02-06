@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import interpolate
+from scipy import integrate
 
 # Global constants
 # Units
@@ -79,6 +81,10 @@ class time_mod():
 		""" Function returns the derivative of the scaled Hubble parameter. See report """
 		return -H_0**2*((Omega_b + Omega_m)*np.exp(-x) + 2*Omega_r*np.exp(-2*x))/(2*Get_Hubble_prime(x))
 
+	def Diff_eq(self, y, x_0):
+		dEtada = c/(self.Get_Hubble_prime(x_0))
+		return dEtada
+
 	def RungeKutta4(self, i):
 		""" Function solving the fourth order Runge-Kutta method """
 		k1 = c/self.Get_Hubble_prime(self.x_eta[i])
@@ -87,6 +93,17 @@ class time_mod():
 		k4 = c/self.Get_Hubble_prime(self.x_eta[i] + self.h)
 
 		return self.RK_Prefactor*(k1 + 2*k2 + 2*k3 + k4)
+
+	def Get_spline(self, x_values, eta_values, x_start, x_end, n_points):
+		""" Cubic spline interpolation, zeroth derivative """
+
+		for i in range(0, self.n_t):
+			x_values[i] += i*1e-15
+		Temp_interp = interpolate.splrep(x_values, eta_values)
+		#x_new = np.arange(x_start, x_end, n_points)
+		x_new = np.linspace(x_start, x_end, n_points)
+		eta_new = interpolate.splev(x_new, Temp_interp, der=0)
+		return x_new, eta_new
 
 	def Spline(self, eta, x, interval_start, interval_end):
 		""" Cubic spline interpolation. From Numerical recipies """
@@ -102,9 +119,6 @@ class time_mod():
 			"""
 			#interpolated_points[i] = A*eta[i] + B*eta[i+1] + C*eta_d2[i] + D*eta_d2[i+1]
 
-	def Spline_derivative(self):
-		a = 1
-
 	def Spline_second_derivative(self, y, x, index1, index2):
 		""" 
 		Second derivative of the spline interpolation.
@@ -113,7 +127,8 @@ class time_mod():
 		y_doublederivative = np.zeros(self.n_t)
 		for i in range(0, 10):
 			y_doublederivative[i+1] = (6.0/(x[i+1] - x[i]))*((y[i+1] - y[i])/(x[i+1] - x[i])\
-			 - (y[i] - y[i-1])/(x[i] - x[i-1]) - (x[i+1] - x[i-1])*y_doublederivative[i]/3.0\
+			 - (y[i] - y[i-1])/(x[i] - x[i-1]) \
+			 - (x[i+1] - x[i-1])*y_doublederivative[i]/3.0 \
 			 - (x[i] - x[i-1])*y_doublederivative[i-1]/6.0)
 		print y_doublederivative
 		return y_doublederivative
@@ -126,7 +141,29 @@ class time_mod():
 	def Plot_results(self):
 		""" Plotting the results """
 		self.Solve_Comformal_time()
-		self.Spline(self.eta_array, self.x_t, 0, self.n_t)
+		ScipyEta = integrate.odeint(self.Diff_eq, self.x_start_rec, self.x_t)
+		plt.plot(self.x_t, ScipyEta)
+		plt.hold('on')
+		plt.plot(self.x_t, self.eta_array)
+		plt.legend(['Scipy solver','Runge Kutta'])
+		plt.xlabel('x')
+		plt.ylabel('$\eta$')
+		#plt.show()
+		
+		x_t_new, eta_new = self.Get_spline(self.x_t, ScipyEta, self.x_start_rec, self.x_end_rec, 100)
+		plt.figure()
+		plt.plot(self.x_t, self.eta_array, 'b-', x_t_new, eta_new, 'xr')
+		plt.axis([self.x_start_rec, self.x_end_rec, 0, 1e21])
+		plt.legend(['Normal','Interpolated'])
+		plt.show()
+		
+		"""
+		for i in range(0, self.n_t):
+			#a=1
+			self.x_t[i] += i*1e-15
+		cs = CubicSpline(self.x_t, self.eta_array)
+		print self.x_t
+		"""
 		#print self.x_t
 		#print self.eta_d2
 
@@ -135,3 +172,16 @@ class time_mod():
 
 solver = time_mod(1e-3)
 solver.Plot_results()
+"""
+x = np.arange(-2*np.pi+np.pi/4,0, 2*np.pi/8)
+y = np.sin(x)
+tck = interpolate.splrep(x, y, s=0)
+xnew = np.arange(-2*np.pi,0, np.pi/50)
+ynew = interpolate.splev(xnew, tck, der=0)
+plt.figure()
+plt.plot(xnew, ynew, xnew, np.sin(xnew), x, y, 'b')
+plt.legend(['Linear', 'Cubic Spline', 'True'])
+plt.axis([-0.05, 6.33, -1.05, 1.05])
+plt.title('Cubic-spline interpolation')
+plt.show()
+"""
