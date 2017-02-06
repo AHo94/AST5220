@@ -123,18 +123,9 @@ class time_mod():
 		self.ScipyEta = integrate.odeint(self.Diff_eq, self.x_start_rec, self.x_eta)
 		EtaDoubleDer = self.Spline(self.x_eta, self.ScipyEta)
 
-		plt.plot(self.x_eta, self.ScipyEta)
-		plt.hold('on')
-		plt.plot(self.x_eta, self.eta_array)
-		plt.legend(['Scipy solver','Runge Kutta'])
-		plt.xlabel('x')
-		plt.ylabel('$\eta$')
-		#plt.show()
-		
 		x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, self.x_start_rec, self.x_end_rec, 100)
 		plt.figure()
 		plt.plot(self.x_eta, self.ScipyEta, 'b-', x_eta_new, eta_new, 'xr')
-		#plt.axis([self.x_start_rec, self.x_end_rec, 0, 1e21])
 		plt.legend(['Normal','Interpolated'])
 		plt.show()
 
