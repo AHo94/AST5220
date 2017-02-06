@@ -51,6 +51,7 @@ class time_mod():
 		self.a_start_rec = 1.0/(1.0 + self.z_start_rec)
 		self.a_end_rec = 1.0/(1.0 + self.z_end_rec)
 
+		# Used for the x-values for the conformal time
 		self.n_eta = 1000
 		self.a_init = 1e-10
 		self.x_eta_init = np.log(self.a_init)
@@ -93,12 +94,23 @@ class time_mod():
 
 		return self.RK_Prefactor*(k1 + 2*k2 + 2*k3 + k4)
 
-	def Get_spline(self, x_values, eta_values, x_start, x_end, n_points):
-		""" Cubic spline interpolation, zeroth derivative """
+	def Get_eta(self, x_values, eta_values, x_start, x_end, n_points):
+		""" Cubic spline interpolation, zeroth derivative. Returns interpolated eta for a given range of x-values """
 		Temp_interp = interpolate.splrep(x_values, eta_values)
 		x_new = np.linspace(x_start, x_end, n_points)
 		eta_new = interpolate.splev(x_new, Temp_interp, der=0)
 		return x_new, eta_new
+
+	def Spline(self, x_values, eta_values):
+		""" 
+		Evaluates the second derivatives at each grid point.
+		Boundaries for the double derivatives are zero, using the so called natural spline 
+		"""
+		Temp_interp = interpolate.splrep(x_values, eta_values)
+		etaDoubleDer = interpolate.splev(x_values, Temp_interp, der=2)
+		etaDoubleDer[0] = 0
+		etaDoubleDer[-1] = 0
+		return etaDoubleDer
 
 	def Solve_Comformal_time(self):
 		""" Solving the differential equation """
@@ -108,8 +120,10 @@ class time_mod():
 	def Plot_results(self):
 		""" Plotting the results """
 		self.Solve_Comformal_time()
-		ScipyEta = integrate.odeint(self.Diff_eq, self.x_start_rec, self.x_eta)
-		plt.plot(self.x_eta, ScipyEta)
+		self.ScipyEta = integrate.odeint(self.Diff_eq, self.x_start_rec, self.x_eta)
+		EtaDoubleDer = self.Spline(self.x_eta, self.ScipyEta)
+
+		plt.plot(self.x_eta, self.ScipyEta)
 		plt.hold('on')
 		plt.plot(self.x_eta, self.eta_array)
 		plt.legend(['Scipy solver','Runge Kutta'])
@@ -117,38 +131,12 @@ class time_mod():
 		plt.ylabel('$\eta$')
 		#plt.show()
 		
-		x_eta_new, eta_new = self.Get_spline(self.x_eta, ScipyEta, self.x_start_rec, self.x_end_rec, 100)
+		x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, self.x_start_rec, self.x_end_rec, 100)
 		plt.figure()
-		plt.plot(self.x_eta, ScipyEta, 'b-', x_eta_new, eta_new, 'xr')
+		plt.plot(self.x_eta, self.ScipyEta, 'b-', x_eta_new, eta_new, 'xr')
 		#plt.axis([self.x_start_rec, self.x_end_rec, 0, 1e21])
 		plt.legend(['Normal','Interpolated'])
 		plt.show()
-		
-		"""
-		for i in range(0, self.n_t):
-			#a=1
-			self.x_t[i] += i*1e-15
-		cs = CubicSpline(self.x_t, self.eta_array)
-		print self.x_t
-		"""
-		#print self.x_t
-		#print self.eta_d2
-
-		#plt.plot(self.x_t, self.eta_array)
-		#plt.show()
 
 solver = time_mod(1e-5)
 solver.Plot_results()
-"""
-x = np.arange(-2*np.pi+np.pi/4,0, 2*np.pi/8)
-y = np.sin(x)
-tck = interpolate.splrep(x, y, s=0)
-xnew = np.arange(-2*np.pi,0, np.pi/50)
-ynew = interpolate.splev(xnew, tck, der=0)
-plt.figure()
-plt.plot(xnew, ynew, xnew, np.sin(xnew), x, y, 'b')
-plt.legend(['Linear', 'Cubic Spline', 'True'])
-plt.axis([-0.05, 6.33, -1.05, 1.05])
-plt.title('Cubic-spline interpolation')
-plt.show()
-"""
