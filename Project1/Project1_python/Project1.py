@@ -105,34 +105,6 @@ class time_mod():
 		eta_new = interpolate.splev(x_new, Temp_interp, der=0)
 		return x_new, eta_new
 
-	def Spline(self, eta, x, interval_start, interval_end):
-		""" Cubic spline interpolation. From Numerical recipies """
-		interpolated_points = np.zeros(interval_end - interval_start)
-		self.eta_d2 = self.Spline_second_derivative(eta, x, interval_start, interval_end)
-		for i in range(interval_start, interval_end):
-			"""
-			A = (x[i+1]-x)/(x[i+1] - x[i])
-			B = 1 - A
-			CD_factor = (1.0/6.0)*(x[i+1] - x[i])**2
-			C = CD_factor*(A**3 - A)
-			D = CD_factor*(B**3 - B)
-			"""
-			#interpolated_points[i] = A*eta[i] + B*eta[i+1] + C*eta_d2[i] + D*eta_d2[i+1]
-
-	def Spline_second_derivative(self, y, x, index1, index2):
-		""" 
-		Second derivative of the spline interpolation.
-		Using natural cubic spline, i.e. zero double derivatives at the boundaries
-		"""
-		y_doublederivative = np.zeros(self.n_t)
-		for i in range(0, 10):
-			y_doublederivative[i+1] = (6.0/(x[i+1] - x[i]))*((y[i+1] - y[i])/(x[i+1] - x[i])\
-			 - (y[i] - y[i-1])/(x[i] - x[i-1]) \
-			 - (x[i+1] - x[i-1])*y_doublederivative[i]/3.0 \
-			 - (x[i] - x[i-1])*y_doublederivative[i-1]/6.0)
-		print y_doublederivative
-		return y_doublederivative
-
 	def Solve_Comformal_time(self):
 		""" Solving the differential equation """
 		for i in range(1, self.n_t-1):
