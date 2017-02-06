@@ -34,7 +34,12 @@ k_b = 1.3806503e-23
 
 
 class time_mod():
-	def __init__(self):
+	def __init__(self, savefig):
+		self.savefig = savefig		# If savefig = 0, plots the data. If savefig = 1, saves the plots in a pdf
+		if savefig != 0 and savefig != 1:
+			print 'Current value of savefig = ', savefig
+			raise ValueError('Argument savefig not properly set. Try savefig = 1 (saves as pdf) or savefig = 0 (do not save as pdf)')
+			
 		self.n1 = 200
 		self.n2 = 300
 		self.n_t = self.n1 + self.n2
@@ -100,16 +105,39 @@ class time_mod():
 		etaDoubleDer[-1] = 0
 		return etaDoubleDer
 
-	def Plot_results(self):
-		""" Plotting the results """
+	def Plot_results(self, n_interp_points):
+		""" Solves and plots the results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq, self.x_start_rec, self.x_eta)
 		EtaDoubleDer = self.Spline(self.x_eta, self.ScipyEta)
+		x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, self.x_start_rec, self.x_end_rec, n_interp_points)
 
-		x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, self.x_start_rec, self.x_end_rec, 100)
-		plt.figure()
-		plt.plot(self.x_eta, self.ScipyEta, 'b-', x_eta_new, eta_new, 'xr')
-		plt.legend(['Normal','Interpolated'])
-		plt.show()
+		fig1 = plt.figure()
+		ax1 = plt.subplot(111)
+		plt.hold("on")
+		ax1.plot(self.x_eta, self.ScipyEta, 'b-', label='Scipy integrated')
+		ax1.plot(x_eta_new, eta_new, 'xr', label='Interpolated')
+		plt.xlabel('x')
+		plt.ylabel('$\eta$')
+		ax1.legend(loc='upper left', bbox_to_anchor=(0.5,1), ncol=1, fancybox=True)
 
-solver = time_mod()
-solver.Plot_results()
+		fig2 = plt.figure()
+		ax2 = plt.subplot(111)
+		plt.hold("on")		
+		ax2.plot(self.x_eta, self.ScipyEta, 'b-', label='Scipy integrated')
+		ax2.plot(x_eta_new, eta_new, 'xr', label='Interpolated')
+		EtaIndex1 = (np.abs(self.x_eta - self.x_start_rec)).argmin()
+		EtaIndex2 = (np.abs(self.x_eta - self.x_end_rec)).argmin()
+		plt.axis([self.x_start_rec-1, self.x_end_rec+1, self.ScipyEta[EtaIndex1], self.ScipyEta[EtaIndex2]])
+		plt.legend(['Scipy integated','Interpolated'])
+		plt.xlabel('x')
+		plt.ylabel('$\eta$')
+		ax2.legend(loc='upper right', bbox_to_anchor=(1,0.5), ncol=1, fancybox=True)
+
+		if self.savefig == 1:
+			fig1.savefig('../Plots/Interpolated_Example.pdf')
+			fig2.savefig('../Plots/Interpolated_Example_zoomed.pdf')
+		else:
+			plt.show()
+
+solver = time_mod(1)
+solver.Plot_results(100)
