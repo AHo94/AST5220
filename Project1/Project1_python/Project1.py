@@ -64,10 +64,8 @@ class time_mod():
 		# Merging the arrays into one
 		self.x_t = np.concatenate([x_t_rec, x_t_today])
 		self.a_t = np.concatenate([a_t_rec, a_t_today])
-		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_t)	# X-values for the conformal time
-
-		# Set up array for the calculated variables
-		self.eta_array = np.zeros(self.n_t)
+		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
+		self.eta_array = np.zeros(self.n_eta)
 
 	def Get_Hubble_param(self, x):
 		""" Function returns the Hubble parameter for a given x """
@@ -82,6 +80,7 @@ class time_mod():
 		return -H_0**2*((Omega_b + Omega_m)*np.exp(-x) + 2*Omega_r*np.exp(-2*x))/(2*Get_Hubble_prime(x))
 
 	def Diff_eq(self, y, x_0):
+		""" Returns the right hand side of the differential equation """
 		dEtada = c/(self.Get_Hubble_prime(x_0))
 		return dEtada
 
@@ -96,11 +95,7 @@ class time_mod():
 
 	def Get_spline(self, x_values, eta_values, x_start, x_end, n_points):
 		""" Cubic spline interpolation, zeroth derivative """
-
-		for i in range(0, self.n_t):
-			x_values[i] += i*1e-15
 		Temp_interp = interpolate.splrep(x_values, eta_values)
-		#x_new = np.arange(x_start, x_end, n_points)
 		x_new = np.linspace(x_start, x_end, n_points)
 		eta_new = interpolate.splev(x_new, Temp_interp, der=0)
 		return x_new, eta_new
@@ -113,19 +108,19 @@ class time_mod():
 	def Plot_results(self):
 		""" Plotting the results """
 		self.Solve_Comformal_time()
-		ScipyEta = integrate.odeint(self.Diff_eq, self.x_start_rec, self.x_t)
-		plt.plot(self.x_t, ScipyEta)
+		ScipyEta = integrate.odeint(self.Diff_eq, self.x_start_rec, self.x_eta)
+		plt.plot(self.x_eta, ScipyEta)
 		plt.hold('on')
-		plt.plot(self.x_t, self.eta_array)
+		plt.plot(self.x_eta, self.eta_array)
 		plt.legend(['Scipy solver','Runge Kutta'])
 		plt.xlabel('x')
 		plt.ylabel('$\eta$')
 		#plt.show()
 		
-		x_t_new, eta_new = self.Get_spline(self.x_t, ScipyEta, self.x_start_rec, self.x_end_rec, 100)
+		x_eta_new, eta_new = self.Get_spline(self.x_eta, ScipyEta, self.x_start_rec, self.x_end_rec, 100)
 		plt.figure()
-		plt.plot(self.x_t, self.eta_array, 'b-', x_t_new, eta_new, 'xr')
-		plt.axis([self.x_start_rec, self.x_end_rec, 0, 1e21])
+		plt.plot(self.x_eta, ScipyEta, 'b-', x_eta_new, eta_new, 'xr')
+		#plt.axis([self.x_start_rec, self.x_end_rec, 0, 1e21])
 		plt.legend(['Normal','Interpolated'])
 		plt.show()
 		
@@ -142,7 +137,7 @@ class time_mod():
 		#plt.plot(self.x_t, self.eta_array)
 		#plt.show()
 
-solver = time_mod(1e-3)
+solver = time_mod(1e-5)
 solver.Plot_results()
 """
 x = np.arange(-2*np.pi+np.pi/4,0, 2*np.pi/8)
