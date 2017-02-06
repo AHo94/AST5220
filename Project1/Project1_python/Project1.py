@@ -34,10 +34,7 @@ k_b = 1.3806503e-23
 
 
 class time_mod():
-	def __init__(self, h):
-		self.h = h 					# Step size for the RK4 method
-		self.RK_Prefactor = (h/6.0)	# Precalculating prefactor of RK4 method to reduce float point operations
-
+	def __init__(self):
 		self.n1 = 200
 		self.n2 = 300
 		self.n_t = self.n1 + self.n2
@@ -85,15 +82,6 @@ class time_mod():
 		dEtada = c/(self.Get_Hubble_prime(x_0))
 		return dEtada
 
-	def RungeKutta4(self, i):
-		""" Function solving the fourth order Runge-Kutta method """
-		k1 = c/self.Get_Hubble_prime(self.x_eta[i])
-		k2 = c/self.Get_Hubble_prime(self.x_eta[i] + self.h/2.0)
-		k3 = c/self.Get_Hubble_prime(self.x_eta[i] + self.h/2.0)
-		k4 = c/self.Get_Hubble_prime(self.x_eta[i] + self.h)
-
-		return self.RK_Prefactor*(k1 + 2*k2 + 2*k3 + k4)
-
 	def Get_eta(self, x_values, eta_values, x_start, x_end, n_points):
 		""" Cubic spline interpolation, zeroth derivative. Returns interpolated eta for a given range of x-values """
 		Temp_interp = interpolate.splrep(x_values, eta_values)
@@ -112,14 +100,8 @@ class time_mod():
 		etaDoubleDer[-1] = 0
 		return etaDoubleDer
 
-	def Solve_Comformal_time(self):
-		""" Solving the differential equation """
-		for i in range(1, self.n_t-1):
-			self.eta_array[i+1] = self.eta_array[i] + self.RungeKutta4(i)
-
 	def Plot_results(self):
 		""" Plotting the results """
-		self.Solve_Comformal_time()
 		self.ScipyEta = integrate.odeint(self.Diff_eq, self.x_start_rec, self.x_eta)
 		EtaDoubleDer = self.Spline(self.x_eta, self.ScipyEta)
 
@@ -129,5 +111,5 @@ class time_mod():
 		plt.legend(['Normal','Interpolated'])
 		plt.show()
 
-solver = time_mod(1e-5)
+solver = time_mod()
 solver.Plot_results()
