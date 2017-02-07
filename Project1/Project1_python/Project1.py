@@ -34,10 +34,8 @@ k_b = 1.3806503e-23
 
 
 class time_mod():
-	def __init__(self, savefig, h):
+	def __init__(self, savefig):
 		self.savefig = savefig		# If savefig = 0, plots the data. If savefig = 1, saves the plots in a pdf
-		self.h = h 					# Step size for the RK4 method
-		self.RK_Prefactor = (h/6.0) # Precalculating prefactor of RK4 method to reduce float point operations
 		if savefig != 0 and savefig != 1:
 			print 'Current value of savefig = ', savefig
 			raise ValueError('Argument savefig not properly set. Try savefig = 1 (saves as pdf) or savefig = 0 (do not save as pdf)')
@@ -107,24 +105,9 @@ class time_mod():
 		etaDoubleDer[-1] = 0
 		return etaDoubleDer
 
-	def RungeKutta4(self, i):
-		""" Function solving the fourth order Runge-Kutta method """
-		k1 = c/self.Get_Hubble_prime(self.x_eta[i])
-		k2 = c/self.Get_Hubble_prime(self.x_eta[i] + self.h/2.0)
-		k3 = c/self.Get_Hubble_prime(self.x_eta[i] + self.h/2.0)
-		k4 = c/self.Get_Hubble_prime(self.x_eta[i] + self.h)
-
-		return self.RK_Prefactor*(k1 + 2*k2 + 2*k3 + k4)
-
-	def Solve_Comformal_time(self):
-		""" Solving the differential equation """
-		for i in range(1, self.n_eta-1):
-			self.eta_array[i+1] = self.eta_array[i] + self.RungeKutta4(i)
-
 	def Plot_results(self, n_interp_points):
 		""" Solves and plots the results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq, self.x_eta_init, self.x_eta)
-		self.Solve_Comformal_time()
 		#EtaDoubleDer = self.Spline(self.x_eta, self.ScipyEta)
 		x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, self.x_start_rec, self.x_end_rec, n_interp_points)
 
@@ -138,7 +121,7 @@ class time_mod():
 		ax1.legend(loc='upper left', bbox_to_anchor=(0.5,1), ncol=1, fancybox=True)
 
 		print self.ScipyEta[-1]/(3.0856*10**(16)*10**(9))
-		
+
 		fig2 = plt.figure()
 		ax2 = plt.subplot(111)
 		plt.hold("on")		
@@ -164,5 +147,5 @@ class time_mod():
 		else:
 			plt.show()
 
-solver = time_mod(0, 1e-3)
+solver = time_mod(0)
 solver.Plot_results(100)
