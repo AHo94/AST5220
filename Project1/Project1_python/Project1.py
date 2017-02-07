@@ -76,15 +76,15 @@ class time_mod():
 
 	def Get_Hubble_prime(self, x):
 		""" Function returns the scaled Hubble parameter for a given x value. See report """
-		return H_0*np.sqrt((Omega_b + Omega_m)*np.exp(-x) + Omega_r*np.exp(-2*x) + Omega_lambda)
+		return H_0*np.sqrt((Omega_b + Omega_m)*np.exp(-x) + Omega_r*np.exp(-2*x) + Omega_lambda*np.exp(2*x))
 
 	def Get_Hubble_prime_derivative(self, x):
 		""" Function returns the derivative of the scaled Hubble parameter. See report """
 		return -H_0**2*((Omega_b + Omega_m)*np.exp(-x) + 2*Omega_r*np.exp(-2*x))/(2*Get_Hubble_prime(x))
 
-	def Diff_eq(self, y, x_0):
+	def Diff_eq(self, y, x_init):
 		""" Returns the right hand side of the differential equation """
-		dEtada = c/(self.Get_Hubble_prime(x_0))
+		dEtada = c/(self.Get_Hubble_prime(x_init))
 		return dEtada
 
 	def Get_eta(self, x_values, eta_values, x_start, x_end, n_points):
@@ -117,11 +117,11 @@ class time_mod():
 		ax1.plot(self.x_eta, self.ScipyEta, 'b-', label='Scipy integrated')
 		ax1.plot(x_eta_new, eta_new, 'xr', label='Interpolated')
 		plt.xlabel('x')
-		plt.ylabel('$\eta$')
+		plt.ylabel('$\eta - [m]$')
 		ax1.legend(loc='upper left', bbox_to_anchor=(0.5,1), ncol=1, fancybox=True)
-
+		plt.title('Plot of conformal time $\eta$ as a function of $x = \ln a$')
 		print self.ScipyEta[-1]/(3.0856*10**(16)*10**(9))
-
+		
 		fig2 = plt.figure()
 		ax2 = plt.subplot(111)
 		plt.hold("on")		
@@ -132,18 +132,31 @@ class time_mod():
 		plt.axis([self.x_start_rec-1, self.x_end_rec+1, self.ScipyEta[EtaIndex1], self.ScipyEta[EtaIndex2]])
 		plt.legend(['Scipy integated','Interpolated'])
 		plt.xlabel('x')
-		plt.ylabel('$\eta$')
+		plt.ylabel('$\eta - [m]$')
 		ax2.legend(loc='upper right', bbox_to_anchor=(1,0.5), ncol=1, fancybox=True)
+		plt.title('Plot of conformal time $\eta$ as a function of $x = \ln a$. \n Zoomed in the interpolated part.')
 
 		fig3 = plt.figure()
 		ax3 = plt.subplot(111)
-		ax3.plot(self.x_eta, self.Get_Hubble_param(self.x_eta))
+		ax3.plot(self.x_eta, self.Get_Hubble_param(self.x_eta)*Mpc/1e3)
+		plt.xlabel('x')
+		plt.ylabel(r'$H - [km/s/Mpc]$')
+		plt.title('Hubble parameter as a function of $x = \ln a$.')
 
-		print self.Get_Hubble_param(np.exp(self.x_eta[-1]))
+		fig4 = plt.figure()
+		ax4 = plt.subplot(111)
+		ax4.plot(self.x_eta, self.ScipyEta/(Mpc*1e3), 'b-', label='Scipy integrated')
+		ax4.plot(x_eta_new, eta_new/(Mpc*1e3), 'xr', label='Interpolated')
+		plt.xlabel('x')
+		plt.ylabel('$\eta - [Gpc]$')
+		ax4.legend(loc='upper left', bbox_to_anchor=(0.5,1), ncol=1, fancybox=True)
+		plt.title('Plot of conformal time $\eta$ as a function of $x = \ln a$. \n $\eta$ in units of Gpc')
+		print self.Get_Hubble_param(self.x_eta[-1])*Mpc/1e3
 
 		if self.savefig == 1:
 			fig1.savefig('../Plots/Interpolated_Example.pdf')
 			fig2.savefig('../Plots/Interpolated_Example_zoomed.pdf')
+			fig3.savefig('../Plots/Hubble_parameter.pdf')
 		else:
 			plt.show()
 
