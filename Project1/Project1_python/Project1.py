@@ -34,17 +34,13 @@ k_b = 1.3806503e-23
 
 
 class time_mod():
-	def __init__(self, savefig, writedata):
+	def __init__(self, savefig):
 		self.savefig = savefig		# If savefig = 0, plots the data. If savefig = 1, saves the plots in a pdf
-		self.writedata = writedata	# If writedata = 1, saves the data points into a textfile. If writedata = 0, does not save.
 
 		if savefig != 0 and savefig != 1:
 			print 'Current value of savefig = ', savefig
 			raise ValueError('Argument savefig not properly set. Try savefig = 1 (saves as pdf) or savefig = 0 (do not save as pdf)')
-		if writedata != 0 and writedata !=1:
-			print 'Current value of writedata = ', writedata
-			raise ValueError('Argument writedata not properly set. Try writedata = 1 (write data to .txt file) or savedata = 0 (do not write)')
-		
+
 		self.n1 = 200
 		self.n2 = 300
 		self.n_t = self.n1 + self.n2
@@ -186,7 +182,6 @@ class time_mod():
 		ax4.plot(self.x_eta, Om_b, 'r-', label='$\Omega_b$')
 		ax4.plot(self.x_eta, Om_r, 'g-', label='$\Omega_r$')
 		ax4.plot(self.x_eta, Om_lambda, 'm-', label='$\Omega_{\lambda}$')
-		#plt.axis([self.x_eta[0]-1, self.x_eta[-1]+1, -0.1, 1.1])
 		plt.xlabel('x')
 		plt.ylabel('$\Omega$ values')
 		plt.title('Plot of $\Omega$s as a function of $x=\ln(a)$')
@@ -225,5 +220,5 @@ class time_mod():
 		else:
 			plt.show()
 
-solver = time_mod(savefig=0, writedata=1)
+solver = time_mod(savefig=1)
 solver.Plot_results(100)
