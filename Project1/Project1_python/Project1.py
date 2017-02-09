@@ -60,7 +60,7 @@ class time_mod():
 		self.x_eta_init = np.log(self.a_init)
 		self.x_eta_end = 0
 
-		# Set up grid
+		# Set up grid, these are currently unused
 		x_t_rec = np.linspace(self.x_start_rec, self.x_end_rec, self.n1)
 		x_t_today = np.linspace(self.x_end_rec, self.x_0, self.n2)
 		a_t_rec = np.linspace(self.a_start_rec, self.a_end_rec, self.n1)
@@ -68,8 +68,9 @@ class time_mod():
 		# Merging the arrays into one
 		self.x_t = np.concatenate([x_t_rec, x_t_today])
 		self.a_t = np.concatenate([a_t_rec, a_t_today])
+
+		# Set up grid of x-values for the integrated eta
 		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
-		self.eta_array = np.zeros(self.n_eta)
 
 	def Get_Hubble_param(self, x):
 		""" Function returns the Hubble parameter for a given x """
@@ -81,7 +82,7 @@ class time_mod():
 
 	def Get_Hubble_prime_derivative(self, x):
 		""" Function returns the derivative of the scaled Hubble parameter. See report """
-		return -H_0**2*((Omega_b + Omega_m)*np.exp(-x) + 2*Omega_r*np.exp(-2*x))/(2*Get_Hubble_prime(x))
+		return -H_0**2*(0.5*(Omega_b + Omega_m)*np.exp(-x) + Omega_r*np.exp(-2*x) - Omega_lambda*np.exp(2*x))/(Get_Hubble_prime(x))
 
 	def Get_Omegas(self, x):
 		""" 
@@ -93,6 +94,7 @@ class time_mod():
 		rho_b0 = Omega_b*rho_c0
 		rho_r0 = Omega_r*rho_c0
 		rho_lambda0 = Omega_lambda*rho_c0
+
 		H = self.Get_Hubble_param(x)		# Hubble parameter for an arbitrary time
 		rho_c = (3*H**2)/(8*np.pi*G_grav)	# Critical density for an arbitrary time
 		Omega_m_z = rho_m0*np.exp(-3*x)/rho_c
@@ -167,7 +169,7 @@ class time_mod():
 
 		fig3 = plt.figure()
 		ax3 = plt.subplot(111)
-		z_eta = 1/(np.exp(self.x_eta)) - 1 		# Convert x-values to redshift values
+		z_eta = 1/(np.exp(self.x_eta)) - 1 		# Convert x-values to redshift values, with z = 1/a - 1
 		ax3.loglog(z_eta, self.Get_Hubble_param(np.log(1/(1+z_eta)))*Mpc/1e3, label='Hubble parameter')
 		plt.xlabel('z')
 		plt.ylabel(r'$H - [km/s/Mpc]$')
@@ -179,9 +181,9 @@ class time_mod():
 		ax4 = plt.subplot(111)
 		plt.hold("on")
 		ax4.plot(self.x_eta, Om_m, 'b-', label='$\Omega_m$')
-		ax4.plot(self.x_eta, Om_b, 'r-', label='$\Omega_b$')
-		ax4.plot(self.x_eta, Om_r, 'g-', label='$\Omega_r$')
-		ax4.plot(self.x_eta, Om_lambda, 'm-', label='$\Omega_{\lambda}$')
+		ax4.plot(self.x_eta, Om_b, 'r-.', label='$\Omega_b$')
+		ax4.plot(self.x_eta, Om_r, 'g:', label='$\Omega_r$')
+		ax4.plot(self.x_eta, Om_lambda, 'm--', label='$\Omega_{\Lambda}$')
 		plt.xlabel('x')
 		plt.ylabel('$\Omega$ values')
 		plt.title('Plot of $\Omega$s as a function of $x=\ln(a)$')
@@ -201,7 +203,7 @@ class time_mod():
 		ax6 = plt.subplot(111)
 		plt.hold("on")		
 		ax6.semilogy(self.x_eta, self.ScipyEta/(Mpc*1e3), 'b-', label='Scipy integrated')
-		ax6.semilogy(x_eta_new, eta_new/(Mpc*1e3), 'xr', label='Interpolated segment')
+		ax6.plot(x_eta_new, eta_new/(Mpc*1e3), 'xr', label='Interpolated segment')
 		EtaIndex1, EtaIndex2 = self.Get_Index_Interpolation(x_start, x_end)
 		plt.axis([x_start-1, x_end+1, self.ScipyEta[EtaIndex1]/(Mpc*1e3), self.ScipyEta[EtaIndex2]/(Mpc*1e3)])
 		plt.xlabel('x')
