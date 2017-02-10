@@ -32,6 +32,12 @@ alpha = 7.29735308e-3
 hbar = 1.05457148e-34
 k_b = 1.3806503e-23
 
+# Density Parameters today
+rho_m0 = Omega_m*rho_c0
+rho_b0 = Omega_b*rho_c0
+rho_r0 = Omega_r*rho_c0
+rho_lambda0 = Omega_lambda*rho_c0
+
 
 class time_mod():
 	def __init__(self, savefig):
@@ -90,11 +96,6 @@ class time_mod():
 		Will first have to calculate the energy densities today, which is then used to calculate the energy density
 		for an arbitrary time. See report
 		"""
-		rho_m0 = Omega_m*rho_c0
-		rho_b0 = Omega_b*rho_c0
-		rho_r0 = Omega_r*rho_c0
-		rho_lambda0 = Omega_lambda*rho_c0
-
 		H = self.Get_Hubble_param(x)		# Hubble parameter for an arbitrary time
 		rho_c = (3*H**2)/(8*np.pi*G_grav)	# Critical density for an arbitrary time
 		Omega_m_z = rho_m0*np.exp(-3*x)/rho_c
