@@ -38,6 +38,12 @@ rho_b0 = Omega_b*rho_c0
 rho_r0 = Omega_r*rho_c0
 rho_lambda0 = Omega_lambda*rho_c0
 
+# Constant used for Peeble's equation and some constant factors that can be precalculated
+Lambda_2sto1s = 8.227
+alpha_factor = 64*np.pi/(np.sqrt(27)*np.pi)*(alpha*alpha/(m_e*m_e))
+beta_factor = (m_e*T_0/(2*np.pi))**(3.0/2.0)
+Lambda_alpha_factor = (3*epsilon_0)**3/(8*np.pi)**2
+ExpEnergy = k_b*T_0
 
 class time_mod():
 	def __init__(self, savefig):
@@ -78,6 +84,12 @@ class time_mod():
 		# Set up grid of x-values for the integrated eta
 		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
 
+		self.X_e = self.Saha_equation(self.x_eta_init)
+		self.X_e_counter = 0
+
+		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_eta)
+		plt.plot(self.x_eta, Taus)
+		plt.show()
 		# Solves the equations of Eta and interpolates
 		#self.ScipyEta = integrate.odeint(self.Diff_eq_eta, self.x_eta_init, self.x_eta)
 		#x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, x_start, x_end, n_interp_points)
@@ -152,18 +164,18 @@ class time_mod():
 
 		return EtaIndex1, EtaIndex2
 
-	def Diff_eq_tau(self, x):
-		""" Solves the differential equation of tau. This is the right hand side of the equation """
-		dTaudx = - n_e*sigma_T/Hubble_parameter(x)
+	def Get_n_b(self, x):
+		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x)
+		n_b = Om_b*rho_c0/(m_H*np.exp(3*x))
+		return n_b
+
 	def Saha_equation(self, x):
 		""" 
 		Solves the Saha equation. Assuming we have the polynomial in the form a*X_e^2 + b*X_e + c = 0
 		Only returns the positive valued X_e 
 		"""
-		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x)
-		n_b = Om_b*rho_c0/(m_H*np.exp(3*x))
-		a = n_b
-		b = (m_e*T_0/(2*np.pi*np.exp(x)))**(3.0/2.0)*np.exp(-epsilon_0*np.exp(x)/T_0)
+		a = self.Get_n_b(x)
+		b = (m_e*T_0/(2*np.pi*np.exp(x)))**(3.0/2.0)*np.exp(-epsilon_0*np.exp(x)/ExpEnergy)
 		c = -b
 		X_e = np.roots(np.array([a,b,c]))
 		if X_e[0] > 0:
@@ -171,9 +183,39 @@ class time_mod():
 		else:
 			return X_e[-1]
 
+	def Peebles_equation(self, X_e, x_0):
+		""" Solves the right hand side of the Peeble's equation """
+		n_b = self.Get_n_b(x_0)
+		H = self.Get_Hubble_param(x_0)
+		exp_factor = np.exp(x_0)
+		phi2 = 0.448*np.log(epsilon_0*exp_factor/ExpEnergy)
+		alpha2 = alpha_factor*np.sqrt(epsilon_0*exp_factor/ExpEnergy)*phi2
+		beta = alpha2*beta_factor*exp_factor**(3.0/2.0)*np.exp(-epsilon_0*exp_factor/ExpEnergy)
+		beta2 = beta*np.exp(3.0*epsilon_0*exp_factor/(4*ExpEnergy))
+		Lambda_alpha = H*Lambda_alpha_factor/((1-X_e)*n_b)
+		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
+		dXedx = (C_r/H)*(beta*(1-X_e) - n_b*alpha2*X_e**2)
+		return dXedx
+
+
+	def Diff_eq_tau(self, tau, x_0):
+		""" Solves the differential equation of tau. This is the right hand side of the equation """
+		n_b = self.Get_n_b(x_0)
+		#self.X_e = self.Saha_equation(x_0)
+		#self.X_e = integrate.odeint(self.Peebles_equation, self.X_e, x_0)[0][0]
+		if self.X_e_counter == 1:
+			if self.X_e > 1e-3:
+				self.X_e = self.Saha_equation(x_0)
+			else:
+				self.X_e = integrate.odeint(self.Peebles_equation, self.X_e, x_0)[0][0]
+		n_e = self.X_e*n_b
+		dTaudx = - n_e*sigma_T/self.Get_Hubble_param(x_0)
+		self.X_e_counter = 1
+		return dTaudx
+
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
-		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, self.x_eta_init, self.x_eta)
+		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
 		x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, x_start, x_end, n_interp_points)
 		
 		fig1 = plt.figure()
@@ -249,4 +291,4 @@ class time_mod():
 
 solver = time_mod(savefig=0)
 #solver.Saha_equation()
-solver.Plot_results(100)
+#solver.Plot_results(100)
