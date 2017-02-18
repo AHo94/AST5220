@@ -78,6 +78,11 @@ class time_mod():
 		# Set up grid of x-values for the integrated eta
 		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
 
+		# Solves the equations of Eta and interpolates
+		#self.ScipyEta = integrate.odeint(self.Diff_eq_eta, self.x_eta_init, self.x_eta)
+		#x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, x_start, x_end, n_interp_points)
+		#self.Saha_equation(self.x_eta)
+
 	def Get_Hubble_param(self, x):
 		""" Function returns the Hubble parameter for a given x """
 		return H_0*np.sqrt((Omega_b + Omega_m)*np.exp(-3*x) + Omega_r*np.exp(-4*x) + Omega_lambda)
@@ -105,9 +110,9 @@ class time_mod():
 
 		return Omega_m_z, Omega_b_z, Omega_r_z, Omega_lambda_z
 
-	def Diff_eq(self, y, x_init):
-		""" Returns the right hand side of the differential equation """
-		dEtada = c/(self.Get_Hubble_prime(x_init))
+	def Diff_eq_eta(self, eta, x_0):
+		""" Returns the right hand side of the differential equation for the conformal time eta """
+		dEtada = c/(self.Get_Hubble_prime(x_0))
 		return dEtada
 
 	def Get_eta(self, x_values, eta_values, x_start, x_end, n_points):
@@ -147,11 +152,30 @@ class time_mod():
 
 		return EtaIndex1, EtaIndex2
 
+	def Diff_eq_tau(self, x):
+		""" Solves the differential equation of tau. This is the right hand side of the equation """
+		dTaudx = - n_e*sigma_T/Hubble_parameter(x)
+	def Saha_equation(self, x):
+		""" 
+		Solves the Saha equation. Assuming we have the polynomial in the form a*X_e^2 + b*X_e + c = 0
+		Only returns the positive valued X_e 
+		"""
+		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x)
+		n_b = Om_b*rho_c0/(m_H*np.exp(3*x))
+		a = n_b
+		b = (m_e*T_0/(2*np.pi*np.exp(x)))**(3.0/2.0)*np.exp(-epsilon_0*np.exp(x)/T_0)
+		c = -b
+		X_e = np.roots(np.array([a,b,c]))
+		if X_e[0] > 0:
+			return X_e[0]
+		else:
+			return X_e[-1]
+
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
-		self.ScipyEta = integrate.odeint(self.Diff_eq, self.x_eta_init, self.x_eta)
+		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, self.x_eta_init, self.x_eta)
 		x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, x_start, x_end, n_interp_points)
-
+		
 		fig1 = plt.figure()
 		ax1 = plt.subplot(111)
 		ax1.semilogy(self.x_eta, self.ScipyEta/(Mpc*1e3), 'b-', label='Conformal time')
@@ -223,5 +247,6 @@ class time_mod():
 		else:
 			plt.show()
 
-solver = time_mod(savefig=1)
+solver = time_mod(savefig=0)
+#solver.Saha_equation()
 solver.Plot_results(100)
