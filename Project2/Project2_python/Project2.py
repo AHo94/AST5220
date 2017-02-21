@@ -38,12 +38,17 @@ rho_b0 = Omega_b*rho_c0
 rho_r0 = Omega_r*rho_c0
 rho_lambda0 = Omega_lambda*rho_c0
 
-# Constant used for Peeble's equation and some constant factors that can be precalculated
+# Precalculate certain factors to reduce number of float point operations
+Saha_b_factor = m_e*T_0/(2*np.pi)		# Factor in front of 'b' in Saha equation
+rhoCrit_factor = 3.0/(8*np.pi*G_grav)	# Used for critical density at arbitrary times
+
+# Constant used for Peebles equation and some constant factors that can be precalculated
 Lambda_2sto1s = 8.227
-alpha_factor = 64*np.pi/(np.sqrt(27)*np.pi)*(alpha*alpha/(m_e*m_e))
+alpha_factor = 64*np.pi/(np.sqrt(27)*np.pi)*(alpha*alpha/(m_e*m_e))*(k_b/(hbar*c))
 beta_factor = (m_e*T_0/(2*np.pi))**(3.0/2.0)
-Lambda_alpha_factor = (3*epsilon_0)**3/(8*np.pi)**2
-ExpEnergy = k_b*T_0
+Lambda_alpha_factor = (3*epsilon_0*c/hbar)**3/(8*np.pi)**2
+EpsTemp_factor = epsilon_0/(k_b*T_0)
+dXedx_factor = hbar**2/(np.sqrt(k_b)*c)
 
 class time_mod():
 	def __init__(self, savefig):
@@ -83,13 +88,12 @@ class time_mod():
 
 		# Set up grid of x-values for the integrated eta
 		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
+		self.x_tau = np.linspace(self.x_eta_end, self.x_eta_init, self.n_eta)
 
 		self.X_e = self.Saha_equation(self.x_eta_init)
+		#self.X_e = 0.99
 		self.X_e_counter = 0
 
-		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_eta)
-		plt.plot(self.x_eta, Taus)
-		plt.show()
 		# Solves the equations of Eta and interpolates
 		#self.ScipyEta = integrate.odeint(self.Diff_eq_eta, self.x_eta_init, self.x_eta)
 		#x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, x_start, x_end, n_interp_points)
@@ -114,7 +118,7 @@ class time_mod():
 		for an arbitrary time. See report
 		"""
 		H = self.Get_Hubble_param(x)		# Hubble parameter for an arbitrary time
-		rho_c = (3*H**2)/(8*np.pi*G_grav)	# Critical density for an arbitrary time
+		rho_c = rhoCrit_factor*H**2			# Critical density for an arbitrary time
 		Omega_m_z = rho_m0*np.exp(-3*x)/rho_c
 		Omega_b_z = rho_b0*np.exp(-3*x)/rho_c
 		Omega_r_z = rho_r0*np.exp(-4*x)/rho_c
@@ -165,46 +169,54 @@ class time_mod():
 		return EtaIndex1, EtaIndex2
 
 	def Get_n_b(self, x):
+		""" Calculate n_b (or n_H) at a given time """
 		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x)
+		H = self.Get_Hubble_param(x)		
+		rho_c = rhoCrit_factor*H**2	
 		n_b = Om_b*rho_c0/(m_H*np.exp(3*x))
 		return n_b
 
 	def Saha_equation(self, x):
 		""" 
 		Solves the Saha equation. Assuming we have the polynomial in the form a*X_e^2 + b*X_e + c = 0
-		Only returns the positive valued X_e 
+		Uses numpy.roots solver. Only returns the positive valued X_e 
 		"""
+		Exponential = np.exp(x)
 		a = self.Get_n_b(x)
-		b = (m_e*T_0/(2*np.pi*np.exp(x)))**(3.0/2.0)*np.exp(-epsilon_0*np.exp(x)/ExpEnergy)
+		b = (Saha_b_factor/Exponential)**(3.0/2.0)*np.exp(-EpsTemp_factor*Exponential)
 		c = -b
 		X_e = np.roots(np.array([a,b,c]))
+
 		if X_e[0] > 0:
 			return X_e[0]
 		else:
-			return X_e[-1]
+			return X_e[1]
 
 	def Peebles_equation(self, X_e, x_0):
-		""" Solves the right hand side of the Peeble's equation """
+		""" Solves the right hand side of the Peebles equation """
 		n_b = self.Get_n_b(x_0)
 		H = self.Get_Hubble_param(x_0)
-		exp_factor = np.exp(x_0)
-		phi2 = 0.448*np.log(epsilon_0*exp_factor/ExpEnergy)
-		alpha2 = alpha_factor*np.sqrt(epsilon_0*exp_factor/ExpEnergy)*phi2
-		beta = alpha2*beta_factor*exp_factor**(3.0/2.0)*np.exp(-epsilon_0*exp_factor/ExpEnergy)
-		beta2 = beta*np.exp(3.0*epsilon_0*exp_factor/(4*ExpEnergy))
+		exp_factor = EpsTemp_factor*np.exp(x_0)
+		phi2 = 0.448*np.log(exp_factor)
+		alpha2 = alpha_factor*np.sqrt(exp_factor)*phi2
+		beta = alpha2*beta_factor*np.exp(-EpsTemp_factor)
+		beta2 = beta*np.exp(3.0*exp_factor/4.0)
 		Lambda_alpha = H*Lambda_alpha_factor/((1-X_e)*n_b)
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
-		dXedx = (C_r/H)*(beta*(1-X_e) - n_b*alpha2*X_e**2)
+		dXedx = (C_r/H)*(beta*(1-X_e) - dXedx_factor*n_b*alpha2*X_e**2)
 		return dXedx
 
 
 	def Diff_eq_tau(self, tau, x_0):
-		""" Solves the differential equation of tau. This is the right hand side of the equation """
+		""" 
+		Solves the differential equation of tau. This is the right hand side of the equation
+		Uses Saha equation if X_e is roughly 1, else uses Peebles equation
+		"""
 		n_b = self.Get_n_b(x_0)
 		#self.X_e = self.Saha_equation(x_0)
 		#self.X_e = integrate.odeint(self.Peebles_equation, self.X_e, x_0)[0][0]
 		if self.X_e_counter == 1:
-			if self.X_e > 1e-3:
+			if self.X_e > 1e-1:
 				self.X_e = self.Saha_equation(x_0)
 			else:
 				self.X_e = integrate.odeint(self.Peebles_equation, self.X_e, x_0)[0][0]
@@ -216,79 +228,18 @@ class time_mod():
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
-		x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, x_start, x_end, n_interp_points)
-		
-		fig1 = plt.figure()
-		ax1 = plt.subplot(111)
-		ax1.semilogy(self.x_eta, self.ScipyEta/(Mpc*1e3), 'b-', label='Conformal time')
+		#x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, x_start, x_end, n_interp_points)
+		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)
+		plt.semilogy(self.x_tau, Taus)
 		plt.xlabel('x')
-		plt.ylabel('$\eta - [Gpc]$')
-		ax1.legend(loc='upper left', bbox_to_anchor=(0.5,1), ncol=1, fancybox=True)
-		plt.title('Plot of conformal time $\eta$ as a function of $x = \ln (a)$. \n $\eta$ in units of Gpc')
-
-		fig2 = plt.figure()
-		ax2 = plt.subplot(111)
-		ax2.semilogy(self.x_eta, self.Get_Hubble_param(self.x_eta)*Mpc/1e3, label='Hubble parameter')
-		plt.xlabel('x')
-		plt.ylabel(r'$H - [km/s/Mpc]$')
-		plt.title('Hubble parameter as a function of $x = \ln (a)$.')
-		ax2.legend(loc='upper right', bbox_to_anchor=(0.8,1), ncol=1, fancybox=True)
-
-		fig3 = plt.figure()
-		ax3 = plt.subplot(111)
-		z_eta = 1/(np.exp(self.x_eta)) - 1 		# Convert x-values to redshift values, with z = 1/a - 1
-		ax3.loglog(z_eta, self.Get_Hubble_param(np.log(1/(1+z_eta)))*Mpc/1e3, label='Hubble parameter')
-		plt.xlabel('z')
-		plt.ylabel(r'$H - [km/s/Mpc]$')
-		plt.title('Hubble parameter as a function of redshift $z$.')
-		ax3.legend(loc='upper right', bbox_to_anchor=(0.5,1), ncol=1, fancybox=True)
-		
-		Om_m, Om_b, Om_r, Om_lambda = self.Get_Omegas(self.x_eta)
-		fig4 = plt.figure()
-		ax4 = plt.subplot(111)
-		plt.hold("on")
-		ax4.plot(self.x_eta, Om_m, 'b-', label='$\Omega_m$')
-		ax4.plot(self.x_eta, Om_b, 'r-.', label='$\Omega_b$')
-		ax4.plot(self.x_eta, Om_r, 'g:', label='$\Omega_r$')
-		ax4.plot(self.x_eta, Om_lambda, 'm--', label='$\Omega_{\Lambda}$')
-		plt.xlabel('x')
-		plt.ylabel('$\Omega$ values')
-		plt.title('Plot of $\Omega$s as a function of $x=\ln(a)$')
-		ax4.legend(loc='upper right', bbox_to_anchor=(0.2,0.7), ncol=1, fancybox=True)
-
-		fig5 = plt.figure()
-		ax5 = plt.subplot(111)
-		plt.hold("on")
-		ax5.semilogy(self.x_eta, self.ScipyEta/(Mpc*1e3), 'b-', label='Scipy integrated')
-		ax5.semilogy(x_eta_new, eta_new/(Mpc*1e3), 'xr', label='Interpolated segment')
-		plt.xlabel('x')
-		plt.ylabel('$\eta - [Gpc]$')
-		ax5.legend(loc='upper left', bbox_to_anchor=(0.1,1), ncol=1, fancybox=True)
-		plt.title('Plot of conformal time $\eta$ as a function of $x = \ln (a)$')
-		
-		fig6 = plt.figure()
-		ax6 = plt.subplot(111)
-		plt.hold("on")		
-		ax6.semilogy(self.x_eta, self.ScipyEta/(Mpc*1e3), 'b-', label='Scipy integrated')
-		ax6.plot(x_eta_new, eta_new/(Mpc*1e3), 'xr', label='Interpolated segment')
-		EtaIndex1, EtaIndex2 = self.Get_Index_Interpolation(x_start, x_end)
-		plt.axis([x_start-1, x_end+1, self.ScipyEta[EtaIndex1]/(Mpc*1e3), self.ScipyEta[EtaIndex2]/(Mpc*1e3)])
-		plt.xlabel('x')
-		plt.ylabel('$\eta - [Gpc]$')
-		ax6.legend(loc='upper right', bbox_to_anchor=(0.5,0.5), ncol=1, fancybox=True)
-		plt.title('Plot of conformal time $\eta$ as a function of $x = \ln (a)$. \n Zoomed in the interpolated part.')
+		plt.ylabel(r'$\tau$')
+		plt.show()
 
 		if self.savefig == 1:
-			fig1.savefig('../Plots/ConformalTime_SanityCheck.pdf')
-			fig2.savefig('../Plots/Hubble_parameter.pdf')
-			fig3.savefig('../Plots/Hubble_parameter_redshift.pdf')
-			fig4.savefig('../plots/Omegas.pdf')
-			fig5.savefig('../Plots/Interpolated_Example.pdf')
-			fig6.savefig('../Plots/Interpolated_Example_zoomed.pdf')
-			
+			a = 1
 		else:
 			plt.show()
 
 solver = time_mod(savefig=0)
 #solver.Saha_equation()
-#solver.Plot_results(100)
+solver.Plot_results(100)
