@@ -39,8 +39,8 @@ rho_r0 = Omega_r*rho_c0
 rho_lambda0 = Omega_lambda*rho_c0
 
 # Precalculate certain factors to reduce number of float point operations
-Saha_b_factor = m_e*T_0/(2*np.pi)		# Factor in front of 'b' in Saha equation
-rhoCrit_factor = 3.0/(8*np.pi*G_grav)	# Used for critical density at arbitrary times
+Saha_b_factor = ((m_e*T_0)/(2*np.pi)*k_b/hbar**2)**(3.0/2.0)		# Factor in front of 'b' in Saha equation
+rhoCrit_factor = 3.0/(8*np.pi*G_grav)							# Used for critical density at arbitrary times
 
 # Constant used for Peebles equation and some constant factors that can be precalculated
 Lambda_2sto1s = 8.227
@@ -89,10 +89,11 @@ class time_mod():
 		# Set up grid of x-values for the integrated eta
 		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
 		self.x_tau = np.linspace(self.x_eta_end, self.x_eta_init, self.n_eta)
-
-		self.X_e = self.Saha_equation(self.x_eta_init)
-		#self.X_e = 0.99
+		self.z_eta = np.linspace(1.0/self.a_init - 1, 0, self.n_eta)
+		#self.X_e = self.Saha_equation(self.x_eta_init)
+		self.X_e = 1e-3
 		self.X_e_counter = 0
+		self.X_e_array = []
 
 		# Solves the equations of Eta and interpolates
 		#self.ScipyEta = integrate.odeint(self.Diff_eq_eta, self.x_eta_init, self.x_eta)
@@ -182,9 +183,10 @@ class time_mod():
 		Uses numpy.roots solver. Only returns the positive valued X_e 
 		"""
 		Exponential = np.exp(x)
-		a = self.Get_n_b(x)
-		b = (Saha_b_factor/Exponential)**(3.0/2.0)*np.exp(-EpsTemp_factor*Exponential)
+		a = 1
+		b = ((Saha_b_factor/Exponential)**(3.0/2.0)/self.Get_n_b(x))*np.exp(-EpsTemp_factor*Exponential)
 		c = -b
+		#print -EpsTemp_factor
 		X_e = np.roots(np.array([a,b,c]))
 
 		if X_e[0] > 0:
@@ -204,35 +206,61 @@ class time_mod():
 		Lambda_alpha = H*Lambda_alpha_factor/((1-X_e)*n_b)
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
 		dXedx = (C_r/H)*(beta*(1-X_e) - dXedx_factor*n_b*alpha2*X_e**2)
+		#print 'Peebles ',dXedx
 		return dXedx
 
 
 	def Diff_eq_tau(self, tau, x_0):
 		""" 
 		Solves the differential equation of tau. This is the right hand side of the equation
-		Uses Saha equation if X_e is roughly 1, else uses Peebles equation
+		Uses Saha equation if X_e > 0.99, else uses Peebles equation
 		"""
 		n_b = self.Get_n_b(x_0)
 		#self.X_e = self.Saha_equation(x_0)
 		#self.X_e = integrate.odeint(self.Peebles_equation, self.X_e, x_0)[0][0]
-		if self.X_e_counter == 1:
-			if self.X_e > 1e-1:
-				self.X_e = self.Saha_equation(x_0)
-			else:
-				self.X_e = integrate.odeint(self.Peebles_equation, self.X_e, x_0)[0][0]
-		n_e = self.X_e*n_b
-		dTaudx = - n_e*sigma_T/self.Get_Hubble_param(x_0)
-		self.X_e_counter = 1
+		#if self.X_e_counter == 1:
+		if self.X_e > 0.99:
+			self.X_e = self.Saha_equation(x_0)
+		else:
+			self.X_e = integrate.odeint(self.Peebles_equation, self.X_e, x_0)[0][0]
+			#print self.X_e
+		#print self.X_e
+		self.X_e_array.append(self.X_e)
+		dTaudx = - self.X_e*n_b*sigma_T/self.Get_Hubble_param(x_0)
+		#self.X_e_counter = 1
 		return dTaudx
+
+	def Test_XE(self):
+		X_e = 1
+		X_e_array = [X_e]
+		#X_e_array[0] = X_e
+		for i in range(0,self.n_eta-1):
+			if X_e_array[i] > 0.99:
+				X_e_array.append(self.Saha_equation(self.x_eta[i]))
+			else:
+				PeebleXe = integrate.odeint(self.Peebles_equation, X_e_array[i], self.x_eta[i:])
+				break
+		print PeebleXe
+		X_e_array2 = np.concatenate([np.array(X_e_array),PeebleXe])
+		plt.plot(self.x_eta, X_e_array2)
+		plt.show()
 
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
+		print self.x_eta
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
 		#x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, x_start, x_end, n_interp_points)
+		#print self.x_tau
 		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)
+		#Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_eta)
 		plt.semilogy(self.x_tau, Taus)
 		plt.xlabel('x')
 		plt.ylabel(r'$\tau$')
+		plt.title('Plot of the optical depth as a function of $x=\ln(a)$')
+	
+		#plt.figure()
+		#print len(np.array(self.X_e_array))
+		#plt.plot(self.x_tau, )
 		plt.show()
 
 		if self.savefig == 1:
@@ -243,3 +271,4 @@ class time_mod():
 solver = time_mod(savefig=0)
 #solver.Saha_equation()
 solver.Plot_results(100)
+#solver.Test_XE()
