@@ -48,8 +48,10 @@ rhoCrit_factor = 3.0/(8*np.pi*G_grav)							# Used for critical density at arbit
 Lambda_2sto1s = 8.227
 alpha_factor = ((64*np.pi)/(np.sqrt(27*np.pi)))*(alpha/m_e)**2*(hbar**2/c)
 beta_factor = (m_e*T_0/(2*np.pi))**(3.0/2.0)*(k_b**(3.0/2.0)/(hbar**3*c**6))
+beta2_factor = alpha_factor*beta_factor
 Lambda_alpha_factor = (3*epsilon_0/(hbar*c))**3/(8*np.pi)**2
 EpsTemp_factor = epsilon_0/(k_b*T_0)
+K_factor = alpha_factor*np.sqrt(epsilon_0)*k_b/(hbar*c**7)*(m_e/(2*np.pi))**(3.0/2.0)*T_0
 """
 Saha_b_factor = ((m_e*T_0)/(2*np.pi))**(3.0/2.0)
 Lambda_2sto1s = 8.227
@@ -194,19 +196,17 @@ class time_mod():
 		Uses numpy.roots solver. Only returns the positive valued X_e 
 		"""
 		Exponential = np.exp(x)
-		
+		"""
 		a = 1
 		b = ((Saha_b_factor*Exponential**(-3.0/2.0))/self.Get_n_b(x))*np.exp(-EpsTemp_factor*Exponential)
 		c = -b
 		X_e = np.roots(np.array([a,b,c]))
-		
 		"""
-		Y = np.log((Saha_b_factor/Exponential)**(3.0/2.0)/self.Get_n_b(x)*np.exp(-EpsTemp_factor*Exponential))
 		a = 1
-		b = np.exp(Y)
+		b = Saha_b_factor*np.exp(-3.0*x/2.0)/(self.Get_n_b(x))
 		c = -b
 		X_e = np.roots(np.array([a,b,c]))
-		"""
+		
 
 		if X_e[0] > 0:
 			return X_e[0]
@@ -218,6 +218,7 @@ class time_mod():
 		n_b = self.Get_n_b(x_0)
 		H = self.Get_Hubble_param(x_0)
 		exp_factor = EpsTemp_factor*np.exp(x_0)
+		"""
 		phi2 = 0.448*np.log(exp_factor)
 		alpha2 = alpha_factor*np.sqrt(exp_factor)*phi2
 		beta = alpha2*beta_factor*np.exp(-EpsTemp_factor)*np.exp(-3.0*x_0/2.0)
@@ -226,16 +227,15 @@ class time_mod():
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
 		dXedx = (C_r/H)*(beta*(1-X_e) - n_b*alpha2*X_e**2)
 		"""
-		exp_fact = np.exp(x_0)
-		T_b = T_0/exp_fact
-		phi2 = 0.448*np.log(epsilon_0/(k_b*T_b))
-		alpha2 = alpha_factor*np.sqrt(epsilon_0/(k_b*T_b))*phi2
-		beta = alpha2*(k_b**(3.0/2.0)/(hbar**3*c**6))*(m_e*T_b/(2*np.pi))**(3.0/2.0)*np.exp(-epsilon_0/(k_b*T_b))
-		beta2 = beta*np.exp(3.0*epsilon_0/(4.0*k_b*T_b))
+
+		phi2 = 0.448*np.log(exp_factor)
+		alpha2 = alpha_factor*np.sqrt(EpsTemp_factor)*phi2
+		beta = K_factor*np.exp(-x_0)
+		beta2 = K_factor*np.exp(-x_0)
 		Lambda_alpha = H*Lambda_alpha_factor/((1.0-X_e)*n_b)
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
 		dXedx = (C_r/H)*(beta*(1-X_e) - n_b*alpha2*X_e**2)
-		"""
+		
 		#print dXedx
 		return dXedx
 
@@ -259,18 +259,6 @@ class time_mod():
 		#self.X_e_counter = 1
 		return dTaudx
 
-	def RK_test(self, init_cond, x_arr):
-		dx = (x_arr[-1]-x_arr[0])/float(len(x_arr))
-		X_e = np.zeros(len(x_arr)-1)
-		X_e[0] = init_cond
-		for i in range(0, len(x_arr)-2):
-			k1 = self.Peebles_equation(X_e[i], x_arr[i])
-			k2 = self.Peebles_equation(X_e[i] + dx*k1/2.0, x_arr[i] + dx/2.0)
-			k3 = self.Peebles_equation(X_e[i] + dx*k2/2.0, x_arr[i] + dx/2.0)
-			k4 = self.Peebles_equation(X_e[i] + dx*k3, x_arr[i] + dx)
-			X_e[i+1] = X_e[i] + dx*(k1 + 2*k2 + 2*k3 + k4)/6.0
-		return X_e
-
 	def Test_XE(self, rk_T):
 		X_e = 1
 		X_e_array = [X_e]
@@ -278,10 +266,6 @@ class time_mod():
 		for i in range(0,self.n_eta-1):
 			if X_e_array[i] > 0.99:
 				X_e_array.append(self.Saha_equation(self.x_eta_rec[i]))
-			elif rk_T:
-				PeebleXe = self.RK_test(X_e_array[i], self.x_eta_rec[i:])
-				PeebleRK = True
-				break
 			else:
 				PeebleXe = integrate.odeint(self.Peebles_equation, X_e_array[i], self.x_eta_rec[i:])
 				Peeble = True
@@ -290,6 +274,7 @@ class time_mod():
 			PeebleXe2 = []
 			for i in range(0, len(PeebleXe)-1):
 				if np.isnan(PeebleXe[i][0]):
+					print 'Nan values encountered'
 					break
 				PeebleXe2.append(PeebleXe[i][0])
 			print 'PeebleXe2', len(PeebleXe2)
@@ -299,12 +284,6 @@ class time_mod():
 			X_e_array2 = np.concatenate([np.array(X_e_array),np.array(PeebleXe2)])
 			
 			plt.semilogy(self.x_eta_rec[:len(X_e_array2)], X_e_array2)
-		elif PeebleRK:
-			X_e_array2 = np.concatenate([np.array(X_e_array), PeebleXe])
-			print PeebleXe
-			print len(X_e_array2)
-			print len(self.x_eta_rec)
-			plt.semilogy(self.x_eta_rec, X_e_array2)
 		else:
 			plt.plot(self.x_eta_rec, X_e_array)
 		plt.xlabel('$x$')
@@ -538,7 +517,7 @@ class Redshift_mod():
 solver = time_mod(savefig=0)
 #solver.Saha_equation()
 #solver.Plot_results(100)
-solver.Test_XE(True)
+solver.Test_XE(False)
 
 #tester = Redshift_mod(savefig=0)
 #tester.Test_XE()
