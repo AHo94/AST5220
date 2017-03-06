@@ -259,15 +259,29 @@ class time_mod():
 		#self.X_e_counter = 1
 		return dTaudx
 
-	def Test_XE(self):
+	def RK_test(self, init_cond, x_arr):
+		dx = (x_arr[-1]-x_arr[0])/float(len(x_arr))
+		X_e = np.zeros(len(x_arr)-1)
+		X_e[0] = init_cond
+		for i in range(0, len(x_arr)-2):
+			k1 = self.Peebles_equation(X_e[i], x_arr[i])
+			k2 = self.Peebles_equation(X_e[i] + dx*k1/2.0, x_arr[i] + dx/2.0)
+			k3 = self.Peebles_equation(X_e[i] + dx*k2/2.0, x_arr[i] + dx/2.0)
+			k4 = self.Peebles_equation(X_e[i] + dx*k3, x_arr[i] + dx)
+			X_e[i+1] = X_e[i] + dx*(k1 + 2*k2 + 2*k3 + k4)/6.0
+		return X_e
+
+	def Test_XE(self, rk_T):
 		X_e = 1
 		X_e_array = [X_e]
-		counter = 0
-		#X_e_array[0] = X_e
 		Peeble = False
 		for i in range(0,self.n_eta-1):
 			if X_e_array[i] > 0.99:
 				X_e_array.append(self.Saha_equation(self.x_eta_rec[i]))
+			elif rk_T:
+				PeebleXe = self.RK_test(X_e_array[i], self.x_eta_rec[i:])
+				PeebleRK = True
+				break
 			else:
 				PeebleXe = integrate.odeint(self.Peebles_equation, X_e_array[i], self.x_eta_rec[i:])
 				Peeble = True
@@ -283,10 +297,14 @@ class time_mod():
 			print len(X_e_array)
 			print len(PeebleXe2[len(X_e_array):])+len(X_e_array)
 			X_e_array2 = np.concatenate([np.array(X_e_array),np.array(PeebleXe2)])
-			#print X_e_array2
-		#print PeebleXe
-		#print X_e_array
+			
 			plt.semilogy(self.x_eta_rec[:len(X_e_array2)], X_e_array2)
+		elif PeebleRK:
+			X_e_array2 = np.concatenate([np.array(X_e_array), PeebleXe])
+			print PeebleXe
+			print len(X_e_array2)
+			print len(self.x_eta_rec)
+			plt.semilogy(self.x_eta_rec, X_e_array2)
 		else:
 			plt.plot(self.x_eta_rec, X_e_array)
 		plt.xlabel('$x$')
@@ -520,7 +538,7 @@ class Redshift_mod():
 solver = time_mod(savefig=0)
 #solver.Saha_equation()
 #solver.Plot_results(100)
-solver.Test_XE()
+solver.Test_XE(True)
 
 #tester = Redshift_mod(savefig=0)
 #tester.Test_XE()
