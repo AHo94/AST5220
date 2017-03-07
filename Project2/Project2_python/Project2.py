@@ -197,8 +197,8 @@ class time_mod():
 		"""
 		Exponential = np.exp(x)
 		
-		a = 1
-		b = (Saha_b_factor/self.Get_n_b(x))*np.exp(-EpsTemp_factor*Exponential - 3.0*x/2.0)
+		a = self.Get_n_b(x)
+		b = (Saha_b_factor)*np.exp(-EpsTemp_factor*Exponential - 3.0*x/2.0)
 		c = -b
 		X_e = np.roots(np.array([a,b,c]))
 		
@@ -213,7 +213,6 @@ class time_mod():
 		X_e1 = 0.5*(-K+np.sqrt(K**2 + 4*K))
 		return X_e1
 		"""
-		 
 		if X_e[0] > 0:
 			return X_e[0]
 		else:
@@ -384,7 +383,7 @@ class Redshift_mod():
 		return -H_0**2*(0.5*(Omega_b + Omega_m)*np.exp(-x) + Omega_r*np.exp(-2*x) - Omega_lambda*np.exp(2*x))/(Get_Hubble_prime(x))
 
 	def Get_Hubble_param_redshift(self, z):
-		return H_0*np.sqrt((Omega_b + Omega_m)*(1+z) + Omega_r*(1+z) + Omega_lambda)
+		return H_0*np.sqrt((Omega_b + Omega_m)*(1+z)**3 + Omega_r*(1+z)**4 + Omega_lambda)
 
 	def Get_Omegas(self, x):
 		""" 
@@ -482,11 +481,11 @@ class Redshift_mod():
 		T_b = T_0*(1+z_0)
 		phi2 = 0.448*np.log(epsilon_0/(k_b*T_b))
 		alpha2 = alpha_factor*np.sqrt(epsilon_0/(k_b*T_b))*phi2
-		beta = K_factor*(1+z_0)
-		beta2 = K_factor*(1+z_0)
+		beta = K_factor*(1+z_0)*np.exp(-epsilon_0/(k_b*T_b))
+		beta2 = K_factor*(1+z_0)*np.exp(-epsilon_0/(4*k_b*T_b))
 		Lambda_alpha = H*Lambda_alpha_factor/((1.0-X_e)*n_b)
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
-		dXedx = -(C_r/H)*(beta*(1-X_e) - n_b*alpha2*X_e**2)/(1+z_0)**3
+		dXedx = -(C_r/H)*(beta*(1-X_e) - n_b*alpha2*X_e**2)/(1+z_0)
 		return dXedx
 
 
@@ -536,10 +535,10 @@ class Redshift_mod():
 		else:
 			plt.show()
 
-solver = time_mod(savefig=0)
+#solver = time_mod(savefig=0)
 #solver.Saha_equation()
 #solver.Plot_results(100)
-solver.Test_XE(False)
+#solver.Test_XE(False)
 
-#tester = Redshift_mod(savefig=0)
-#tester.Test_XE()
+tester = Redshift_mod(savefig=0)
+tester.Test_XE()
