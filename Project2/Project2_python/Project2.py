@@ -196,23 +196,29 @@ class time_mod():
 		Uses numpy.roots solver. Only returns the positive valued X_e 
 		"""
 		Exponential = np.exp(x)
-		"""
+		
 		a = 1
-		b = ((Saha_b_factor*Exponential**(-3.0/2.0))/self.Get_n_b(x))*np.exp(-EpsTemp_factor*Exponential)
+		b = (Saha_b_factor/self.Get_n_b(x))*np.exp(-EpsTemp_factor*Exponential - 3.0*x/2.0)
 		c = -b
 		X_e = np.roots(np.array([a,b,c]))
+		
 		"""
 		a = 1
 		b = Saha_b_factor*np.exp(-3.0*x/2.0)/(self.Get_n_b(x))
 		c = -b
 		X_e = np.roots(np.array([a,b,c]))
-		
-
+		"""
+		"""
+		K = Saha_b_factor*np.exp(-EpsTemp_factor*Exponential-3.0*x/2.0)/self.Get_n_b(x)
+		X_e1 = 0.5*(-K+np.sqrt(K**2 + 4*K))
+		return X_e1
+		"""
+		 
 		if X_e[0] > 0:
 			return X_e[0]
 		else:
 			return X_e[1]
-
+		
 	def Peebles_equation(self, X_e, x_0):
 		""" Solves the right hand side of the Peebles equation """
 		n_b = self.Get_n_b(x_0)
@@ -227,11 +233,10 @@ class time_mod():
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
 		dXedx = (C_r/H)*(beta*(1-X_e) - n_b*alpha2*X_e**2)
 		"""
-
 		phi2 = 0.448*np.log(exp_factor)
 		alpha2 = alpha_factor*np.sqrt(EpsTemp_factor)*phi2
-		beta = K_factor*np.exp(-x_0)
-		beta2 = K_factor*np.exp(-x_0)
+		beta = phi2*K_factor*np.exp(-x_0)*np.exp(-exp_factor)
+		beta2 = phi2*K_factor*np.exp(-x_0)*np.exp(-exp_factor/4.0)
 		Lambda_alpha = H*Lambda_alpha_factor/((1.0-X_e)*n_b)
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
 		dXedx = (C_r/H)*(beta*(1-X_e) - n_b*alpha2*X_e**2)
@@ -285,7 +290,7 @@ class time_mod():
 			
 			plt.semilogy(self.x_eta_rec[:len(X_e_array2)], X_e_array2)
 		else:
-			plt.plot(self.x_eta_rec, X_e_array)
+			plt.semilogy(self.x_eta_rec, X_e_array)
 		plt.xlabel('$x$')
 		plt.ylabel('$X_e$')
 		plt.show()
@@ -444,25 +449,42 @@ class Redshift_mod():
 		return Om_b*rho_c0*(1+z)**3/m_H
 
 	def Saha_eq_redshift(self, z):
+		"""
 		a = 1
 		b = ((Saha_b_factor*(1+z))**(3.0/2.0)/(self.Get_n_b_redshift(z))*np.exp(-EpsTemp_factor/(1+z)))
 		c = -b
 		X_e = np.roots(np.array([a,b,c]))
-
+		"""
+		a = 1
+		b = (Saha_b_factor/self.Get_n_b_redshift(z))*np.exp(-EpsTemp_factor/(1+z))*(1+z)**(3.0/2.0)
+		c = -b
+		X_e = np.roots(np.array([a,b,c]))
+		
 		if X_e[0] > 0:
 			return X_e[0]
 		else:
 			return X_e[1]
 	def Peebles_eq_redshift(self, X_e, z_0):
 		""" Solves the right hand side of the Peebles equation """
+		
 		n_b = self.Get_n_b_redshift(z_0)
 		H = self.Get_Hubble_param_redshift(z_0)
+		"""
 		exp_factor = EpsTemp_factor/(1+z_0)
 		phi2 = 0.448*np.log(exp_factor)
 		alpha2 = alpha_factor*np.sqrt(exp_factor)*phi2
-		beta = alpha2*beta_factor*np.exp(-exp_factor)*(1+z_0)**(3.0/2.0)
-		beta2 = beta*np.exp(3.0*exp_factor/4.0)
+		beta = K*np.exp(-exp_factor)*(1+z_0)**(3.0/2.0)
+		beta2 = K*np.exp(3.0*exp_factor/4.0)
 		Lambda_alpha = H*Lambda_alpha_factor/((1-X_e)*n_b)
+		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
+		dXedx = -(C_r/H)*(beta*(1-X_e) - n_b*alpha2*X_e**2)/(1+z_0)**3
+		"""
+		T_b = T_0*(1+z_0)
+		phi2 = 0.448*np.log(epsilon_0/(k_b*T_b))
+		alpha2 = alpha_factor*np.sqrt(epsilon_0/(k_b*T_b))*phi2
+		beta = K_factor*(1+z_0)
+		beta2 = K_factor*(1+z_0)
+		Lambda_alpha = H*Lambda_alpha_factor/((1.0-X_e)*n_b)
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
 		dXedx = -(C_r/H)*(beta*(1-X_e) - n_b*alpha2*X_e**2)/(1+z_0)**3
 		return dXedx
@@ -481,7 +503,7 @@ class Redshift_mod():
 				PeebleXe = integrate.odeint(self.Peebles_eq_redshift, X_e_array[i], self.z_eta_rec[i:])
 				break
 		PeebleXe2 = []
-		for j in range(0, len(PeebleXe)):
+		for j in range(0, len(PeebleXe)-1):
 			if np.isnan(PeebleXe[j][0]):
 				break
 			PeebleXe2.append(PeebleXe[j][0])
