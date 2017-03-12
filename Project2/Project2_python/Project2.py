@@ -47,11 +47,11 @@ rhoCrit_factor = 3.0/(8*np.pi*G_grav)							# Used for critical density at arbit
 
 Lambda_2sto1s = 8.227
 alpha_factor = ((64*np.pi)/(np.sqrt(27*np.pi)))*(alpha/m_e)**2*(hbar**2/c)
-beta_factor = (m_e*T_0/(2*np.pi))**(3.0/2.0)*(k_b**(3.0/2.0)/(hbar**3*c**6))
+beta_factor = ((m_e*T_0*k_b)/(2.0*np.pi))**(3.0/2.0)*(1.0/hbar**3)
 beta2_factor = alpha_factor*beta_factor
 Lambda_alpha_factor = (3*epsilon_0/(hbar*c))**3/(8*np.pi)**2
 EpsTemp_factor = epsilon_0/(k_b*T_0)
-K_factor = alpha_factor*np.sqrt(epsilon_0)*k_b/(hbar*c**7)*(m_e/(2*np.pi))**(3.0/2.0)*T_0
+K_factor = np.sqrt(epsilon_0)*(k_b/(hbar*c**7))*(m_e/(2*np.pi))**(3.0/2.0)*T_0*(alpha/m_e)**2*(64*np.pi/(np.sqrt(27*np.pi)))
 """
 Saha_b_factor = ((m_e*T_0)/(2*np.pi))**(3.0/2.0)
 Lambda_2sto1s = 8.227
@@ -108,6 +108,16 @@ class time_mod():
 		self.X_e_counter = 0
 		self.X_e_array = []
 
+		self.check11 = 0
+		x0 = -7.3525990457
+		T_b = T_0/np.exp(x0)
+		print 'phi2 = ', 0.448*np.log(epsilon_0/(k_b*T_b))
+		print 'alpha2 = ', (64*np.pi/(np.sqrt(27*np.pi)))*(((alpha*hbar/m_e)**2)/c)*np.sqrt(epsilon_0/(k_b*T_b))*0.448*np.log(epsilon_0/(k_b*T_b))
+		alpha2 = (64*np.pi/(np.sqrt(27*np.pi)))*(((alpha*hbar/m_e)**2)/c)*np.sqrt(epsilon_0/(k_b*T_b))*0.448*np.log(epsilon_0/(k_b*T_b))
+		print 'beta = ', (k_b**(3.0/2.0)/(hbar**3*c**6))*(m_e*T_b/(2*np.pi))**(3.0/2.0)*np.exp(-epsilon_0/(k_b*T_b))*alpha2
+		print 'beta2 = ', alpha2*(k_b)*(k_b**(3.0/2.0)/(hbar**3*c**6))*(m_e*T_b/(2*np.pi))**(3.0/2.0)*np.exp(-epsilon_0/(4*k_b*T_b))
+		print 'beta22 =', (k_b**(3.0/2.0)/(hbar**3*c**6))*(m_e*T_b/(2*np.pi))**(3.0/2.0)*np.exp(-epsilon_0/(k_b*T_b))*alpha2*np.exp(3*epsilon_0/(4*k_b*T_b))
+		print ''
 		# Solves the equations of Eta and interpolates
 		#self.ScipyEta = integrate.odeint(self.Diff_eq_eta, self.x_eta_init, self.x_eta)
 		#x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, x_start, x_end, n_interp_points)
@@ -197,8 +207,8 @@ class time_mod():
 		"""
 		Exponential = np.exp(x)
 		
-		a = self.Get_n_b(x)
-		b = (Saha_b_factor)*np.exp(-EpsTemp_factor*Exponential - 3.0*x/2.0)
+		a = 1
+		b = (Saha_b_factor/self.Get_n_b(x))*np.exp(-EpsTemp_factor*Exponential - 3.0*x/2.0)
 		c = -b
 		X_e = np.roots(np.array([a,b,c]))
 		
@@ -223,24 +233,49 @@ class time_mod():
 		n_b = self.Get_n_b(x_0)
 		H = self.Get_Hubble_param(x_0)
 		exp_factor = EpsTemp_factor*np.exp(x_0)
+		#T_b = T_0/np.exp(x_0)
+		#exp_factor = epsilon_0/(k_b*T_b)
 		"""
 		phi2 = 0.448*np.log(exp_factor)
 		alpha2 = alpha_factor*np.sqrt(exp_factor)*phi2
-		beta = alpha2*beta_factor*np.exp(-EpsTemp_factor)*np.exp(-3.0*x_0/2.0)
+		beta = alpha2*beta_factor*np.exp(-exp_factor)*np.exp(-3.0*x_0/2.0)
 		beta2 = beta*np.exp(3.0*exp_factor/4.0)
 		Lambda_alpha = H*Lambda_alpha_factor/((1.0-X_e)*n_b)
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
 		dXedx = (C_r/H)*(beta*(1-X_e) - n_b*alpha2*X_e**2)
 		"""
+		
 		phi2 = 0.448*np.log(exp_factor)
-		alpha2 = alpha_factor*np.sqrt(EpsTemp_factor)*phi2
-		beta = phi2*K_factor*np.exp(-x_0)*np.exp(-exp_factor)
-		beta2 = phi2*K_factor*np.exp(-x_0)*np.exp(-exp_factor/4.0)
+		alpha2 = alpha_factor*np.sqrt(exp_factor)*phi2
+		beta = alpha2*beta_factor*np.exp(-3.0*x_0/2.0)*np.exp(-exp_factor)
+		beta2 = alpha2*beta_factor*np.exp(-3.0*x_0/2.0)*np.exp(-exp_factor/4.0)
 		Lambda_alpha = H*Lambda_alpha_factor/((1.0-X_e)*n_b)
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
 		dXedx = (C_r/H)*(beta*(1-X_e) - n_b*alpha2*X_e**2)
-		
-		#print dXedx
+
+		"""
+		phi2 = 0.448*np.log(epsilon_0/(k_b*T_b))
+		alpha2 = (64*np.pi/(np.sqrt(27*np.pi)))*(((alpha*hbar/m_e)**2)/c)*np.sqrt(epsilon_0/(k_b*T_b))*phi2
+		beta = alpha2*(m_e*T_b*k_b/(2*np.pi))**(3.0/2.0)*np.exp(-epsilon_0/(k_b*T_b))*(1/(hbar**3*c**6))
+		beta2 = alpha2*(m_e*T_b*k_b/(2*np.pi))**(3.0/2.0)*np.exp(-epsilon_0/(4*k_b*T_b))*(1/(hbar**3*c**6))
+		Lambda_alpha = H*(3*epsilon_0)**3/(((8*np.pi)**2)*(1-X_e)*n_b)*(1/(hbar*c))**3
+		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
+		dXedx = (C_r/H)*(beta*(1-X_e) - n_b*alpha2*X_e**2)
+		"""
+		if self.check11 == 0:
+			print x_0
+			print beta_factor*np.exp(-3.0*x_0/2.0)*np.exp(-exp_factor)
+			print 'T = ', T_0*np.exp(-x_0)
+			print 'Phi2 = ', phi2
+			print 'alpha2 = ', alpha2
+			print 'beta = ', beta
+			print 'beta2 = ', beta2
+			print 'n_b = ', n_b 
+			print 'Lambda_alpha = ', Lambda_alpha 
+			print 'Cr = ', C_r
+			print 'dXe = ', dXedx
+			self.check11 = 1
+
 		return dXedx
 
 	def Diff_eq_tau(self, tau, x_0):
@@ -263,15 +298,15 @@ class time_mod():
 		#self.X_e_counter = 1
 		return dTaudx
 
-	def Test_XE(self, rk_T):
+	def Test_XE(self):
 		X_e = 1
 		X_e_array = [X_e]
 		Peeble = False
 		for i in range(0,self.n_eta-1):
 			if X_e_array[i] > 0.99:
-				X_e_array.append(self.Saha_equation(self.x_eta_rec[i]))
+				X_e_array.append(self.Saha_equation(self.x_eta[i]))
 			else:
-				PeebleXe = integrate.odeint(self.Peebles_equation, X_e_array[i], self.x_eta_rec[i:])
+				PeebleXe = integrate.odeint(self.Peebles_equation, X_e_array[i], self.x_eta[i:])
 				Peeble = True
 				break
 		if Peeble:
@@ -287,9 +322,9 @@ class time_mod():
 			print len(PeebleXe2[len(X_e_array):])+len(X_e_array)
 			X_e_array2 = np.concatenate([np.array(X_e_array),np.array(PeebleXe2)])
 			
-			plt.semilogy(self.x_eta_rec[:len(X_e_array2)], X_e_array2)
+			plt.semilogy(self.x_eta[:len(X_e_array2)], X_e_array2)
 		else:
-			plt.semilogy(self.x_eta_rec, X_e_array)
+			plt.semilogy(self.x_eta, X_e_array)
 		plt.xlabel('$x$')
 		plt.ylabel('$X_e$')
 		plt.show()
@@ -535,10 +570,10 @@ class Redshift_mod():
 		else:
 			plt.show()
 
-#solver = time_mod(savefig=0)
+solver = time_mod(savefig=0)
 #solver.Saha_equation()
 #solver.Plot_results(100)
-#solver.Test_XE(False)
+solver.Test_XE()
 
-tester = Redshift_mod(savefig=0)
-tester.Test_XE()
+#tester = Redshift_mod(savefig=0)
+#tester.Test_XE()
