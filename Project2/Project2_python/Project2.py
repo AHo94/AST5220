@@ -222,18 +222,7 @@ class time_mod():
 		b = (Saha_b_factor/self.Get_n_b(x))*np.exp(-EpsTemp_factor*Exponential - 3.0*x/2.0)
 		c = -b
 		X_e = np.roots(np.array([a,b,c]))
-		#print 'ISHAH ',  Exponential, ' ', x
-		"""
-		a = 1
-		b = Saha_b_factor*np.exp(-3.0*x/2.0)/(self.Get_n_b(x))
-		c = -b
-		X_e = np.roots(np.array([a,b,c]))
-		"""
-		"""
-		K = Saha_b_factor*np.exp(-EpsTemp_factor*Exponential-3.0*x/2.0)/self.Get_n_b(x)
-		X_e1 = 0.5*(-K+np.sqrt(K**2 + 4*K))
-		return X_e1
-		"""
+		
 		if X_e[0] > 0:
 			return X_e[0]
 		else:
@@ -286,30 +275,8 @@ class time_mod():
 		Solves the differential equation of tau. This is the right hand side of the equation
 		Uses Saha equation if X_e > 0.99, else uses Peebles equation
 		"""
-		#n_b = self.Get_n_b(x_0)
-		#Exact = self.find_nearest(self.x_eta, x_0)
-		
 		i = np.searchsorted(self.x_eta, x_0, side="left")
-		"""
-		if index > 0 and (index == len(self.x_eta) or np.fabs(x_0 - self.x_eta[index-1]) < np.fabs(x_0 - self.x_eta[index])):
-			Exact = self.x_eta[index-1]
-		else:
-			Exact = self.x_eta[index]
-		"""
-		#i = self.x_eta.tolist().index(Exact)
-		#print 'x0 ', x_0
-		"""
-		if self.X_e > 0.99:
-			self.X_e = self.Saha_equation(x_0)
-			#print 'Saha gives, ', self.Saha_equation(x_0)
-		else:
-			self.X_e = integrate.odeint(self.Peebles_equation, self.X_e, x_0)[0][0]
-			#print 'Peeble gives, ', integrate.odeint(self.Peebles_equation, self.X_e, x_0)[0][0]
-		"""
-		#self.X_e_array.append(self.X_e)
-		#print self.X_e
 		dTaudx = - self.n_e[i]*sigma_T*c/self.Get_Hubble_param(x_0)
-		#self.X_e_counter = 1
 		return dTaudx
 
 	def Calculate_Xe(self):
