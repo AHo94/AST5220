@@ -317,24 +317,28 @@ class time_mod():
 		#print self.x_eta
 		self.Calculate_Xe()
 		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau, hmax=-(self.x_tau[-1] - self.x_tau[0])/(self.n_eta-1.0))
-		
-		plt.semilogy(self.x_eta[:len(self.X_e_array2)], self.X_e_array2)
+
+		fig1 = plt.figure()
+		ax1 = plt.subplot(111)
+		ax1.semilogy(self.x_eta, self.X_e_array2)
 		plt.xlabel('$x$')
 		plt.ylabel('$X_e$')
+		plt.title('Number of free electrons $X_e$ as a function of $x=\ln(a)$')
 
-		plt.figure()
-		plt.semilogy(self.x_tau, Taus)
+		fig2 = plt.figure()
+		ax2 = plt.subplot(111)
+		ax2.semilogy(self.x_tau, Taus)
 		plt.xlabel('x')
 		plt.ylabel(r'$\tau$')
-		plt.title('Plot of the optical depth as a function of $x=\ln(a)$')
+		plt.title('The optical depth $\tau$ as a function of $x=\ln(a)$')
 		
-		plt.show()
 		if self.savefig == 1:
-			a = 1
+			fig1.savefig('../Plots/ElectronNumber.pdf')
+			fig2.savefig('../Plots/OpticalDepth.pdf')
 		else:
 			plt.show()
 
-solver = time_mod(savefig=0)
+solver = time_mod(savefig=1)
 solver.Plot_results(100)
 #solver.Calculate_Xe()
 
