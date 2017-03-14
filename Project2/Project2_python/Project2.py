@@ -155,6 +155,16 @@ class time_mod():
 		y_new = interpolate.splev(x_new, Temp_interp, der=0)
 		return x_new, y_new
 
+	def Spline_Derivative(self, x_values, y_values, derivative):
+		""" Spline derivative for any functions. Using natural spline """
+		if derivative < 1:
+			raise ValueError("Derivative input in Spline_Derivative less than 1. Use Cubic_spline instead.")
+		Temp_interp = interpolate.splrep(x_values, y_values)
+		yDerivative = interpolate.splev(x_values, Temp_interp, der=derivative)
+		yDerivative[0] = 0
+		yDerivative[-1] = 0
+		return yDerivative
+
 	def Spline_DoubleDerivative(self, x_values, eta_values):
 		""" 
 		Evaluates the second derivatives at each grid point.
@@ -290,14 +300,24 @@ class time_mod():
 			PeebleXe2.append(PeebleXe[i][0])
 		#print 'PeebleXe2', np.array(PeebleXe2)
 		self.X_e_array2 = np.concatenate([np.array(X_e_array),np.array(PeebleXe2)])
+
+	def Visibility_func(self, x, tau, tauDerv):
+		""" Computes the visibility function (tilde) """
+		g = np.zeros(len(tau))
+		for i in range(0, len(tau)-1):
+			g[i] = -tauDerv[i]*np.exp(-tau[i])
+		return g
 		
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
 		self.Calculate_Xe()
 		self.n_e = self.X_e_array2*self.Get_n_b(self.x_eta)
-		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau, hmax=-(self.x_tau[-1] - self.x_tau[0])/(self.n_eta-1.0))
-		x_eta_new, n_e_new = self.Cubic_Spline(self.x_eta, self.n_e, x_start, x_end, n_interp_points)
+		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)#, hmax=-(self.x_tau[-1] - self.x_tau[0])/(self.n_eta-1.0))
+		x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), x_start, x_end, n_interp_points)
+		TauDerivative = self.Spline_Derivative(self.x_eta, Taus, derivative=1)
+		TauDoubleDer = self.Spline_Derivative(self.x_eta, Taus, derivative=2)
+		g_tilde = self.Visibility_func(self.x_tau, Taus, TauDerivative)
 
 		fig1 = plt.figure()
 		ax1 = plt.subplot(111)
@@ -312,19 +332,43 @@ class time_mod():
 		ax2.semilogy(self.x_tau, Taus)
 		plt.xlabel('x')
 		plt.ylabel(r'$\tau$')
-		plt.title('The optical depth $\tau$ as a function of $x=\ln(a)$')
+		plt.title(r'The optical depth $\tau$ as a function of $x=\ln(a)$')
 
 		fig3 = plt.figure()
 		ax3 = plt.subplot(111)
 		plt.hold("on")
-		ax3.semilogy(self.x_eta, self.n_e, 'b-')
-		ax3.semilogy(x_eta_new, n_e_new, 'rx')
+		ax3.semilogy(self.x_eta, self.n_e, 'b-', label='Computed $n_e$')
+		ax3.semilogy(x_eta_new, np.exp(n_e_NewLogarithmic), 'rx', label='Interpolated $n_e$')
+		plt.xlabel('x')
+		plt.ylabel('$n_e$')		
+		plt.title('Computed $n_e$ and interpolated $n_e$')		
+		ax3.legend(loc='upper right', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
+
+		fig4 = plt.figure()
+		ax4 = plt.subplot(111)
+		plt.hold("on")
+		ax4.semilogy(self.x_tau, Taus, 'b-', label=r'Zeroth derivative $\tau$')
+		ax4.semilogy(self.x_tau, np.fabs(TauDerivative), 'r-', label=r"First derivative $|\tau'|$")
+		#ax4.semilogy(self.x_tau, np.fabs(TauDoubleDer), 'g-', label=r"Second derivative $|\tau''|$")
 		plt.xlabel('x')
 		plt.ylabel('$n_e$')
-
+		plt.title(r"Plot of $\tau$ and $|\tau'|$ as a function of $x=\ln(a)$")
+		ax4.legend(loc='upper right', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
+		
+		fig5 = plt.figure()
+		ax5 = plt.subplot(111)
+		#plt.hold("on")
+		ax5.plot(self.x_eta, g_tilde, 'b-', label=r'Zeroth derivative $g$')
+		plt.xlabel('x')
+		plt.ylabel(r'$\tilde{g}$')
+		plt.title(r"ayy lmao")
+		ax5.legend(loc='upper right', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
+		
 		if self.savefig == 1:
 			fig1.savefig('../Plots/ElectronNumber.pdf')
 			fig2.savefig('../Plots/OpticalDepth.pdf')
+			fig3.savefig('../Plots/InterpolatedElectronDensity.pdf')
+			fig4.savefig('../Plots/FirstDerivativeTau.pdf')
 		else:
 			#a = 1
 			plt.show()
