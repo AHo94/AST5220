@@ -83,7 +83,7 @@ class time_mod():
 		self.a_end_rec = 1.0/(1.0 + self.z_end_rec)
 
 		# Used for the x-values for the conformal time
-		self.n_eta = 1000
+		self.n_eta = 3000
 		self.a_init = 1e-10
 		self.x_eta_init = np.log(self.a_init)
 		self.x_eta_end = 0
@@ -299,7 +299,7 @@ class time_mod():
 				break
 			PeebleXe2.append(PeebleXe[i][0])
 		#print 'PeebleXe2', np.array(PeebleXe2)
-		self.X_e_array2 = np.concatenate([np.array(X_e_array),np.array(PeebleXe2)])
+		self.X_e_array2 = np.concatenate([np.array(X_e_array),np.array(PeebleXe2)])	# Merges arrays
 
 	def Visibility_func(self, x, tau, tauDerv):
 		""" Computes the visibility function (tilde) """
@@ -313,11 +313,13 @@ class time_mod():
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
 		self.Calculate_Xe()
 		self.n_e = self.X_e_array2*self.Get_n_b(self.x_eta)
-		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)#, hmax=-(self.x_tau[-1] - self.x_tau[0])/(self.n_eta-1.0))
 		x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), x_start, x_end, n_interp_points)
+		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)#, hmax=-(self.x_tau[-1] - self.x_tau[0])/(self.n_eta-1.0))
 		TauDerivative = self.Spline_Derivative(self.x_eta, Taus, derivative=1)
 		TauDoubleDer = self.Spline_Derivative(self.x_eta, Taus, derivative=2)
-		g_tilde = self.Visibility_func(self.x_tau, Taus, TauDerivative)
+		g_tilde = self.Visibility_func(self.x_eta, Taus, TauDerivative)
+		g_tildeDerivative = self.Spline_Derivative(self.x_eta, g_tilde, derivative=1)
+		g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, g_tilde, derivative=2)
 
 		fig1 = plt.figure()
 		ax1 = plt.subplot(111)
@@ -358,7 +360,9 @@ class time_mod():
 		fig5 = plt.figure()
 		ax5 = plt.subplot(111)
 		#plt.hold("on")
-		ax5.plot(self.x_eta, g_tilde, 'b-', label=r'Zeroth derivative $g$')
+		ax5.plot(self.x_tau, g_tilde, 'b-', label=r"Zeroth derivative $g$")
+		ax5.plot(self.x_tau, g_tildeDerivative/10.0, 'r-', label=r"First derivative $g'/10$")
+		ax5.plot(self.x_tau, g_tildeDoubleDer/300.0, 'g-', label=r"Second derivative $g''/300$")
 		plt.xlabel('x')
 		plt.ylabel(r'$\tilde{g}$')
 		plt.title(r"ayy lmao")
