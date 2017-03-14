@@ -108,11 +108,7 @@ class time_mod():
 		self.X_e_counter = 0
 		self.X_e_array = []
 
-		self.check11 = 0
-		# Solves the equations of Eta and interpolates
-		#self.ScipyEta = integrate.odeint(self.Diff_eq_eta, self.x_eta_init, self.x_eta)
-		#x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, x_start, x_end, n_interp_points)
-		#self.Saha_equation(self.x_eta)
+		self.check11 = 0 	# Used to print out stuff
 
 	def Get_Hubble_param(self, x):
 		""" Function returns the Hubble parameter for a given x """
@@ -184,17 +180,6 @@ class time_mod():
 
 		return EtaIndex1, EtaIndex2
 
-	def find_nearest(self, array, value):
-		""" 
-		Finds the closest value in an array for a given value. 
-		e.g: Input = 3.2, array = [1, 2, 3, 4], then returns 3
-		"""
-		index = np.searchsorted(array, value, side="left")
-		if index > 0 and (index == len(array) or np.fabs(value - array[index-1]) < np.fabs(value - array[index])):
-			return array[index-1]
-		else:
-			return array[index]
-
 	def Get_n_b(self, x):
 		""" Calculate n_b (or n_H) at a given time """
 		#Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x)
@@ -259,7 +244,6 @@ class time_mod():
 			print 'Cr = ', C_r
 			print 'dXe = ', dXedx
 			self.check11 = 1
-		#print dXedx
 		return dXedx
 
 	def Diff_eq_tau(self, tau, x_0):
@@ -287,7 +271,6 @@ class time_mod():
 				print 'Nan values encountered'
 				break
 			PeebleXe2.append(PeebleXe[i][0])
-		#print 'PeebleXe2', np.array(PeebleXe2)
 		self.X_e_array2 = np.concatenate([np.array(X_e_array),np.array(PeebleXe2)])	# Merges arrays
 
 	def Visibility_func(self, x, tau, tauDerv):
@@ -340,7 +323,6 @@ class time_mod():
 		plt.hold("on")
 		ax4.semilogy(self.x_eta, Taus, 'b-', label=r'Zeroth derivative $\tau$')
 		ax4.semilogy(self.x_eta, np.fabs(TauDerivative), 'r-', label=r"First derivative $|\tau'|$")
-		#ax4.semilogy(self.x_tau, np.fabs(TauDoubleDer), 'g-', label=r"Second derivative $|\tau''|$")
 		plt.xlabel('x')
 		plt.ylabel('$n_e$')
 		plt.title(r"Plot of $\tau$ and $|\tau'|$ as a function of $x=\ln(a)$")
@@ -348,7 +330,7 @@ class time_mod():
 		
 		fig5 = plt.figure()
 		ax5 = plt.subplot(111)
-		#plt.hold("on")
+		plt.hold("on")
 		ax5.plot(self.x_eta, g_tilde, 'b-', label=r"Zeroth derivative $g$")
 		ax5.plot(self.x_eta, g_tildeDerivative/10.0, 'r-', label=r"First derivative $g'/10$")
 		ax5.plot(self.x_eta, g_tildeDoubleDer/300.0, 'g-', label=r"Second derivative $g''/300$")
@@ -363,11 +345,12 @@ class time_mod():
 			fig2.savefig('../Plots/OpticalDepth.pdf')
 			fig3.savefig('../Plots/InterpolatedElectronDensity.pdf')
 			fig4.savefig('../Plots/FirstDerivativeTau.pdf')
+			fig5.savefig('../Plots/VisibilityFunc.pdf')
 		else:
 			#a = 1
 			plt.show()
 
-solver = time_mod(savefig=0)
+solver = time_mod(savefig=1)
 solver.Plot_results(100)
 #solver.Calculate_Xe()
 
