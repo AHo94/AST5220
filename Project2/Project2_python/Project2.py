@@ -165,17 +165,6 @@ class time_mod():
 		yDerivative[-1] = 0
 		return yDerivative
 
-	def Spline_DoubleDerivative(self, x_values, eta_values):
-		""" 
-		Evaluates the second derivatives at each grid point.
-		Boundaries for the double derivatives are zero, using the so called natural spline 
-		"""
-		Temp_interp = interpolate.splrep(x_values, eta_values)
-		etaDoubleDer = interpolate.splev(x_values, Temp_interp, der=2)
-		etaDoubleDer[0] = 0
-		etaDoubleDer[-1] = 0
-		return etaDoubleDer
-
 	def Get_Index_Interpolation(self, X_init, X_end):
 		""" 
 		Finds the array index/component of x for a given x-value
