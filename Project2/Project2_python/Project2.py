@@ -301,9 +301,11 @@ class time_mod():
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
+		#x_eta_new, eta_new = self.Cubic_Spline(self.x_eta, self.ScipyEta, x_start, x_end, n_interp_points)
 		self.Calculate_Xe()
 		self.n_e = self.X_e_array2*self.Get_n_b(self.x_eta)
 		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau, hmax=-(self.x_tau[-1] - self.x_tau[0])/(self.n_eta-1.0))
+		x_eta_new, n_e_new = self.Cubic_Spline(self.x_eta, self.n_e, x_start, x_end, n_interp_points)
 
 		fig1 = plt.figure()
 		ax1 = plt.subplot(111)
@@ -319,13 +321,33 @@ class time_mod():
 		plt.xlabel('x')
 		plt.ylabel(r'$\tau$')
 		plt.title('The optical depth $\tau$ as a function of $x=\ln(a)$')
-		
+
+		fig3 = plt.figure()
+		ax3 = plt.subplot(111)
+		plt.hold("on")
+		ax3.semilogy(self.x_eta, self.n_e, 'b-')
+		ax3.semilogy(x_eta_new, n_e_new, 'rx')
+		plt.xlabel('x')
+		plt.ylabel('$n_e$')
+
+		"""
+		fig5 = plt.figure()
+		ax5 = plt.subplot(111)
+		plt.hold("on")
+		ax5.semilogy(self.x_eta, self.ScipyEta/(Mpc*1e3), 'b-', label='Scipy integrated')
+		ax5.semilogy(x_eta_new, eta_new/(Mpc*1e3), 'xr', label='Interpolated segment')
+		plt.xlabel('x')
+		plt.ylabel('$\eta - [Gpc]$')
+		ax5.legend(loc='upper left', bbox_to_anchor=(0.1,1), ncol=1, fancybox=True)
+		plt.title('Plot of conformal time $\eta$ as a function of $x = \ln (a)$')
+		"""
+
 		if self.savefig == 1:
 			fig1.savefig('../Plots/ElectronNumber.pdf')
 			fig2.savefig('../Plots/OpticalDepth.pdf')
 		else:
-			a = 1
-			#plt.show()
+			#a = 1
+			plt.show()
 
 solver = time_mod(savefig=0)
 solver.Plot_results(100)
