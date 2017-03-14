@@ -164,6 +164,15 @@ class time_mod():
 		etaDoubleDer[-1] = 0
 		return etaDoubleDer
 
+	def Cubic_Spline(self, x_values, y_values, x_start, x_end, n_points):
+		""" 
+		Cubic spline interpolation, zeroth derivative. Returns interpolated values of any variables, for a given range of x-values
+		"""
+		Temp_interp = interpolate.splrep(x_values, y_values)
+		x_new = np.linspace(x_start, x_end, n_points)
+		y_new = interpolate.splev(x_new, Temp_interp, der=0)
+		return x_new, y_new
+
 	def Get_Index_Interpolation(self, X_init, X_end):
 		""" 
 		Finds the array index/component of x for a given x-value
@@ -184,6 +193,10 @@ class time_mod():
 		return EtaIndex1, EtaIndex2
 
 	def find_nearest(self, array, value):
+		""" 
+		Finds the closest value in an array for a given value. 
+		e.g: Input = 3.2, array = [1, 2, 3, 4], then returns 3
+		"""
 		index = np.searchsorted(array, value, side="left")
 		if index > 0 and (index == len(array) or np.fabs(value - array[index-1]) < np.fabs(value - array[index])):
 			return array[index-1]
@@ -273,9 +286,17 @@ class time_mod():
 		Solves the differential equation of tau. This is the right hand side of the equation
 		Uses Saha equation if X_e > 0.99, else uses Peebles equation
 		"""
-		n_b = self.Get_n_b(x_0)
-		Exact = self.find_nearest(self.x_eta, x_0)
-		i = self.x_eta.tolist().index(Exact)
+		#n_b = self.Get_n_b(x_0)
+		#Exact = self.find_nearest(self.x_eta, x_0)
+		
+		i = np.searchsorted(self.x_eta, x_0, side="left")
+		"""
+		if index > 0 and (index == len(self.x_eta) or np.fabs(x_0 - self.x_eta[index-1]) < np.fabs(x_0 - self.x_eta[index])):
+			Exact = self.x_eta[index-1]
+		else:
+			Exact = self.x_eta[index]
+		"""
+		#i = self.x_eta.tolist().index(Exact)
 		#print 'x0 ', x_0
 		"""
 		if self.X_e > 0.99:
@@ -287,7 +308,7 @@ class time_mod():
 		"""
 		#self.X_e_array.append(self.X_e)
 		#print self.X_e
-		dTaudx = - self.X_e_array2[i]*n_b*sigma_T/self.Get_Hubble_param(x_0)
+		dTaudx = - self.n_e[i]*sigma_T*c/self.Get_Hubble_param(x_0)
 		#self.X_e_counter = 1
 		return dTaudx
 
@@ -313,14 +334,14 @@ class time_mod():
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
-		#x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, x_start, x_end, n_interp_points)
-		#print self.x_eta
 		self.Calculate_Xe()
+		self.n_e = self.X_e_array2*self.Get_n_b(self.x_eta)
 		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau, hmax=-(self.x_tau[-1] - self.x_tau[0])/(self.n_eta-1.0))
 
 		fig1 = plt.figure()
 		ax1 = plt.subplot(111)
 		ax1.semilogy(self.x_eta, self.X_e_array2)
+		ax1.set_ylim([10**(-4), 1.3])
 		plt.xlabel('$x$')
 		plt.ylabel('$X_e$')
 		plt.title('Number of free electrons $X_e$ as a function of $x=\ln(a)$')
@@ -336,9 +357,10 @@ class time_mod():
 			fig1.savefig('../Plots/ElectronNumber.pdf')
 			fig2.savefig('../Plots/OpticalDepth.pdf')
 		else:
-			plt.show()
+			a = 1
+			#plt.show()
 
-solver = time_mod(savefig=1)
+solver = time_mod(savefig=0)
 solver.Plot_results(100)
 #solver.Calculate_Xe()
 
