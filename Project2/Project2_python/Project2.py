@@ -104,7 +104,7 @@ class time_mod():
 		self.z_eta = np.linspace(1.0/self.a_init - 1, 0, self.n_eta)
 		self.z_eta_rec = np.linspace(self.z_start_rec, 0, self.n_eta)
 		#self.X_e = self.Saha_equation(self.x_eta_init)
-		self.X_e = 1e-3
+		self.X_e = 1
 		self.X_e_counter = 0
 		self.X_e_array = []
 
@@ -183,6 +183,13 @@ class time_mod():
 
 		return EtaIndex1, EtaIndex2
 
+	def find_nearest(self, array, value):
+		index = np.searchsorted(array, value, side="left")
+		if index > 0 and (index == len(array) or np.fabs(value - array[index-1]) < np.fabs(value - array[index])):
+			return array[index-1]
+		else:
+			return array[index]
+
 	def Get_n_b(self, x):
 		""" Calculate n_b (or n_H) at a given time """
 		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x)
@@ -202,7 +209,7 @@ class time_mod():
 		b = (Saha_b_factor/self.Get_n_b(x))*np.exp(-EpsTemp_factor*Exponential - 3.0*x/2.0)
 		c = -b
 		X_e = np.roots(np.array([a,b,c]))
-		
+		#print 'ISHAH ',  Exponential, ' ', x
 		"""
 		a = 1
 		b = Saha_b_factor*np.exp(-3.0*x/2.0)/(self.Get_n_b(x))
@@ -243,7 +250,8 @@ class time_mod():
 		Lambda_alpha = H*Lambda_alpha_factor/((1.0-X_e)*n_b)
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
 		dXedx = (C_r/H)*(beta*(1-X_e) - n_b*alpha2*X_e**2)
-
+		
+		
 		if self.check11 == 0:
 			print x_0
 			print beta_factor*np.exp(-3.0*x_0/2.0)*np.exp(-exp_factor)
@@ -257,7 +265,7 @@ class time_mod():
 			print 'Cr = ', C_r
 			print 'dXe = ', dXedx
 			self.check11 = 1
-
+		#print dXedx
 		return dXedx
 
 	def Diff_eq_tau(self, tau, x_0):
@@ -266,18 +274,20 @@ class time_mod():
 		Uses Saha equation if X_e > 0.99, else uses Peebles equation
 		"""
 		n_b = self.Get_n_b(x_0)
-		#self.X_e = self.Saha_equation(x_0)
-		#self.X_e = integrate.odeint(self.Peebles_equation, self.X_e, x_0)[0][0]
-		#if self.X_e_counter == 1:
-		
+		Exact = self.find_nearest(self.x_eta, x_0)
+		i = self.x_eta.tolist().index(Exact)
+		#print 'x0 ', x_0
+		"""
 		if self.X_e > 0.99:
 			self.X_e = self.Saha_equation(x_0)
+			#print 'Saha gives, ', self.Saha_equation(x_0)
 		else:
 			self.X_e = integrate.odeint(self.Peebles_equation, self.X_e, x_0)[0][0]
-			#print self.X_e
-		#print self.X_e
+			#print 'Peeble gives, ', integrate.odeint(self.Peebles_equation, self.X_e, x_0)[0][0]
+		"""
 		#self.X_e_array.append(self.X_e)
-		dTaudx = - self.X_e*n_b*sigma_T/self.Get_Hubble_param(x_0)
+		#print self.X_e
+		dTaudx = - self.X_e_array2[i]*n_b*sigma_T/self.Get_Hubble_param(x_0)
 		#self.X_e_counter = 1
 		return dTaudx
 
@@ -290,53 +300,44 @@ class time_mod():
 				X_e_array.append(self.Saha_equation(self.x_eta[i]))
 			else:
 				PeebleXe = integrate.odeint(self.Peebles_equation, X_e_array[i], self.x_eta[i:])
-				Peeble = True
 				break
-		if Peeble:
-			PeebleXe2 = []
-			for i in range(0, len(PeebleXe)-1):
-				if np.isnan(PeebleXe[i][0]):
-					print 'Nan values encountered'
-					break
-				PeebleXe2.append(PeebleXe[i][0])
-			print 'PeebleXe2', len(PeebleXe2)
-			print len(PeebleXe2[:])
-			print len(X_e_array)
-			print len(PeebleXe2[len(X_e_array):])+len(X_e_array)
-			self.X_e_array2 = np.concatenate([np.array(X_e_array),np.array(PeebleXe2)])
-			
-			plt.semilogy(self.x_eta[:len(self.X_e_array2)], self.X_e_array2)
-		else:
-			plt.semilogy(self.x_eta, X_e_array)
-		plt.xlabel('$x$')
-		plt.ylabel('$X_e$')
-		plt.show()
-
+		PeebleXe2 = []
+		for i in range(0, len(PeebleXe)-1):
+			if np.isnan(PeebleXe[i][0]):
+				print 'Nan values encountered'
+				break
+			PeebleXe2.append(PeebleXe[i][0])
+		#print 'PeebleXe2', np.array(PeebleXe2)
+		self.X_e_array2 = np.concatenate([np.array(X_e_array),np.array(PeebleXe2)])
+		
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
 		#x_eta_new, eta_new = self.Get_eta(self.x_eta, self.ScipyEta, x_start, x_end, n_interp_points)
-		#print self.x_tau
-		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)
-		#Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_eta)
+		#print self.x_eta
+		self.Calculate_Xe()
+		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau, hmax=-(self.x_tau[-1] - self.x_tau[0])/(self.n_eta-1.0))
+		
+		plt.semilogy(self.x_eta[:len(self.X_e_array2)], self.X_e_array2)
+		plt.xlabel('$x$')
+		plt.ylabel('$X_e$')
+
+		plt.figure()
 		plt.semilogy(self.x_tau, Taus)
 		plt.xlabel('x')
 		plt.ylabel(r'$\tau$')
 		plt.title('Plot of the optical depth as a function of $x=\ln(a)$')
-	
-		#plt.figure()
-		#print len(np.array(self.X_e_array))
-		#plt.plot(self.x_tau, )
+		
 		plt.show()
-
 		if self.savefig == 1:
 			a = 1
 		else:
 			plt.show()
 
 solver = time_mod(savefig=0)
-solver.Plot_results(100)
-#solver.Calculate_Xe()
+#solver.Plot_results(100)
+solver.Calculate_Xe()
 
 #tester = Redshift_mod(savefig=0)
 #tester.Test_XE()
+
