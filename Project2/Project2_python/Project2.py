@@ -146,12 +146,14 @@ class time_mod():
 		dEtada = c/(self.Get_Hubble_prime(x_0))
 		return dEtada
 
-	def Get_eta(self, x_values, eta_values, x_start, x_end, n_points):
-		""" Cubic spline interpolation, zeroth derivative. Returns interpolated eta for a given range of x-values """
-		Temp_interp = interpolate.splrep(x_values, eta_values)
+	def Cubic_Spline(self, x_values, y_values, x_start, x_end, n_points):
+		""" 
+		Cubic spline interpolation, zeroth derivative. Returns interpolated values of any variables, for a given range of x-values
+		"""
+		Temp_interp = interpolate.splrep(x_values, y_values)
 		x_new = np.linspace(x_start, x_end, n_points)
-		eta_new = interpolate.splev(x_new, Temp_interp, der=0)
-		return x_new, eta_new
+		y_new = interpolate.splev(x_new, Temp_interp, der=0)
+		return x_new, y_new
 
 	def Spline_DoubleDerivative(self, x_values, eta_values):
 		""" 
@@ -163,15 +165,6 @@ class time_mod():
 		etaDoubleDer[0] = 0
 		etaDoubleDer[-1] = 0
 		return etaDoubleDer
-
-	def Cubic_Spline(self, x_values, y_values, x_start, x_end, n_points):
-		""" 
-		Cubic spline interpolation, zeroth derivative. Returns interpolated values of any variables, for a given range of x-values
-		"""
-		Temp_interp = interpolate.splrep(x_values, y_values)
-		x_new = np.linspace(x_start, x_end, n_points)
-		y_new = interpolate.splev(x_new, Temp_interp, der=0)
-		return x_new, y_new
 
 	def Get_Index_Interpolation(self, X_init, X_end):
 		""" 
