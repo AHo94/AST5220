@@ -46,12 +46,12 @@ rhoCrit_factor = 3.0/(8*np.pi*G_grav)							# Used for critical density at arbit
 # Constant used for Peebles equation and some constant factors that can be precalculated
 
 Lambda_2sto1s = 8.227
-alpha_factor = ((64*np.pi)/(np.sqrt(27*np.pi)))*(alpha/m_e)**2*(hbar**2/c)
-beta_factor = ((m_e*T_0*k_b)/(2.0*np.pi))**(3.0/2.0)*(1.0/hbar**3)
+alpha_factor = ((64*np.pi)/(np.sqrt(27*np.pi)))*((alpha/m_e)**2)*(hbar**2/c)
+beta_factor = (((m_e*T_0*k_b)/(2.0*np.pi))**(3.0/2.0))*(1.0/hbar**3)
 beta2_factor = alpha_factor*beta_factor
-Lambda_alpha_factor = (3*epsilon_0/(hbar*c))**3/(8*np.pi)**2
+Lambda_alpha_factor = ((3.0*epsilon_0/(hbar*c))**3)/(8*np.pi)**2
 EpsTemp_factor = epsilon_0/(k_b*T_0)
-K_factor = np.sqrt(epsilon_0)*(k_b/(hbar*c))*(m_e/(2*np.pi))**(3.0/2.0)*T_0*(alpha/m_e)**2*(64*np.pi/(np.sqrt(27*np.pi)))
+K_factor = np.sqrt(epsilon_0)*((k_b/(hbar*c))*(m_e/(2*np.pi))**(3.0/2.0))*T_0*(alpha/m_e)**2*(64*np.pi/(np.sqrt(27*np.pi)))
 """
 Saha_b_factor = ((m_e*T_0)/(2*np.pi))**(3.0/2.0)
 Lambda_2sto1s = 8.227
@@ -192,10 +192,10 @@ class time_mod():
 
 	def Get_n_b(self, x):
 		""" Calculate n_b (or n_H) at a given time """
-		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x)
+		#Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x)
 		#H = self.Get_Hubble_param(x)		
 		#rho_c = rhoCrit_factor*H**2	
-		n_b = Om_b*rho_c0*np.exp(-3.0*x)/m_H
+		n_b = Omega_b*rho_c0*np.exp(-3.0*x)/m_H
 		return n_b
 
 	def Saha_equation(self, x):
@@ -335,8 +335,8 @@ class time_mod():
 			plt.show()
 
 solver = time_mod(savefig=0)
-#solver.Plot_results(100)
-solver.Calculate_Xe()
+solver.Plot_results(100)
+#solver.Calculate_Xe()
 
 #tester = Redshift_mod(savefig=0)
 #tester.Test_XE()
