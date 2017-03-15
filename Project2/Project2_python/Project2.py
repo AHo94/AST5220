@@ -44,7 +44,6 @@ Saha_b_factor = ((m_e*T_0*k_b)/(2*np.pi*hbar**2))**(3.0/2.0)		# Factor in front 
 rhoCrit_factor = 3.0/(8*np.pi*G_grav)							# Used for critical density at arbitrary times
 
 # Constant used for Peebles equation and some constant factors that can be precalculated
-
 Lambda_2sto1s = 8.227
 alpha_factor = ((64*np.pi)/(np.sqrt(27*np.pi)))*((alpha/m_e)**2)*(hbar**2/c)
 beta_factor = (((m_e*T_0*k_b)/(2.0*np.pi))**(3.0/2.0))*(1.0/hbar**3)
@@ -181,7 +180,7 @@ class time_mod():
 		return EtaIndex1, EtaIndex2
 
 	def Get_n_b(self, x):
-		""" Calculate n_b (or n_H) at a given time """
+		""" Calculate n_b (or n_H) at a given 'time' x """
 		#Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x)
 		#H = self.Get_Hubble_param(x)		
 		#rho_c = rhoCrit_factor*H**2	
@@ -246,15 +245,6 @@ class time_mod():
 			self.check11 = 1
 		return dXedx
 
-	def Diff_eq_tau(self, tau, x_0):
-		""" 
-		Solves the differential equation of tau. This is the right hand side of the equation
-		Uses Saha equation if X_e > 0.99, else uses Peebles equation
-		"""
-		i = np.searchsorted(self.x_eta, x_0, side="left")
-		dTaudx = - self.n_e[i]*sigma_T*c/self.Get_Hubble_param(x_0)
-		return dTaudx
-
 	def Calculate_Xe(self):
 		X_e = 1
 		X_e_array = [X_e]
@@ -273,6 +263,15 @@ class time_mod():
 			PeebleXe2.append(PeebleXe[i][0])
 		self.X_e_array2 = np.concatenate([np.array(X_e_array),np.array(PeebleXe2)])	# Merges arrays
 
+	def Diff_eq_tau(self, tau, x_0):
+		""" 
+		Solves the differential equation of tau. This is the right hand side of the equation
+		Uses Saha equation if X_e > 0.99, else uses Peebles equation
+		"""
+		i = np.searchsorted(self.x_eta, x_0, side="left")
+		dTaudx = - self.n_e[i]*sigma_T*c/self.Get_Hubble_param(x_0)
+		return dTaudx
+
 	def Visibility_func(self, x, tau, tauDerv):
 		""" Computes the visibility function (tilde) """
 		g = np.zeros(len(tau))
@@ -286,7 +285,7 @@ class time_mod():
 		self.Calculate_Xe()
 		self.n_e = self.X_e_array2*self.Get_n_b(self.x_eta)
 		x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), x_start, x_end, n_interp_points)
-		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]#, hmax=-(self.x_tau[-1] - self.x_tau[0])/(self.n_eta-1.0))
+		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
 		TauDerivative = self.Spline_Derivative(self.x_eta, Taus, derivative=1)
 		TauDoubleDer = self.Spline_Derivative(self.x_eta, Taus, derivative=2)
 		g_tilde = self.Visibility_func(self.x_eta, Taus, TauDerivative)
@@ -331,14 +330,14 @@ class time_mod():
 		fig5 = plt.figure()
 		ax5 = plt.subplot(111)
 		plt.hold("on")
-		ax5.plot(self.x_eta, g_tilde, 'b-', label=r"Zeroth derivative $g$")
-		ax5.plot(self.x_eta, g_tildeDerivative/10.0, 'r-', label=r"First derivative $g'/10$")
-		ax5.plot(self.x_eta, g_tildeDoubleDer/300.0, 'g-', label=r"Second derivative $g''/300$")
+		ax5.plot(self.x_eta, g_tilde, 'b-', label=r"$g$")
+		ax5.plot(self.x_eta, g_tildeDerivative/10.0, 'r-', label=r"$g'/10$")
+		ax5.plot(self.x_eta, g_tildeDoubleDer/300.0, 'g-', label=r"$g''/300$")
 		ax5.set_xlim([-8,-6])
 		plt.xlabel('x')
 		plt.ylabel(r'$\tilde{g}$')
 		plt.title(r"The visibility function and its derivatives")
-		ax5.legend(loc='upper right', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
+		ax5.legend(loc='lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
 		
 		if self.savefig == 1:
 			fig1.savefig('../Plots/ElectronNumber.pdf')
@@ -347,13 +346,10 @@ class time_mod():
 			fig4.savefig('../Plots/FirstDerivativeTau.pdf')
 			fig5.savefig('../Plots/VisibilityFunc.pdf')
 		else:
-			#a = 1
 			plt.show()
 
 solver = time_mod(savefig=1)
 solver.Plot_results(100)
 #solver.Calculate_Xe()
 
-#tester = Redshift_mod(savefig=0)
-#tester.Test_XE()
 
