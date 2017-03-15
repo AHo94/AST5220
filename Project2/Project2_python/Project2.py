@@ -45,12 +45,12 @@ rhoCrit_factor = 3.0/(8*np.pi*G_grav)							# Used for critical density at arbit
 
 # Constant used for Peebles equation and some constant factors that can be precalculated
 Lambda_2sto1s = 8.227
-alpha_factor = ((64*np.pi)/(np.sqrt(27*np.pi)))*((alpha/m_e)**2)*(hbar**2/c)
-beta_factor = (((m_e*T_0*k_b)/(2.0*np.pi))**(3.0/2.0))*(1.0/hbar**3)
+alpha_factor = ((64.0*np.pi)/(np.sqrt(27.0*np.pi)))*((alpha/m_e)**2.0)*(hbar**2.0/c)
+beta_factor = (((m_e*T_0*k_b)/(2.0*np.pi))**(3.0/2.0))*(1.0/hbar**3.0)
 beta2_factor = alpha_factor*beta_factor
-Lambda_alpha_factor = ((3.0*epsilon_0/(hbar*c))**3)/(8*np.pi)**2
+Lambda_alpha_factor = ((3.0*epsilon_0/(hbar*c))**3.0)/(8*np.pi)**2.0
 EpsTemp_factor = epsilon_0/(k_b*T_0)
-K_factor = np.sqrt(epsilon_0)*((k_b/(hbar*c))*(m_e/(2*np.pi))**(3.0/2.0))*T_0*(alpha/m_e)**2*(64*np.pi/(np.sqrt(27*np.pi)))
+K_factor = np.sqrt(epsilon_0)*((k_b/(hbar*c))*(m_e/(2.0*np.pi))**(3.0/2.0))*T_0*(alpha/m_e)**2.0*(64.0*np.pi/(np.sqrt(27.0*np.pi)))
 """
 Saha_b_factor = ((m_e*T_0)/(2*np.pi))**(3.0/2.0)
 Lambda_2sto1s = 8.227
@@ -102,12 +102,8 @@ class time_mod():
 		self.x_eta_rec = np.linspace(self.x_start_rec, 0, self.n_eta)
 		self.z_eta = np.linspace(1.0/self.a_init - 1, 0, self.n_eta)
 		self.z_eta_rec = np.linspace(self.z_start_rec, 0, self.n_eta)
-		#self.X_e = self.Saha_equation(self.x_eta_init)
-		self.X_e = 1
-		self.X_e_counter = 0
-		self.X_e_array = []
 
-		self.check11 = 0 	# Used to print out stuff
+		self.check11 = 0 	# Used to print out stuff]
 
 	def Get_Hubble_param(self, x):
 		""" Function returns the Hubble parameter for a given x """
@@ -223,11 +219,11 @@ class time_mod():
 		
 		phi2 = 0.448*np.log(exp_factor)
 		alpha2 = alpha_factor*np.sqrt(exp_factor)*phi2
-		beta = alpha2*beta_factor*np.exp(-3.0*x_0/2.0)*np.exp(-exp_factor)
-		beta2 = alpha2*beta_factor*np.exp(-3.0*x_0/2.0)*np.exp(-exp_factor/4.0)
+		beta = alpha2*beta_factor*np.exp(-3.0*x_0/2.0-exp_factor)#*np.exp(-exp_factor)
+		beta2 = alpha2*beta_factor*np.exp(-3.0*x_0/2.0-exp_factor/4.0)#*np.exp(-exp_factor/4.0)
 		Lambda_alpha = H*Lambda_alpha_factor/((1.0-X_e)*n_b)
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
-		dXedx = (C_r/H)*(beta*(1-X_e) - n_b*alpha2*X_e**2)
+		dXedx = (C_r/H)*(beta*(1.0-X_e) - n_b*alpha2*X_e**2.0)
 		
 		
 		if self.check11 == 0:
@@ -255,6 +251,7 @@ class time_mod():
 			else:
 				PeebleXe = integrate.odeint(self.Peebles_equation, X_e_array[i], self.x_eta[i:])
 				break
+
 		PeebleXe2 = []
 		for i in range(0, len(PeebleXe)-1):
 			if np.isnan(PeebleXe[i][0]):
@@ -330,13 +327,13 @@ class time_mod():
 		fig5 = plt.figure()
 		ax5 = plt.subplot(111)
 		plt.hold("on")
-		ax5.plot(self.x_eta, g_tilde, 'b-', label=r"$g$")
-		ax5.plot(self.x_eta, g_tildeDerivative/10.0, 'r-', label=r"$g'/10$")
-		ax5.plot(self.x_eta, g_tildeDoubleDer/300.0, 'g-', label=r"$g''/300$")
+		ax5.plot(self.x_eta, g_tilde, 'b-', label=r"$\tilde{g}$")
+		ax5.plot(self.x_eta, g_tildeDerivative/10.0, 'r-', label=r"$\tilde{g}'/10$")
+		ax5.plot(self.x_eta, g_tildeDoubleDer/300.0, 'g-', label=r"$\tilde{g}''/300$")
 		ax5.set_xlim([-8,-6])
 		plt.xlabel('x')
 		plt.ylabel(r'$\tilde{g}$')
-		plt.title(r"The visibility function and its derivatives")
+		plt.title(r"The visibility function $\tilde{g(x)}$ and its derivatives")
 		ax5.legend(loc='lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
 		
 		if self.savefig == 1:
@@ -348,7 +345,7 @@ class time_mod():
 		else:
 			plt.show()
 
-solver = time_mod(savefig=1)
+solver = time_mod(savefig=0)
 solver.Plot_results(100)
 #solver.Calculate_Xe()
 
