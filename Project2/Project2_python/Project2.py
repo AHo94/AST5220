@@ -297,6 +297,15 @@ class time_mod():
 		plt.ylabel('$X_e$')
 		plt.title('Number of free electrons $X_e$ as a function of $x=\ln(a)$')
 
+		fig12 = plt.figure()
+		ax12 = plt.subplot(111)
+		ax12.semilogy(self.x_eta, self.X_e_array2)
+		ax1.set_ylim([10**(-4), 1.3])
+		ax1.set_xlim([-7.5, -5])
+		plt.xlabel('$x$')
+		plt.ylabel('$X_e$')
+		plt.title('Number of free electrons $X_e$, zoomed in')
+
 		fig2 = plt.figure()
 		ax2 = plt.subplot(111)
 		ax2.semilogy(self.x_eta, Taus)
@@ -338,6 +347,7 @@ class time_mod():
 		
 		if self.savefig == 1:
 			fig1.savefig('../Plots/ElectronNumber.pdf')
+			fig12.savefig('../Plots/ElectronNumberZoomed.pdf')
 			fig2.savefig('../Plots/OpticalDepth.pdf')
 			fig3.savefig('../Plots/InterpolatedElectronDensity.pdf')
 			fig4.savefig('../Plots/FirstDerivativeTau.pdf')
@@ -345,8 +355,6 @@ class time_mod():
 		else:
 			plt.show()
 
-solver = time_mod(savefig=0)
+solver = time_mod(savefig=1)
 solver.Plot_results(100)
 #solver.Calculate_Xe()
-
-
