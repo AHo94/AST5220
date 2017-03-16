@@ -46,7 +46,6 @@ rhoCrit_factor = 3.0/(8*np.pi*G_grav)							# Used for critical density at arbit
 Lambda_2sto1s = 8.227
 alpha_factor = ((64.0*np.pi)/(np.sqrt(27.0*np.pi)))*((alpha/m_e)**2.0)*(hbar**2.0/c)
 beta_factor = (((m_e*T_0*k_b)/(2.0*np.pi))**(3.0/2.0))*(1.0/hbar**3.0)
-beta2_factor = alpha_factor*beta_factor
 Lambda_alpha_factor = ((3.0*epsilon_0/(hbar*c))**3.0)/(8*np.pi)**2.0
 EpsTemp_factor = epsilon_0/(k_b*T_0)
 
@@ -88,7 +87,7 @@ class time_mod():
 
 		# Set up grid of x-values for the integrated eta
 		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
-		self.x_tau = np.linspace(self.x_eta_end, self.x_eta_init, self.n_eta)
+		self.x_tau = np.linspace(self.x_eta_end, self.x_eta_init, self.n_eta)	# Reversed array, used to calculate tau
 
 	def Get_Hubble_param(self, x):
 		""" Function returns the Hubble parameter for a given x """
@@ -108,8 +107,8 @@ class time_mod():
 		Will first have to calculate the energy densities today, which is then used to calculate the energy density
 		for an arbitrary time. See report 1
 		"""
-		H = self.Get_Hubble_param(x)		# Hubble parameter for an arbitrary time
-		rho_c = rhoCrit_factor*H**2			# Critical density for an arbitrary time
+		H = self.Get_Hubble_param(x)
+		rho_c = rhoCrit_factor*H**2
 		Omega_m_z = rho_m0*np.exp(-3*x)/rho_c
 		Omega_b_z = rho_b0*np.exp(-3*x)/rho_c
 		Omega_r_z = rho_r0*np.exp(-4*x)/rho_c
@@ -167,8 +166,7 @@ class time_mod():
 
 	def Saha_equation(self, x):
 		""" 
-		Solves the Saha equation. Assuming we have the polynomial in the form a*X_e^2 + b*X_e + c = 0
-		Uses numpy.roots solver. Only returns the positive valued X_e 
+		Solves the Saha equation. Uses numpy.roots solver, see report. Only returns the positive valued X_e 
 		"""
 		Exponential = np.exp(x)
 		a = 1
@@ -214,7 +212,7 @@ class time_mod():
 	def Diff_eq_tau(self, tau, x_0):
 		""" 
 		Solves the differential equation of tau. This is the right hand side of the equation
-		Uses Saha equation if X_e > 0.99, else uses Peebles equation
+		Finds the n_e value that corresponds to the x value, since we use a reversed x-array.
 		"""
 		i = np.searchsorted(self.x_eta, x_0, side="left")
 		dTaudx = - self.n_e[i]*sigma_T*c/self.Get_Hubble_param(x_0)
@@ -309,5 +307,5 @@ class time_mod():
 		else:
 			plt.show()
 
-solver = time_mod(savefig=0)
+solver = time_mod(savefig=1)
 solver.Plot_results(100)
