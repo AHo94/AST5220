@@ -49,7 +49,6 @@ beta_factor = (((m_e*T_0*k_b)/(2.0*np.pi))**(3.0/2.0))*(1.0/hbar**3.0)
 beta2_factor = alpha_factor*beta_factor
 Lambda_alpha_factor = ((3.0*epsilon_0/(hbar*c))**3.0)/(8*np.pi)**2.0
 EpsTemp_factor = epsilon_0/(k_b*T_0)
-K_factor = np.sqrt(epsilon_0)*((k_b/(hbar*c))*(m_e/(2.0*np.pi))**(3.0/2.0))*T_0*(alpha/m_e)**2.0*(64.0*np.pi/(np.sqrt(27.0*np.pi)))
 
 class time_mod():
 	def __init__(self, savefig):
@@ -310,5 +309,5 @@ class time_mod():
 		else:
 			plt.show()
 
-solver = time_mod(savefig=1)
+solver = time_mod(savefig=0)
 solver.Plot_results(100)
