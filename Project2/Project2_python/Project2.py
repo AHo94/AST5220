@@ -32,7 +32,6 @@ alpha = 7.29735308e-3
 hbar = 1.05457148e-34
 k_b = 1.3806503e-23
 
-
 # Density Parameters today
 rho_m0 = Omega_m*rho_c0
 rho_b0 = Omega_b*rho_c0
@@ -51,14 +50,6 @@ beta2_factor = alpha_factor*beta_factor
 Lambda_alpha_factor = ((3.0*epsilon_0/(hbar*c))**3.0)/(8*np.pi)**2.0
 EpsTemp_factor = epsilon_0/(k_b*T_0)
 K_factor = np.sqrt(epsilon_0)*((k_b/(hbar*c))*(m_e/(2.0*np.pi))**(3.0/2.0))*T_0*(alpha/m_e)**2.0*(64.0*np.pi/(np.sqrt(27.0*np.pi)))
-"""
-Saha_b_factor = ((m_e*T_0)/(2*np.pi))**(3.0/2.0)
-Lambda_2sto1s = 8.227
-alpha_factor = ((64*np.pi)/(np.sqrt(27*np.pi)))*(alpha/m_e)**2
-beta_factor = (m_e*T_0/(2*np.pi))**(3.0/2.0)
-Lambda_alpha_factor = (3*epsilon_0)**3/(8*np.pi)**2
-EpsTemp_factor = epsilon_0/T_0
-"""
 
 class time_mod():
 	def __init__(self, savefig):
@@ -99,11 +90,6 @@ class time_mod():
 		# Set up grid of x-values for the integrated eta
 		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
 		self.x_tau = np.linspace(self.x_eta_end, self.x_eta_init, self.n_eta)
-		self.x_eta_rec = np.linspace(self.x_start_rec, 0, self.n_eta)
-		self.z_eta = np.linspace(1.0/self.a_init - 1, 0, self.n_eta)
-		self.z_eta_rec = np.linspace(self.z_start_rec, 0, self.n_eta)
-
-		self.check11 = 0 	# Used to print out stuff]
 
 	def Get_Hubble_param(self, x):
 		""" Function returns the Hubble parameter for a given x """
@@ -177,9 +163,6 @@ class time_mod():
 
 	def Get_n_b(self, x):
 		""" Calculate n_b (or n_H) at a given 'time' x """
-		#Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x)
-		#H = self.Get_Hubble_param(x)		
-		#rho_c = rhoCrit_factor*H**2	
 		n_b = Omega_b*rho_c0*np.exp(-3.0*x)/m_H
 		return n_b
 
@@ -189,7 +172,6 @@ class time_mod():
 		Uses numpy.roots solver. Only returns the positive valued X_e 
 		"""
 		Exponential = np.exp(x)
-		
 		a = 1
 		b = (Saha_b_factor/self.Get_n_b(x))*np.exp(-EpsTemp_factor*Exponential - 3.0*x/2.0)
 		c = -b
@@ -205,18 +187,6 @@ class time_mod():
 		n_b = self.Get_n_b(x_0)
 		H = self.Get_Hubble_param(x_0)
 		exp_factor = EpsTemp_factor*np.exp(x_0)
-		#T_b = T_0/np.exp(x_0)
-		#exp_factor = epsilon_0/(k_b*T_b)
-		"""
-		phi2 = 0.448*np.log(exp_factor)
-		alpha2 = alpha_factor*np.sqrt(exp_factor)*phi2
-		beta = alpha2*beta_factor*np.exp(-exp_factor)*np.exp(-3.0*x_0/2.0)
-		beta2 = beta*np.exp(3.0*exp_factor/4.0)
-		Lambda_alpha = H*Lambda_alpha_factor/((1.0-X_e)*n_b)
-		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
-		dXedx = (C_r/H)*(beta*(1-X_e) - n_b*alpha2*X_e**2)
-		"""
-		
 		phi2 = 0.448*np.log(exp_factor)
 		alpha2 = alpha_factor*np.sqrt(exp_factor)*phi2
 		beta = alpha2*beta_factor*np.exp(-3.0*x_0/2.0-exp_factor)#*np.exp(-exp_factor)
@@ -225,20 +195,6 @@ class time_mod():
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
 		dXedx = (C_r/H)*(beta*(1.0-X_e) - n_b*alpha2*X_e**2.0)
 		
-		
-		if self.check11 == 0:
-			print x_0
-			print beta_factor*np.exp(-3.0*x_0/2.0)*np.exp(-exp_factor)
-			print 'T = ', T_0*np.exp(-x_0)
-			print 'Phi2 = ', phi2
-			print 'alpha2 = ', alpha2
-			print 'beta = ', beta
-			print 'beta2 = ', beta2
-			print 'n_b = ', n_b 
-			print 'Lambda_alpha = ', Lambda_alpha 
-			print 'Cr = ', C_r
-			print 'dXe = ', dXedx
-			self.check11 = 1
 		return dXedx
 
 	def Calculate_Xe(self):
@@ -357,4 +313,3 @@ class time_mod():
 
 solver = time_mod(savefig=1)
 solver.Plot_results(100)
-#solver.Calculate_Xe()
