@@ -189,8 +189,8 @@ class time_mod():
 		exp_factor = EpsTemp_factor*np.exp(x_0)
 		phi2 = 0.448*np.log(exp_factor)
 		alpha2 = alpha_factor*np.sqrt(exp_factor)*phi2
-		beta = alpha2*beta_factor*np.exp(-3.0*x_0/2.0-exp_factor)#*np.exp(-exp_factor)
-		beta2 = alpha2*beta_factor*np.exp(-3.0*x_0/2.0-exp_factor/4.0)#*np.exp(-exp_factor/4.0)
+		beta = alpha2*beta_factor*np.exp(-3.0*x_0/2.0-exp_factor)
+		beta2 = alpha2*beta_factor*np.exp(-3.0*x_0/2.0-exp_factor/4.0)
 		Lambda_alpha = H*Lambda_alpha_factor/((1.0-X_e)*n_b)
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
 		dXedx = (C_r/H)*(beta*(1.0-X_e) - n_b*alpha2*X_e**2.0)
