@@ -96,18 +96,18 @@ class time_mod():
 		return H_0*np.sqrt((Omega_b + Omega_m)*np.exp(-3*x) + Omega_r*np.exp(-4*x) + Omega_lambda)
 
 	def Get_Hubble_prime(self, x):
-		""" Function returns the scaled Hubble parameter for a given x value. See report """
+		""" Function returns the scaled Hubble parameter for a given x value. See report 1 """
 		return H_0*np.sqrt((Omega_b + Omega_m)*np.exp(-x) + Omega_r*np.exp(-2*x) + Omega_lambda*np.exp(2*x))
 
 	def Get_Hubble_prime_derivative(self, x):
-		""" Function returns the derivative of the scaled Hubble parameter. See report """
+		""" Function returns the derivative of the scaled Hubble parameter. See report 1 """
 		return -H_0**2*(0.5*(Omega_b + Omega_m)*np.exp(-x) + Omega_r*np.exp(-2*x) - Omega_lambda*np.exp(2*x))/(Get_Hubble_prime(x))
 
 	def Get_Omegas(self, x):
 		""" 
 		Calculates the omegas as a function of redshift
 		Will first have to calculate the energy densities today, which is then used to calculate the energy density
-		for an arbitrary time. See report
+		for an arbitrary time. See report 1
 		"""
 		H = self.Get_Hubble_param(x)		# Hubble parameter for an arbitrary time
 		rho_c = rhoCrit_factor*H**2			# Critical density for an arbitrary time
@@ -194,27 +194,23 @@ class time_mod():
 		Lambda_alpha = H*Lambda_alpha_factor/((1.0-X_e)*n_b)
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
 		dXedx = (C_r/H)*(beta*(1.0-X_e) - n_b*alpha2*X_e**2.0)
-		
 		return dXedx
 
 	def Calculate_Xe(self):
-		X_e = 1
-		X_e_array = [X_e]
+		""" Function that calculates X_e. Initial condition X_e = 1 """
+		X_e_TempArray = [1]
 		Peeble = False
 		for i in range(0,self.n_eta-1):
-			if X_e_array[i] > 0.99:
-				X_e_array.append(self.Saha_equation(self.x_eta[i]))
+			if X_e_TempArray[i] > 0.99:
+				X_e_TempArray.append(self.Saha_equation(self.x_eta[i]))
 			else:
-				PeebleXe = integrate.odeint(self.Peebles_equation, X_e_array[i], self.x_eta[i:])
+				PeebleXe = integrate.odeint(self.Peebles_equation, X_e_TempArray[i], self.x_eta[i:])
 				break
 
 		PeebleXe2 = []
 		for i in range(0, len(PeebleXe)-1):
-			if np.isnan(PeebleXe[i][0]):
-				print 'Nan values encountered'
-				break
 			PeebleXe2.append(PeebleXe[i][0])
-		self.X_e_array2 = np.concatenate([np.array(X_e_array),np.array(PeebleXe2)])	# Merges arrays
+		self.X_e_array = np.concatenate([np.array(X_e_TempArray),np.array(PeebleXe2)])	# Merges arrays
 
 	def Diff_eq_tau(self, tau, x_0):
 		""" 
@@ -235,19 +231,22 @@ class time_mod():
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
+		# Calculate X_e, n_e and interpolates n_e as a test
 		self.Calculate_Xe()
-		self.n_e = self.X_e_array2*self.Get_n_b(self.x_eta)
+		self.n_e = self.X_e_array*self.Get_n_b(self.x_eta)
 		x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), x_start, x_end, n_interp_points)
+		# Calculates tau and interpolates the first and second derivatives
 		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
 		TauDerivative = self.Spline_Derivative(self.x_eta, Taus, derivative=1)
 		TauDoubleDer = self.Spline_Derivative(self.x_eta, Taus, derivative=2)
+		# Calculate g, and interpolates the first and second derivatives
 		g_tilde = self.Visibility_func(self.x_eta, Taus, TauDerivative)
 		g_tildeDerivative = self.Spline_Derivative(self.x_eta, g_tilde, derivative=1)
 		g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, g_tilde, derivative=2)
 
 		fig1 = plt.figure()
 		ax1 = plt.subplot(111)
-		ax1.semilogy(self.x_eta, self.X_e_array2)
+		ax1.semilogy(self.x_eta, self.X_e_array)
 		ax1.set_ylim([10**(-4), 1.3])
 		plt.xlabel('$x$')
 		plt.ylabel('$X_e$')
@@ -255,7 +254,7 @@ class time_mod():
 
 		fig12 = plt.figure()
 		ax12 = plt.subplot(111)
-		ax12.semilogy(self.x_eta, self.X_e_array2)
+		ax12.semilogy(self.x_eta, self.X_e_array)
 		ax12.set_ylim([10**(-4), 1.3])
 		ax12.set_xlim([-7.5, -5])
 		plt.xlabel('$x$')
