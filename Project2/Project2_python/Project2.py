@@ -121,7 +121,7 @@ class time_mod():
 		dEtada = c/(self.Get_Hubble_prime(x_0))
 		return dEtada
 
-	def Cubic_Spline(self, x_values, y_values, x_start, x_end, n_points):
+	def Cubic_Spline(self, x_values, y_values, n_points, x_start=np.log(1e-10), x_end=0):
 		""" 
 		Cubic spline interpolation, zeroth derivative. Returns interpolated values of any variables, for a given range of x-values
 		"""
@@ -130,12 +130,13 @@ class time_mod():
 		y_new = interpolate.splev(x_new, Temp_interp, der=0)
 		return x_new, y_new
 
-	def Spline_Derivative(self, x_values, y_values, derivative):
+	def Spline_Derivative(self, x_values, y_values, n_points, derivative, x_start=np.log(1e-11), x_end=0):
 		""" Spline derivative for any functions. Using natural spline """
 		if derivative < 1:
 			raise ValueError("Derivative input in Spline_Derivative less than 1. Use Cubic_spline instead.")
 		Temp_interp = interpolate.splrep(x_values, y_values)
-		yDerivative = interpolate.splev(x_values, Temp_interp, der=derivative)
+		x_new = np.linspace(x_start, x_end, n_points)
+		yDerivative = interpolate.splev(x_new, Temp_interp, der=derivative)
 		yDerivative[0] = 0
 		yDerivative[-1] = 0
 		return yDerivative
@@ -225,21 +226,21 @@ class time_mod():
 			g[i] = -tauDerv[i]*np.exp(-tau[i])
 		return g
 		
-	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
+	def Plot_results(self, n_interp_points, x_start0 = -np.log(1.0 + 1630.4), x_end0 = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
 		# Calculate X_e, n_e and interpolates n_e as a test
 		self.Calculate_Xe()
 		self.n_e = self.X_e_array*self.Get_n_b(self.x_eta)
-		x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), x_start, x_end, n_interp_points)
+		x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), n_interp_points, x_start=x_start0, x_end=x_end0)
 		# Calculates tau and interpolates the first and second derivatives
 		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
-		TauDerivative = self.Spline_Derivative(self.x_eta, Taus, derivative=1)
-		TauDoubleDer = self.Spline_Derivative(self.x_eta, Taus, derivative=2)
+		TauDerivative = self.Spline_Derivative(self.x_eta, Taus, self.n_eta, derivative=1)
+		TauDoubleDer = self.Spline_Derivative(self.x_eta, Taus, self.n_eta, derivative=2)
 		# Calculate g, and interpolates the first and second derivatives
 		g_tilde = self.Visibility_func(self.x_eta, Taus, TauDerivative)
-		g_tildeDerivative = self.Spline_Derivative(self.x_eta, g_tilde, derivative=1)
-		g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, g_tilde, derivative=2)
+		g_tildeDerivative = self.Spline_Derivative(self.x_eta, g_tilde, self.n_eta, derivative=1)
+		g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, g_tilde, self.n_eta, derivative=2)
 
 		fig1 = plt.figure()
 		ax1 = plt.subplot(111)
@@ -280,7 +281,7 @@ class time_mod():
 		plt.hold("on")
 		ax5.semilogy(self.x_eta, Taus, 'b-', label=r'Zeroth derivative $\tau$')
 		ax5.semilogy(self.x_eta, np.fabs(TauDerivative), 'r-', label=r"First derivative $|\tau'|$")
-		ax5.semilogy(self.x_eta, np.fabs(TauDoubleDer)/200, 'g-', label=r"Second derivative $|\tau''|$")
+		ax5.semilogy(np.linspace(self.x_eta_init, self.x_eta_end, 200), np.fabs(TauDoubleDer), 'g-', label=r"Second derivative $|\tau''|$")
 		plt.xlabel('$x$')
 		plt.ylabel('$n_e$')
 		plt.title(r"Plot of $\tau$ and $|\tau'|$ as a function of $x=\ln(a)$")
