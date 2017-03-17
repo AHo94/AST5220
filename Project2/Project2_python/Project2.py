@@ -286,5 +286,5 @@ class time_mod():
 		else:
 			plt.show()
 
-solver = time_mod(savefig=0)
+solver = time_mod(savefig=1)
 solver.Plot_results(100)
