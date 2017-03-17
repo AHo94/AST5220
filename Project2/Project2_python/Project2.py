@@ -88,7 +88,6 @@ class time_mod():
 		# Set up grid of x-values for the integrated eta and tau
 		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
 		self.x_tau = np.linspace(self.x_eta_end, self.x_eta_init, self.n_eta)	# Reversed array, used to calculate tau
-		self.z_eta = np.linspace(1.0/self.a_init-1, 0, self.n_eta)
 
 	def Get_Hubble_param(self, x):
 		""" Function returns the Hubble parameter for a given x """
@@ -194,37 +193,6 @@ class time_mod():
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
 		dXedx = (C_r/H)*(beta*(1.0-X_e) - n_b*alpha2*X_e**2.0)
 		return dXedx
-
-	def Saha_equation_Redshift(self, z):
-		""" 
-		Solves the Saha equation in terms of redshift. Uses numpy.roots solver, see report. Only returns the positive valued X_e 
-		"""
-		ScaleFactor = 1.0/(1.0+z)
-		a = 1
-		b = (Saha_b_factor/self.Get_n_b(np.log(ScaleFactor)))*np.exp(-EpsTemp_factor*ScaleFactor)*((1+z)**(3.0/2.0))
-		c = -b
-		X_e = np.roots(np.array([a,b,c]))
-		
-		if X_e[0] > 0:
-			return X_e[0]
-		else:
-			return X_e[1]
-		
-	def Peebles_equation_Redshift(self, X_e, z_0):
-		""" Solves the right hand side of the Peebles equation. Specific for redshift """
-		a = 1.0/(1.0+z_0)
-		n_b = self.Get_n_b(np.log(a))
-		H = self.Get_Hubble_param(np.log(a))
-		exp_factor = EpsTemp_factor*a
-		phi2 = 0.448*np.log(exp_factor)
-		alpha2 = alpha_factor*np.sqrt(exp_factor)*phi2
-		beta = alpha2*beta_factor*np.exp(-exp_factor)*a**(-3.0/2.0)
-		beta2 = alpha2*beta_factor*np.exp(-exp_factor/4.0)*a**(-3.0/2.0)
-		Lambda_alpha = H*Lambda_alpha_factor/((1.0-X_e)*n_b)
-		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
-		dXedz = -(C_r/H)*(beta*(1.0-X_e) - n_b*alpha2*X_e**2.0)/(1+z_0)**3
-		return dXedz
-
 	def Calculate_Xe(self):
 		""" Function that calculates X_e. Initial condition X_e = 1 """
 		X_e_TempArray = [1]
@@ -239,23 +207,6 @@ class time_mod():
 		for i in range(0, len(PeebleXe)-1):
 			PeebleXe2.append(PeebleXe[i][0])
 		self.X_e_array = np.concatenate([np.array(X_e_TempArray),np.array(PeebleXe2)])	# Merges arrays
-
-	def Calculate_Xe_Redshift(self):
-		X_e_TempArray = [1]
-		for i in range(0,self.n_eta-1):
-			if X_e_TempArray[i] > 0.99:
-				X_e_TempArray.append(self.Saha_equation_Redshift(self.z_eta[i]))
-			else:
-				PeebleXe = integrate.odeint(self.Peebles_equation_Redshift, X_e_TempArray[i], self.z_eta[i:])
-				break
-
-		print np.array(X_e_TempArray)
-		PeebleXe2 = []
-		for i in range(0, len(PeebleXe)-1):
-			PeebleXe2.append(PeebleXe[i][0])
-		self.X_e_arrayRedshift = np.concatenate([np.array(X_e_TempArray),np.array(PeebleXe2)])	# Merges arrays	
-		print self.X_e_arrayRedshift	
-
 	def Diff_eq_tau(self, tau, x_0):
 		""" 
 		Solves the differential equation of tau. This is the right hand side of the equation
@@ -275,13 +226,10 @@ class time_mod():
 	def Plot_results(self, n_interp_points, x_start0 = -np.log(1.0 + 1630.4), x_end0 = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
-		# Calculate X_e, n_e and interpolates n_e as a test
-		#self.Calculate_Xe()
-		self.Calculate_Xe_Redshift()
+		# Calculate X_e, and n_e
+		self.Calculate_Xe()
 		self.n_e = self.X_e_array*self.Get_n_b(self.x_eta)
-		#x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), n_interp_points, x_start=x_start0, x_end=x_end0)
 		# Calculates tau and interpolates the first and second derivatives
-		"""
 		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
 		TauDerivative = self.Spline_Derivative(self.x_eta, Taus, self.n_eta, derivative=1)
 		TauDoubleDer = self.Spline_Derivative(self.x_eta, Taus, 200, derivative=2)
@@ -289,25 +237,15 @@ class time_mod():
 		g_tilde = self.Visibility_func(self.x_eta, Taus, TauDerivative)
 		g_tildeDerivative = self.Spline_Derivative(self.x_eta, g_tilde, self.n_eta, derivative=1)
 		g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, g_tilde, self.n_eta, derivative=2)
-		"""
+		
 		fig1 = plt.figure()
 		ax1 = plt.subplot(111)
-		ax1.semilogy(self.z_eta, self.X_e_arrayRedshift)
+		ax1.semilogy(self.x_eta, self.X_e_array)
 		ax1.set_ylim([10**(-4), 1.3])
 		plt.xlabel('$x$')
 		plt.ylabel('$X_e$')
 		plt.title('Number of free electrons $X_e$ as a function of $x=\ln(a)$')
 
-		"""
-		fig11 = plt.figure()
-		ax11 = plt.subplot(111)
-		ax11.semilogy(self.z_eta, self.X_e_arrayRedshift)
-		#ax11.set_ylim([10**(-4), 1.3])
-		plt.xlabel('$x$')
-		plt.ylabel('$X_e$')
-		plt.title('Number of free electrons $X_e$ as a function of redshift $z$')
-		"""
-		"""
 		fig2 = plt.figure()
 		ax2 = plt.subplot(111)
 		ax2.semilogy(self.x_eta, self.X_e_array)
@@ -316,7 +254,7 @@ class time_mod():
 		plt.xlabel('$x$')
 		plt.ylabel('$X_e$')
 		plt.title('Number of free electrons $X_e$, zoomed in')
-		
+		"""				
 		fig3 = plt.figure()
 		ax3 = plt.subplot(111)
 		ax3.semilogy(self.x_eta, Taus)
@@ -335,7 +273,7 @@ class time_mod():
 		plt.title('Computed $n_e$ and interpolated $n_e$')		
 		ax4.legend(loc='upper right', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
 		"""
-		"""
+		
 		fig5 = plt.figure()
 		ax5 = plt.subplot(111)
 		plt.hold("on")
@@ -358,7 +296,7 @@ class time_mod():
 		plt.ylabel(r'$\tilde{g}$')
 		plt.title(r"The visibility function $\tilde{g(x)}$ and its derivatives")
 		ax6.legend(loc='lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
-		"""
+		
 		if self.savefig == 1:
 			fig1.savefig('../Plots/ElectronNumber.pdf')
 			fig2.savefig('../Plots/ElectronNumberZoomed.pdf')
@@ -367,7 +305,6 @@ class time_mod():
 			fig5.savefig('../Plots/FirstDerivativeTau.pdf')
 			fig6.savefig('../Plots/VisibilityFunc.pdf')
 		else:
-			#a=1
 			plt.show()
 
 solver = time_mod(savefig=0)
