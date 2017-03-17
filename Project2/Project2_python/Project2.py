@@ -88,6 +88,7 @@ class time_mod():
 		# Set up grid of x-values for the integrated eta
 		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
 		self.x_tau = np.linspace(self.x_eta_end, self.x_eta_init, self.n_eta)	# Reversed array, used to calculate tau
+		self.z_eta = np.linspace(1.0/(1+self.a_init), 1, self.n_eta)
 
 	def Get_Hubble_param(self, x):
 		""" Function returns the Hubble parameter for a given x """
@@ -130,7 +131,7 @@ class time_mod():
 		y_new = interpolate.splev(x_new, Temp_interp, der=0)
 		return x_new, y_new
 
-	def Spline_Derivative(self, x_values, y_values, n_points, derivative, x_start=np.log(1e-11), x_end=0):
+	def Spline_Derivative(self, x_values, y_values, n_points, derivative, x_start=np.log(1e-10), x_end=0):
 		""" Spline derivative for any functions. Using natural spline """
 		if derivative < 1:
 			raise ValueError("Derivative input in Spline_Derivative less than 1. Use Cubic_spline instead.")
@@ -197,7 +198,6 @@ class time_mod():
 	def Calculate_Xe(self):
 		""" Function that calculates X_e. Initial condition X_e = 1 """
 		X_e_TempArray = [1]
-		Peeble = False
 		for i in range(0,self.n_eta-1):
 			if X_e_TempArray[i] > 0.99:
 				X_e_TempArray.append(self.Saha_equation(self.x_eta[i]))
@@ -209,6 +209,20 @@ class time_mod():
 		for i in range(0, len(PeebleXe)-1):
 			PeebleXe2.append(PeebleXe[i][0])
 		self.X_e_array = np.concatenate([np.array(X_e_TempArray),np.array(PeebleXe2)])	# Merges arrays
+
+	def Calculate_Xe_Redshift(self):
+		X_e_TempArray = [1]
+		for i in range(0,self.n_eta-1):
+			if X_e_TempArray[i] > 0.99:
+				X_e_TempArray.append(self.Saha_equation(np.exp(-self.x_eta[i])-1))
+			else:
+				PeebleXe = integrate.odeint(self.Peebles_equation, X_e_TempArray[i], np.exp(-self.x_eta[i:])-1)
+				break
+
+		PeebleXe2 = []
+		for i in range(0, len(PeebleXe)-1):
+			PeebleXe2.append(PeebleXe[i][0])
+		self.X_e_arrayRedshift = np.concatenate([np.array(X_e_TempArray),np.array(PeebleXe2)])	# Merges arrays		
 
 	def Diff_eq_tau(self, tau, x_0):
 		""" 
@@ -231,12 +245,13 @@ class time_mod():
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
 		# Calculate X_e, n_e and interpolates n_e as a test
 		self.Calculate_Xe()
+		#self.Calculate_Xe_Redshift()
 		self.n_e = self.X_e_array*self.Get_n_b(self.x_eta)
-		x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), n_interp_points, x_start=x_start0, x_end=x_end0)
+		#x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), n_interp_points, x_start=x_start0, x_end=x_end0)
 		# Calculates tau and interpolates the first and second derivatives
 		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
 		TauDerivative = self.Spline_Derivative(self.x_eta, Taus, self.n_eta, derivative=1)
-		TauDoubleDer = self.Spline_Derivative(self.x_eta, Taus, self.n_eta, derivative=2)
+		TauDoubleDer = self.Spline_Derivative(self.x_eta, Taus, 200, derivative=2)
 		# Calculate g, and interpolates the first and second derivatives
 		g_tilde = self.Visibility_func(self.x_eta, Taus, TauDerivative)
 		g_tildeDerivative = self.Spline_Derivative(self.x_eta, g_tilde, self.n_eta, derivative=1)
@@ -250,6 +265,16 @@ class time_mod():
 		plt.ylabel('$X_e$')
 		plt.title('Number of free electrons $X_e$ as a function of $x=\ln(a)$')
 
+		"""
+		fig11 = plt.figure()
+		ax11 = plt.subplot(111)
+		ax11.semilogy(self.z_eta, self.X_e_arrayRedshift)
+		ax11.set_ylim([10**(-4), 1.3])
+		plt.xlabel('$x$')
+		plt.ylabel('$X_e$')
+		plt.title('Number of free electrons $X_e$ as a function of $x=\ln(a)$')
+		"""
+
 		fig2 = plt.figure()
 		ax2 = plt.subplot(111)
 		ax2.semilogy(self.x_eta, self.X_e_array)
@@ -258,14 +283,15 @@ class time_mod():
 		plt.xlabel('$x$')
 		plt.ylabel('$X_e$')
 		plt.title('Number of free electrons $X_e$, zoomed in')
-
+		"""
 		fig3 = plt.figure()
 		ax3 = plt.subplot(111)
 		ax3.semilogy(self.x_eta, Taus)
 		plt.xlabel('$x$')
 		plt.ylabel(r'$\tau$')
 		plt.title(r'The optical depth $\tau$ as a function of $x=\ln(a)$')
-
+		"""
+		"""
 		fig4 = plt.figure()
 		ax4 = plt.subplot(111)
 		plt.hold("on")
@@ -275,7 +301,7 @@ class time_mod():
 		plt.ylabel('$n_e$')		
 		plt.title('Computed $n_e$ and interpolated $n_e$')		
 		ax4.legend(loc='upper right', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
-
+		"""
 		fig5 = plt.figure()
 		ax5 = plt.subplot(111)
 		plt.hold("on")
@@ -302,8 +328,8 @@ class time_mod():
 		if self.savefig == 1:
 			fig1.savefig('../Plots/ElectronNumber.pdf')
 			fig2.savefig('../Plots/ElectronNumberZoomed.pdf')
-			fig3.savefig('../Plots/OpticalDepth.pdf')
-			fig4.savefig('../Plots/InterpolatedElectronDensity.pdf')
+			#fig3.savefig('../Plots/OpticalDepth.pdf')
+			#fig4.savefig('../Plots/InterpolatedElectronDensity.pdf')
 			fig5.savefig('../Plots/FirstDerivativeTau.pdf')
 			fig6.savefig('../Plots/VisibilityFunc.pdf')
 		else:
