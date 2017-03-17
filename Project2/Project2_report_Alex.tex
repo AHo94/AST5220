@@ -89,7 +89,7 @@ The right hand side of equation (1) has the dimension s m$^{-1}$. We want the op
 \end{align}
 \subsection*{Numerics}
 \subsubsection*{Overflows in Peebles' equation}
-When we do the computation of the Peebles' equation, we will quickly run into overflow problems. This is especially true in the $\beta^{(2)}(T_b)$ term, where the exponential explodes because $\epsilon_0/(k_bT_b)$ is of order $\approx 10^4$. Instead, we can write out the expression of $\beta^{(2)}(T_b)$ to include the exponential in $\beta(T_b)$, which we write into a single exponential. That is
+When we do the computation of the Peebles' equation, we will quickly run into overflow problems. This is especially true in the $\beta^{(2)}(T_b)$ term, where the exponential explodes because $\epsilon_0/(k_bT_b)$ is of order $\sim 10^4$. Instead, we can write out the expression of $\beta^{(2)}(T_b)$ to include the exponential in $\beta(T_b)$, which we write into a single exponential. That is
 \begin{align}
 \beta^{(2)}(T_b) &= \alpha^{(2)}(T_b)\frac{k_b^{3/2}}{\hbar^3}\left(\frac{m_e T_b}{2\pi}\right)^{3/2}e^{-\epsilon_0/(k_bT_b)}e^{3\epsilon_0/(4k_bT_b)} \nonumber \\
 &= \alpha^{(2)}(T_b)\frac{k_b^{3/2}}{\hbar^3}\left(\frac{m_e T_b}{2\pi}\right)^{3/2}e^{-\epsilon_0/(4k_bT_b)}
