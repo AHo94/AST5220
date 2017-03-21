@@ -122,9 +122,7 @@ class time_mod():
 		return dEtada
 
 	def Cubic_Spline(self, x_values, y_values, x_start, x_end, n_points):
-		""" 
-		Cubic spline interpolation, zeroth derivative. Returns interpolated values of any variables, for a given range of x-values
-		"""
+		""" Cubic spline interpolation, zeroth derivative. Returns interpolated values of any variables, for a given range of x-values """
 		Temp_interp = interpolate.splrep(x_values, y_values)
 		x_new = np.linspace(x_start, x_end, n_points)
 		y_new = interpolate.splev(x_new, Temp_interp, der=0)
@@ -165,9 +163,7 @@ class time_mod():
 		return n_b
 
 	def Saha_equation(self, x):
-		""" 
-		Solves the Saha equation. Uses numpy.roots solver, see report. Only returns the positive valued X_e 
-		"""
+		""" Solves the Saha equation. Uses numpy.roots solver, see report 2. Only returns the positive valued X_e """
 		Exponential = np.exp(x)
 		a = 1
 		b = (Saha_b_factor/self.Get_n_b(x))*np.exp(-EpsTemp_factor*Exponential - 3.0*x/2.0)
@@ -203,11 +199,10 @@ class time_mod():
 			else:
 				PeebleXe = integrate.odeint(self.Peebles_equation, X_e_TempArray[i], self.x_eta[i:])
 				break
-
 		PeebleXe2 = []
 		for i in range(0, len(PeebleXe)-1):
 			PeebleXe2.append(PeebleXe[i][0])
-		self.X_e_array = np.concatenate([np.array(X_e_TempArray),np.array(PeebleXe2)])	# Merges arrays
+		self.X_e_array = np.concatenate([np.array(X_e_TempArray),np.array(PeebleXe2)])
 
 	def Diff_eq_tau(self, tau, x_0):
 		""" 
@@ -241,71 +236,11 @@ class time_mod():
 		g_tildeDerivative = self.Spline_Derivative(self.x_eta, g_tilde, derivative=1)
 		g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, g_tilde, derivative=2)
 
-		fig1 = plt.figure()
-		ax1 = plt.subplot(111)
-		ax1.semilogy(self.x_eta, self.X_e_array)
-		ax1.set_ylim([10**(-4), 1.3])
-		plt.xlabel('$x$')
-		plt.ylabel('$X_e$')
-		plt.title('Number of free electrons $X_e$ as a function of $x=\ln(a)$')
 
-		fig12 = plt.figure()
-		ax12 = plt.subplot(111)
-		ax12.semilogy(self.x_eta, self.X_e_array)
-		ax12.set_ylim([10**(-4), 1.3])
-		ax12.set_xlim([-7.5, -5])
-		plt.xlabel('$x$')
-		plt.ylabel('$X_e$')
-		plt.title('Number of free electrons $X_e$, zoomed in')
-
-		fig2 = plt.figure()
-		ax2 = plt.subplot(111)
-		ax2.semilogy(self.x_eta, Taus)
-		plt.xlabel('$x$')
-		plt.ylabel(r'$\tau$')
-		plt.title(r'The optical depth $\tau$ as a function of $x=\ln(a)$')
-
-		fig3 = plt.figure()
-		ax3 = plt.subplot(111)
-		plt.hold("on")
-		ax3.semilogy(self.x_eta, self.n_e, 'b-', label='Computed $n_e$')
-		ax3.semilogy(x_eta_new, np.exp(n_e_NewLogarithmic), 'rx', label='Interpolated $n_e$')
-		plt.xlabel('$x$')
-		plt.ylabel('$n_e$')		
-		plt.title('Computed $n_e$ and interpolated $n_e$')		
-		ax3.legend(loc='upper right', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
-
-		fig4 = plt.figure()
-		ax4 = plt.subplot(111)
-		plt.hold("on")
-		ax4.semilogy(self.x_eta, Taus, 'b-', label=r'Zeroth derivative $\tau$')
-		ax4.semilogy(self.x_eta, np.fabs(TauDerivative), 'r-', label=r"First derivative $|\tau'|$")
-		plt.xlabel('$x$')
-		plt.ylabel('$n_e$')
-		plt.title(r"Plot of $\tau$ and $|\tau'|$ as a function of $x=\ln(a)$")
-		ax4.legend(loc='upper right', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
-		
-		fig5 = plt.figure()
-		ax5 = plt.subplot(111)
-		plt.hold("on")
-		ax5.plot(self.x_eta, g_tilde, 'b-', label=r"$\tilde{g}$")
-		ax5.plot(self.x_eta, g_tildeDerivative/10.0, 'r-', label=r"$\tilde{g}'/10$")
-		ax5.plot(self.x_eta, g_tildeDoubleDer/300.0, 'g-', label=r"$\tilde{g}''/300$")
-		ax5.set_xlim([-8,-6])
-		plt.xlabel('$x$')
-		plt.ylabel(r'$\tilde{g}$')
-		plt.title(r"The visibility function $\tilde{g(x)}$ and its derivatives")
-		ax5.legend(loc='lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
-		
 		if self.savefig == 1:
-			fig1.savefig('../Plots/ElectronNumber.pdf')
-			fig12.savefig('../Plots/ElectronNumberZoomed.pdf')
-			fig2.savefig('../Plots/OpticalDepth.pdf')
-			fig3.savefig('../Plots/InterpolatedElectronDensity.pdf')
-			fig4.savefig('../Plots/FirstDerivativeTau.pdf')
-			fig5.savefig('../Plots/VisibilityFunc.pdf')
+			a=1
 		else:
 			plt.show()
 
-solver = time_mod(savefig=1)
+solver = time_mod(savefig=0)
 solver.Plot_results(100)
