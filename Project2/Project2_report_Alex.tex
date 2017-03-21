@@ -332,6 +332,7 @@ class time_mod():
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
 		dXedx = (C_r/H)*(beta*(1.0-X_e) - n_b*alpha2*X_e**2.0)
 		return dXedx
+
 	def Calculate_Xe(self):
 		""" Function that calculates X_e. Initial condition X_e = 1 """
 		X_e_TempArray = [1]
@@ -346,6 +347,7 @@ class time_mod():
 		for i in range(0, len(PeebleXe)-1):
 			PeebleXe2.append(PeebleXe[i][0])
 		self.X_e_array = np.concatenate([np.array(X_e_TempArray),np.array(PeebleXe2)])	# Merges arrays
+
 	def Diff_eq_tau(self, tau, x_0):
 		""" 
 		Solves the differential equation of tau. This is the right hand side of the equation
