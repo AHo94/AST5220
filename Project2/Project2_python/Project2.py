@@ -193,6 +193,7 @@ class time_mod():
 		C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2)
 		dXedx = (C_r/H)*(beta*(1.0-X_e) - n_b*alpha2*X_e**2.0)
 		return dXedx
+
 	def Calculate_Xe(self):
 		""" Function that calculates X_e. Initial condition X_e = 1 """
 		X_e_TempArray = [1]
@@ -207,6 +208,7 @@ class time_mod():
 		for i in range(0, len(PeebleXe)-1):
 			PeebleXe2.append(PeebleXe[i][0])
 		self.X_e_array = np.concatenate([np.array(X_e_TempArray),np.array(PeebleXe2)])	# Merges arrays
+
 	def Diff_eq_tau(self, tau, x_0):
 		""" 
 		Solves the differential equation of tau. This is the right hand side of the equation
@@ -232,7 +234,7 @@ class time_mod():
 		# Calculates tau and interpolates the first and second derivatives
 		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
 		TauDerivative = self.Spline_Derivative(self.x_eta, Taus, self.n_eta, derivative=1)
-		TauDoubleDer = self.Spline_Derivative(self.x_eta, Taus, 10000, derivative=2)
+		TauDoubleDer = self.Spline_Derivative(self.x_eta, Taus, 200, derivative=2)
 		# Calculate g, and interpolates the first and second derivatives
 		g_tilde = self.Visibility_func(self.x_eta, Taus, TauDerivative)
 		g_tildeDerivative = self.Spline_Derivative(self.x_eta, g_tilde, self.n_eta, derivative=1)
@@ -260,7 +262,7 @@ class time_mod():
 		plt.hold("on")
 		ax3.semilogy(self.x_eta, Taus, 'b-', label=r'Zeroth derivative $\tau$')
 		ax3.semilogy(self.x_eta, np.fabs(TauDerivative), 'r-', label=r"First derivative $|\tau'|$")
-		ax3.semilogy(np.linspace(self.x_eta_init, self.x_eta_end, 10000), np.fabs(TauDoubleDer), 'g-', label=r"Second derivative $|\tau''|$")
+		ax3.semilogy(np.linspace(self.x_eta_init, self.x_eta_end, 200), np.fabs(TauDoubleDer), 'g-', label=r"Second derivative $|\tau''|$")
 		plt.xlabel('$x$')
 		plt.ylabel('$n_e$')
 		plt.title(r"Plot of $\tau$ and $|\tau'|$ as a function of $x=\ln(a)$")
@@ -286,5 +288,5 @@ class time_mod():
 		else:
 			plt.show()
 
-solver = time_mod(savefig=0)
+solver = time_mod(savefig=1)
 solver.Plot_results(100)
