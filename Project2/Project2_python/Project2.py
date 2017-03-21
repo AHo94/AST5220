@@ -231,6 +231,7 @@ class time_mod():
 		# Calculate X_e, and n_e
 		self.Calculate_Xe()
 		self.n_e = self.X_e_array*self.Get_n_b(self.x_eta)
+		x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), n_interp_points)
 		# Calculates tau and interpolates the first and second derivatives
 		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
 		TauDerivative = self.Spline_Derivative(self.x_eta, Taus, self.n_eta, derivative=1)
@@ -280,11 +281,22 @@ class time_mod():
 		plt.title(r"The visibility function $\tilde{g(x)}$ and its derivatives")
 		ax4.legend(loc='lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
 		
+		fig5 = plt.figure()
+		ax5 = plt.subplot(111)
+		plt.hold("on")
+		ax5.semilogy(self.x_eta, self.n_e, 'b-', label='Computed $n_e$')
+		ax5.semilogy(x_eta_new, np.exp(n_e_NewLogarithmic), 'rx', label='Interpolated $n_e$')
+		plt.xlabel('$x$')
+		plt.ylabel('$n_e$')		
+		plt.title('Computed $n_e$ and interpolated $n_e$')		
+		ax5.legend(loc='upper right', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
+
 		if self.savefig == 1:
 			fig1.savefig('../Plots/ElectronNumber.pdf')
 			fig2.savefig('../Plots/ElectronNumberZoomed.pdf')
 			fig3.savefig('../Plots/FirstDerivativeTau.pdf')
 			fig4.savefig('../Plots/VisibilityFunc.pdf')
+			fig5.savefig('../Plots/InterpolatedElectronDensity.pdf')
 		else:
 			plt.show()
 
