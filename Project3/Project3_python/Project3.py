@@ -39,7 +39,7 @@ rho_r0 = Omega_r*rho_c0
 rho_lambda0 = Omega_lambda*rho_c0
 
 # Precalculate certain factors to reduce number of float point operations
-Saha_b_factor = ((m_e*T_0*k_b)/(2*np.pi*hbar**2))**(3.0/2.0)		# Factor in front of 'b' in Saha equation
+Saha_b_factor = ((m_e*T_0*k_b)/(2*np.pi*hbar**2))**(3.0/2.0)	# Factor in front of 'b' in Saha equation
 rhoCrit_factor = 3.0/(8*np.pi*G_grav)							# Used for critical density at arbitrary times
 
 # Constant used for Peebles equation and some constant factors that can be precalculated
@@ -49,9 +49,10 @@ beta_factor = (((m_e*T_0*k_b)/(2.0*np.pi))**(3.0/2.0))*(1.0/hbar**3.0)
 Lambda_alpha_factor = ((3.0*epsilon_0/(hbar*c))**3.0)/(8*np.pi)**2.0
 EpsTemp_factor = epsilon_0/(k_b*T_0)
 
+
 class time_mod():
 	def __init__(self, savefig):
-		self.savefig = savefig		# If savefig = 0, plots the data. If savefig = 1, saves the plots in a pdf
+		self.savefig = savefig		# If savefig = 0, plots the data. If savefig = 1, saves the plots into a pdf
 
 		if savefig != 0 and savefig != 1:
 			print 'Current value of savefig = ', savefig
@@ -72,7 +73,7 @@ class time_mod():
 
 		# Used for the x-values for the conformal time
 		self.n_eta = 3000
-		self.a_init = 1e-10
+		self.a_init = 1e-8
 		self.x_eta_init = np.log(self.a_init)
 		self.x_eta_end = 0
 
@@ -219,6 +220,16 @@ class time_mod():
 		for i in range(0, len(tau)-1):
 			g[i] = -tauDerv[i]*np.exp(-tau[i])
 		return g
+
+	def BoltzmannEinstein_InitConditions(self):
+		""" Initial conditions for the Boltzmann equations """
+		Phi = 1
+		delta_b = 3.0*Phi/2.0
+		HPrime_0 = Get_Hubble_param(self.x_eta)
+		v_b = c*k_b*Phi/(2.0*HPrime_0)
+		Theta_0 = 0.5*Phi
+		Theta_1 = -c*k_b*Phi/(6.0*HPrime_0)
+		Theta_2 = -8.0*c*k_b*Theta_1/(15*self.TauDerivative)
 		
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
@@ -228,13 +239,13 @@ class time_mod():
 		self.n_e = self.X_e_array*self.Get_n_b(self.x_eta)
 		x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), x_start, x_end, n_interp_points)
 		# Calculates tau and interpolates the first and second derivatives
-		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
-		TauDerivative = self.Spline_Derivative(self.x_eta, Taus, derivative=1)
-		TauDoubleDer = self.Spline_Derivative(self.x_eta, Taus, derivative=2)
+		self.Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
+		self.TauDerivative = self.Spline_Derivative(self.x_eta, Taus, derivative=1)
+		self.TauDoubleDer = self.Spline_Derivative(self.x_eta, Taus, derivative=2)
 		# Calculate g, and interpolates the first and second derivatives
-		g_tilde = self.Visibility_func(self.x_eta, Taus, TauDerivative)
-		g_tildeDerivative = self.Spline_Derivative(self.x_eta, g_tilde, derivative=1)
-		g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, g_tilde, derivative=2)
+		self.g_tilde = self.Visibility_func(self.x_eta, Taus, TauDerivative)
+		self.g_tildeDerivative = self.Spline_Derivative(self.x_eta, g_tilde, derivative=1)
+		self.g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, g_tilde, derivative=2)
 
 
 		if self.savefig == 1:
