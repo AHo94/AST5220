@@ -122,19 +122,22 @@ class time_mod():
 		dEtada = c/(self.Get_Hubble_prime(x_0))
 		return dEtada
 
-	def Cubic_Spline(self, x_values, y_values, x_start, x_end, n_points):
-		""" Cubic spline interpolation, zeroth derivative. Returns interpolated values of any variables, for a given range of x-values """
+	def Cubic_Spline(self, x_values, y_values, n_points, x_start=np.log(1e-8), x_end=0):
+		""" 
+		Cubic spline interpolation, zeroth derivative. Returns interpolated values of any variables, for a given range of x-values
+		"""
 		Temp_interp = interpolate.splrep(x_values, y_values)
 		x_new = np.linspace(x_start, x_end, n_points)
 		y_new = interpolate.splev(x_new, Temp_interp, der=0)
 		return x_new, y_new
 
-	def Spline_Derivative(self, x_values, y_values, derivative):
+	def Spline_Derivative(self, x_values, y_values, n_points, derivative, x_start=np.log(1e-8), x_end=0):
 		""" Spline derivative for any functions. Using natural spline """
 		if derivative < 1:
 			raise ValueError("Derivative input in Spline_Derivative less than 1. Use Cubic_spline instead.")
 		Temp_interp = interpolate.splrep(x_values, y_values)
-		yDerivative = interpolate.splev(x_values, Temp_interp, der=derivative)
+		x_new = np.linspace(x_start, x_end, n_points)
+		yDerivative = interpolate.splev(x_new, Temp_interp, der=derivative)
 		yDerivative[0] = 0
 		yDerivative[-1] = 0
 		return yDerivative
@@ -221,31 +224,43 @@ class time_mod():
 			g[i] = -tauDerv[i]*np.exp(-tau[i])
 		return g
 
-	def BoltzmannEinstein_InitConditions(self):
+	def BoltzmannEinstein_InitConditions(self, k, l):
 		""" Initial conditions for the Boltzmann equations """
-		Phi = 1
-		delta_b = 3.0*Phi/2.0
+		self.Phi = 1
+		self.delta_b = 3.0*Phi/2.0
 		HPrime_0 = Get_Hubble_param(self.x_eta)
-		v_b = c*k_b*Phi/(2.0*HPrime_0)
-		Theta_0 = 0.5*Phi
-		Theta_1 = -c*k_b*Phi/(6.0*HPrime_0)
-		Theta_2 = -8.0*c*k_b*Theta_1/(15*self.TauDerivative)
+		self.v_b = c*k*Phi/(2.0*HPrime_0)
+		self.Theta_0 = 0.5*Phi
+		self.Theta_1 = -c*k*Phi/(6.0*HPrime_0)
+		self.Theta_2 = -8.0*c*k*Theta_1/(15*self.TauDerivative)
+		#Theta_l = -(l/(2.0*l+1))*(c*k/(HPrime_0)*self.TauDerivative)*Theta
+	
+	def Get_Psi(self, x, k, Theta_2):
+		""" Calculate Psi that is not included in the differential equations """
+		Psi = -self.Phi - (12.0*H_0**2/(c*k*np.exp(x))**2)*Om_r*Theta_2
+		return Psi
+
+	def BoltzmannEinstein_Equations(self, x, k):
+		""" Solves Boltzmann Einstein equations """
+		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x)
+		R = 4.0*Om_r/(3.0*Om_b*np.exp(x))
 		
+
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
 		# Calculate X_e, n_e and interpolates n_e as a test
 		self.Calculate_Xe()
 		self.n_e = self.X_e_array*self.Get_n_b(self.x_eta)
-		x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), x_start, x_end, n_interp_points)
+		x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), n_interp_points)
 		# Calculates tau and interpolates the first and second derivatives
 		self.Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
-		self.TauDerivative = self.Spline_Derivative(self.x_eta, Taus, derivative=1)
-		self.TauDoubleDer = self.Spline_Derivative(self.x_eta, Taus, derivative=2)
+		self.TauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=1)
+		self.TauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 200, derivative=2)
 		# Calculate g, and interpolates the first and second derivatives
-		self.g_tilde = self.Visibility_func(self.x_eta, Taus, TauDerivative)
-		self.g_tildeDerivative = self.Spline_Derivative(self.x_eta, g_tilde, derivative=1)
-		self.g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, g_tilde, derivative=2)
+		self.g_tilde = self.Visibility_func(self.x_eta, self.Taus, self.TauDerivative)
+		self.g_tildeDerivative = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=1)
+		self.g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=2)
 
 
 		if self.savefig == 1:
