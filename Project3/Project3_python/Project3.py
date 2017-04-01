@@ -94,9 +94,14 @@ class time_mod():
 		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
 		self.x_tau = np.linspace(self.x_eta_end, self.x_eta_init, self.n_eta)	# Reversed array, used to calculate tau
 
-		self.k = 340*H_0
+		k_min = 0.1*H_0
+		k_max = 100*H_0
+		k_N = 100
+		self.k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(k_N)])
 		self.k_squared = self.k*self.k
 		ck = c*self.k
+
+		print 'K LEN = ', len(self.k)
 
 	def Get_Hubble_param(self, x):
 		""" Function returns the Hubble parameter for a given x """
@@ -235,14 +240,31 @@ class time_mod():
 
 	def BoltzmannEinstein_InitConditions(self, l):
 		""" Initial conditions for the Boltzmann equations """
-		Phi = 1
+		Phi = 1*np.ones(100)
+		print 'PHI LEN = ', len(Phi)
 		delta_b = 3.0*Phi/2.0
-		HPrime_0 = self.Get_Hubble_param(self.x_eta[0])
+		HPrime_0 = self.Get_Hubble_param(self.x_t[0])
 		v_b = c*self.k*Phi/(2.0*HPrime_0)
 		Theta_0 = 0.5*Phi
 		Theta_1 = -c*self.k*Phi/(6.0*HPrime_0)
 		Theta_2 = -8.0*c*self.k*Theta_1/(15*self.TauDerivative[0]*HPrime_0)
 		
+		self.BoltzmannVariables = []
+		self.BoltzmannVariables.append(Theta_0)
+		self.BoltzmannVariables.append(Theta_1)
+		self.BoltzmannVariables.append(Theta_2)
+		if l > 2:
+			for i in range(3, l+1):
+				self.BoltzmannVariables.append(-(i/(2.0*i+1))*(c*self.k/(HPrime_0*self.TauDerivative[0]))*self.BoltzmannVariables[i-1])
+		else:
+			raise ValueError('Value of l is a little too small. Try to increase it to l=3 or larger')
+
+		self.BoltzmannVariables.append(delta_b)
+		self.BoltzmannVariables.append(delta_b)
+		self.BoltzmannVariables.append(v_b)
+		self.BoltzmannVariables.append(v_b)
+		self.BoltzmannVariables.append(Phi)
+		"""
 		self.BoltzmannVariables = np.zeros(l+6)
 		self.BoltzmannVariables[0] = Theta_0
 		self.BoltzmannVariables[1] = Theta_1
@@ -258,16 +280,9 @@ class time_mod():
 		self.BoltzmannVariables[l+3] = v_b
 		self.BoltzmannVariables[l+4] = v_b
 		self.BoltzmannVariables[l+5] = Phi
-
+		"""
 		print self.BoltzmannVariables
-	def Theta_primed(self, theta, x_0):
-		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x_0)
-		HPrime = self.Get_Hubble_prime(x_0)
-		i = np.searchsorted(self.x_eta, x_0, side="left")
-		"""
-		Theta_2 = 8.0*c_Squared*self.k*self.k*Phi/(6.0*HPrime_0)/(15*HPrime*self.TauDerivative[i])
-		dThetadx = -theta - (12.0*H_0Squared*np.exp(-2*x_0)/(self.k*c_Squared))*Om_r*Theta_2
-		"""
+
 	def BoltzmannEinstein_Equations(self, variables, x_0):
 		""" Solves Boltzmann Einstein equations """
 		Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6. delta, delta_b, v, v_b, Phi = variables
