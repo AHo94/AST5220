@@ -49,6 +49,10 @@ beta_factor = (((m_e*T_0*k_b)/(2.0*np.pi))**(3.0/2.0))*(1.0/hbar**3.0)
 Lambda_alpha_factor = ((3.0*epsilon_0/(hbar*c))**3.0)/(8*np.pi)**2.0
 EpsTemp_factor = epsilon_0/(k_b*T_0)
 
+# Other precalculated factors
+H_0Squared = H_0*H_0
+c_Squared = c*c
+PsiPrefactor = 12.0*H_0*H_0/(c*c)
 
 class time_mod():
 	def __init__(self, savefig):
@@ -72,7 +76,7 @@ class time_mod():
 		self.a_end_rec = 1.0/(1.0 + self.z_end_rec)
 
 		# Used for the x-values for the conformal time
-		self.n_eta = 3000
+		self.n_eta = 100
 		self.a_init = 1e-8
 		self.x_eta_init = np.log(self.a_init)
 		self.x_eta_end = 0
@@ -89,6 +93,10 @@ class time_mod():
 		# Set up grid of x-values for the integrated eta
 		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
 		self.x_tau = np.linspace(self.x_eta_end, self.x_eta_init, self.n_eta)	# Reversed array, used to calculate tau
+
+		self.k = 340*H_0
+		self.k_squared = self.k*self.k
+		ck = c*self.k
 
 	def Get_Hubble_param(self, x):
 		""" Function returns the Hubble parameter for a given x """
@@ -132,14 +140,15 @@ class time_mod():
 		return x_new, y_new
 
 	def Spline_Derivative(self, x_values, y_values, n_points, derivative, x_start=np.log(1e-8), x_end=0):
-		""" Spline derivative for any functions. Using natural spline """
+		""" Spline derivative for any functions. Using natural spline for the second derivative """
 		if derivative < 1:
 			raise ValueError("Derivative input in Spline_Derivative less than 1. Use Cubic_spline instead.")
 		Temp_interp = interpolate.splrep(x_values, y_values)
 		x_new = np.linspace(x_start, x_end, n_points)
 		yDerivative = interpolate.splev(x_new, Temp_interp, der=derivative)
-		yDerivative[0] = 0
-		yDerivative[-1] = 0
+		if derivative == 2:
+			yDerivative[0] = 0
+			yDerivative[-1] = 0
 		return yDerivative
 
 	def Get_Index_Interpolation(self, X_init, X_end):
@@ -224,27 +233,64 @@ class time_mod():
 			g[i] = -tauDerv[i]*np.exp(-tau[i])
 		return g
 
-	def BoltzmannEinstein_InitConditions(self, k, l):
+	def BoltzmannEinstein_InitConditions(self, l):
 		""" Initial conditions for the Boltzmann equations """
-		self.Phi = 1
-		self.delta_b = 3.0*Phi/2.0
-		HPrime_0 = Get_Hubble_param(self.x_eta)
-		self.v_b = c*k*Phi/(2.0*HPrime_0)
-		self.Theta_0 = 0.5*Phi
-		self.Theta_1 = -c*k*Phi/(6.0*HPrime_0)
-		self.Theta_2 = -8.0*c*k*Theta_1/(15*self.TauDerivative)
-		#Theta_l = -(l/(2.0*l+1))*(c*k/(HPrime_0)*self.TauDerivative)*Theta
-	
-	def Get_Psi(self, x, k, Theta_2):
-		""" Calculate Psi that is not included in the differential equations """
-		Psi = -self.Phi - (12.0*H_0**2/(c*k*np.exp(x))**2)*Om_r*Theta_2
-		return Psi
-
-	def BoltzmannEinstein_Equations(self, x, k):
-		""" Solves Boltzmann Einstein equations """
-		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x)
-		R = 4.0*Om_r/(3.0*Om_b*np.exp(x))
+		Phi = 1
+		delta_b = 3.0*Phi/2.0
+		HPrime_0 = self.Get_Hubble_param(self.x_eta[0])
+		v_b = c*self.k*Phi/(2.0*HPrime_0)
+		Theta_0 = 0.5*Phi
+		Theta_1 = -c*self.k*Phi/(6.0*HPrime_0)
+		Theta_2 = -8.0*c*self.k*Theta_1/(15*self.TauDerivative[0]*HPrime_0)
 		
+		self.BoltzmannVariables = np.zeros(l+6)
+		self.BoltzmannVariables[0] = Theta_0
+		self.BoltzmannVariables[1] = Theta_1
+		self.BoltzmannVariables[2] = Theta_2
+		if l > 2:
+			for i in range(3, l+1):
+				self.BoltzmannVariables[i] = -(i/(2.0*i+1))*(c*self.k/(HPrime_0*self.TauDerivative[0]))*self.BoltzmannVariables[i-1]
+		else:
+			raise ValueError('Value of l is a little too small. Try to increase it to l=3 or larger')
+
+		self.BoltzmannVariables[l+1] = delta_b
+		self.BoltzmannVariables[l+2] = delta_b
+		self.BoltzmannVariables[l+3] = v_b
+		self.BoltzmannVariables[l+4] = v_b
+		self.BoltzmannVariables[l+5] = Phi
+
+		print self.BoltzmannVariables
+	def Theta_primed(self, theta, x_0):
+		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x_0)
+		HPrime = self.Get_Hubble_prime(x_0)
+		i = np.searchsorted(self.x_eta, x_0, side="left")
+		"""
+		Theta_2 = 8.0*c_Squared*self.k*self.k*Phi/(6.0*HPrime_0)/(15*HPrime*self.TauDerivative[i])
+		dThetadx = -theta - (12.0*H_0Squared*np.exp(-2*x_0)/(self.k*c_Squared))*Om_r*Theta_2
+		"""
+	def BoltzmannEinstein_Equations(self, variables, x_0):
+		""" Solves Boltzmann Einstein equations """
+		Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6. delta, delta_b, v, v_b, Phi = variables
+		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x_0)
+		# Calculating some prefactors
+		Hprimed = self.Get_Hubble_prime(x_0)
+		Hprimed_Squared = Hprimed*Hprimed
+		ck_Hprimed = ck/Hprimed
+		i = np.searchsorted(self.x_eta, x_0, side="left")
+
+		R = 4.0*Om_r/(3.0*Om_b*np.exp(x_0))
+		Psi = -Phi - PsiPrefactor*(np.exp(-2.0*x_0)/(self.k_squared))*Om_r*Theta_2
+		dThetadx = Psi - ((c_Squared*self.k_squared)/(3.0*Hprimed_Squared))*Psi \
+				+ (H_0Squared/(2.0*Hprimed_Squared))*(Om_m*np.exp(-x_0)*delta + Om_b*np.exp(-x_0)*delta_b + 4.0*Om_r*np.exp(-2.0*x_0)*Theta_0)
+		dTheta0dx = -(ck/Hprimed)*Theta_1 - dThetadx
+		dTheta1dx = ck/(3.0*Hprimed)*Theta_0 - ((2.0*ck)/(3.0*Hprimed))*Theta_2 \
+					+ ck/(3.0*Hprimed)*Psi + self.TauDerivative[i]*[Theta_1 + 1.0/(3.0*v_b)]
+
+		dDeltadx = ck_Hprimed*v - 3*dThetadx
+		dDeltabdx = ck_Hprimed*v_b - 3.0*dThetadx
+		dvdx = -v - ck_Hprimed*Psi
+		dvbdx = -v_b - ck_Hprimed*Psi + self.TauDerivative[i]*R*(3*Theta_1 + v_b)
+
 
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
@@ -256,13 +302,37 @@ class time_mod():
 		# Calculates tau and interpolates the first and second derivatives
 		self.Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
 		self.TauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=1)
-		self.TauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 200, derivative=2)
+		self.TauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 100, derivative=2)
 		# Calculate g, and interpolates the first and second derivatives
+		
 		self.g_tilde = self.Visibility_func(self.x_eta, self.Taus, self.TauDerivative)
 		self.g_tildeDerivative = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=1)
 		self.g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=2)
-
-
+		
+		"""
+		fig3 = plt.figure()
+		ax3 = plt.subplot(111)
+		plt.hold("on")
+		ax3.semilogy(self.x_eta, self.Taus, 'b-', label=r'Zeroth derivative $\tau$')
+		ax3.semilogy(self.x_eta, np.fabs(self.TauDerivative), 'r-', label=r"First derivative $|\tau'|$")
+		ax3.semilogy(np.linspace(self.x_eta_init, self.x_eta_end, 100), np.fabs(self.TauDoubleDer), 'g-', label=r"Second derivative $|\tau''|$")
+		plt.xlabel('$x$')
+		plt.ylabel('$n_e$')
+		plt.title(r"Plot of $\tau$ and $|\tau'|$ as a function of $x=\ln(a)$")
+		ax3.legend(loc='upper right', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
+		
+		fig4 = plt.figure()
+		ax4 = plt.subplot(111)
+		plt.hold("on")
+		ax4.plot(self.x_eta, self.g_tilde, 'b-', label=r"$\tilde{g}$")
+		ax4.plot(self.x_eta, self.g_tildeDerivative/10.0, 'r-', label=r"$\tilde{g}'/10$")
+		ax4.plot(self.x_eta, self.g_tildeDoubleDer/300.0, 'g-', label=r"$\tilde{g}''/300$")
+		ax4.set_xlim([-8,-6])
+		plt.xlabel('$x$')
+		plt.ylabel(r'$\tilde{g}$')
+		plt.title(r"The visibility function $\tilde{g(x)}$ and its derivatives")
+		ax4.legend(loc='lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
+		"""
 		if self.savefig == 1:
 			a=1
 		else:
@@ -270,3 +340,4 @@ class time_mod():
 
 solver = time_mod(savefig=0)
 solver.Plot_results(100)
+solver.BoltzmannEinstein_InitConditions(6)
