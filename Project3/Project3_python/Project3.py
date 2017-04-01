@@ -55,7 +55,7 @@ c_Squared = c*c
 PsiPrefactor = 12.0*H_0*H_0/(c*c)
 
 class time_mod():
-	def __init__(self, savefig):
+	def __init__(self, savefig, l_max):
 		self.savefig = savefig		# If savefig = 0, plots the data. If savefig = 1, saves the plots into a pdf
 
 		if savefig != 0 and savefig != 1:
@@ -94,6 +94,7 @@ class time_mod():
 		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
 		self.x_tau = np.linspace(self.x_eta_end, self.x_eta_init, self.n_eta)	# Reversed array, used to calculate tau
 
+		self.l_max = l_max
 		k_min = 0.1*H_0
 		k_max = 100*H_0
 		k_N = 100
@@ -238,12 +239,11 @@ class time_mod():
 			g[i] = -tauDerv[i]*np.exp(-tau[i])
 		return g
 
-	def BoltzmannEinstein_InitConditions(self, l):
+	def BoltzmannEinstein_InitConditions(self):
 		""" Initial conditions for the Boltzmann equations """
 		Phi = 1*np.ones(100)
-		print 'PHI LEN = ', len(Phi)
 		delta_b = 3.0*Phi/2.0
-		HPrime_0 = self.Get_Hubble_param(self.x_t[0])
+		HPrime_0 = self.Get_Hubble_param(self.x_eta[0])
 		v_b = c*self.k*Phi/(2.0*HPrime_0)
 		Theta_0 = 0.5*Phi
 		Theta_1 = -c*self.k*Phi/(6.0*HPrime_0)
@@ -253,17 +253,19 @@ class time_mod():
 		self.BoltzmannVariables.append(Theta_0)
 		self.BoltzmannVariables.append(Theta_1)
 		self.BoltzmannVariables.append(Theta_2)
-		if l > 2:
-			for i in range(3, l+1):
-				self.BoltzmannVariables.append(-(i/(2.0*i+1))*(c*self.k/(HPrime_0*self.TauDerivative[0]))*self.BoltzmannVariables[i-1])
+		if self.l_max > 2:
+			for l in range(3, self.l_max+1):
+				self.BoltzmannVariables.append(-(l/(2.0*l+1))*(c*self.k/(HPrime_0*self.TauDerivative[0]))*self.BoltzmannVariables[l-1])
 		else:
-			raise ValueError('Value of l is a little too small. Try to increase it to l=3 or larger')
+			raise ValueError('Value of l_max is a little too small. Try to increase it to l_max=3 or larger')
 
 		self.BoltzmannVariables.append(delta_b)
 		self.BoltzmannVariables.append(delta_b)
 		self.BoltzmannVariables.append(v_b)
 		self.BoltzmannVariables.append(v_b)
 		self.BoltzmannVariables.append(Phi)
+
+		self.NumVariables = len(self.BoltzmannVariables)
 		"""
 		self.BoltzmannVariables = np.zeros(l+6)
 		self.BoltzmannVariables[0] = Theta_0
@@ -281,11 +283,10 @@ class time_mod():
 		self.BoltzmannVariables[l+4] = v_b
 		self.BoltzmannVariables[l+5] = Phi
 		"""
-		print self.BoltzmannVariables
-
+		
 	def BoltzmannEinstein_Equations(self, variables, x_0):
 		""" Solves Boltzmann Einstein equations """
-		Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6. delta, delta_b, v, v_b, Phi = variables
+		Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6. delta, delta_b, v, v_b, Phi = np.reshape(variables, (self.NumVariables, self.k_N))
 		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x_0)
 		# Calculating some prefactors
 		Hprimed = self.Get_Hubble_prime(x_0)
@@ -295,17 +296,25 @@ class time_mod():
 
 		R = 4.0*Om_r/(3.0*Om_b*np.exp(x_0))
 		Psi = -Phi - PsiPrefactor*(np.exp(-2.0*x_0)/(self.k_squared))*Om_r*Theta_2
-		dThetadx = Psi - ((c_Squared*self.k_squared)/(3.0*Hprimed_Squared))*Psi \
+		dPhidx = Psi - ((c_Squared*self.k_squared)/(3.0*Hprimed_Squared))*Psi \
 				+ (H_0Squared/(2.0*Hprimed_Squared))*(Om_m*np.exp(-x_0)*delta + Om_b*np.exp(-x_0)*delta_b + 4.0*Om_r*np.exp(-2.0*x_0)*Theta_0)
-		dTheta0dx = -(ck/Hprimed)*Theta_1 - dThetadx
+		ThetaDerivatives = []
+		Thetas = [Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6]
+		dTheta0dx = -(ck/Hprimed)*Theta_1 - dPhidx
 		dTheta1dx = ck/(3.0*Hprimed)*Theta_0 - ((2.0*ck)/(3.0*Hprimed))*Theta_2 \
 					+ ck/(3.0*Hprimed)*Psi + self.TauDerivative[i]*[Theta_1 + 1.0/(3.0*v_b)]
+		ThetaDerivatives.append(dTheta0dx)
+		ThetaDerivatives.append(dTheta1dx)
+		for l in range(2, self.l_max): 
+			dThetaldx = l*ck_Hprimed/(2.0*l+1.0)*Thetas[l-1] - ck_Hprimed*((l+1.0)/(2.0*l+1.0))*Thetas[l+1] \
+						+ self.TauDerivative[i]*(Thetas[l] - 0.1*Thetas[l]*)
 
 		dDeltadx = ck_Hprimed*v - 3*dThetadx
 		dDeltabdx = ck_Hprimed*v_b - 3.0*dThetadx
 		dvdx = -v - ck_Hprimed*Psi
 		dvbdx = -v_b - ck_Hprimed*Psi + self.TauDerivative[i]*R*(3*Theta_1 + v_b)
 
+		derivatives = np.array([dTheta0dx, dTheta1dx])
 
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
@@ -324,6 +333,8 @@ class time_mod():
 		self.g_tildeDerivative = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=1)
 		self.g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=2)
 		
+		self.BoltzmannEinstein_InitConditions()
+
 		"""
 		fig3 = plt.figure()
 		ax3 = plt.subplot(111)
@@ -353,6 +364,5 @@ class time_mod():
 		else:
 			plt.show()
 
-solver = time_mod(savefig=0)
+solver = time_mod(savefig=0, l_max=6)
 solver.Plot_results(100)
-solver.BoltzmannEinstein_InitConditions(6)
