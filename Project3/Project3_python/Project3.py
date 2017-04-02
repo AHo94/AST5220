@@ -76,19 +76,17 @@ class time_mod():
 		self.a_end_rec = 1.0/(1.0 + self.z_end_rec)
 
 		# Used for the x-values for the conformal time
-		self.n_eta = 100
+		self.n_eta = 1000
 		self.a_init = 1e-8
 		self.x_eta_init = np.log(self.a_init)
 		self.x_eta_end = 0
 
 		# Set up grid, these are currently unused
-		x_t_rec = np.linspace(self.x_start_rec, self.x_end_rec, self.n1)
-		x_t_today = np.linspace(self.x_end_rec, self.x_0, self.n2)
-		a_t_rec = np.linspace(self.a_start_rec, self.a_end_rec, self.n1)
-		a_t_today = np.linspace(self.a_end_rec, 1, self.n2)
+		self.x_t_rec = np.linspace(self.x_start_rec, self.x_end_rec, self.n1)
+		self.x_t_today = np.linspace(self.x_end_rec, self.x_0, self.n2)
+		self.x_t_today_rev = np.linspace(self.x_0, self.x_end_rec, self.n2)
 		# Merging the arrays into one
-		self.x_t = np.concatenate([x_t_rec, x_t_today])
-		self.a_t = np.concatenate([a_t_rec, a_t_today])
+		self.x_t = np.concatenate([self.x_t_rec, self.x_t_today])
 
 		# Set up grid of x-values for the integrated eta
 		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
@@ -96,13 +94,12 @@ class time_mod():
 
 		self.l_max = l_max
 		k_min = 0.1*H_0
-		k_max = 100*H_0
-		k_N = 100
-		self.k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(k_N)])
+		k_max = 340*H_0
+		self.k_N = 2
+		self.k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(self.k_N)])
 		self.k_squared = self.k*self.k
-		ck = c*self.k
+		self.ck = c*self.k
 
-		print 'K LEN = ', len(self.k)
 
 	def Get_Hubble_param(self, x):
 		""" Function returns the Hubble parameter for a given x """
@@ -144,6 +141,12 @@ class time_mod():
 		x_new = np.linspace(x_start, x_end, n_points)
 		y_new = interpolate.splev(x_new, Temp_interp, der=0)
 		return x_new, y_new
+
+	def Cubic_Spline_OnePoint(self, x_values, y_values, x_point):
+		""" Cubic spline for one specific point """
+		Temp_interp = interpolate.splrep(x_values, y_values)
+		y_new = interpolate.splev(x_point, Temp_interp, der=0)
+		return y_new
 
 	def Spline_Derivative(self, x_values, y_values, n_points, derivative, x_start=np.log(1e-8), x_end=0):
 		""" Spline derivative for any functions. Using natural spline for the second derivative """
@@ -228,8 +231,8 @@ class time_mod():
 		Solves the differential equation of tau. This is the right hand side of the equation
 		Finds the n_e value that corresponds to the x value, since we use a reversed x-array.
 		"""
-		i = np.searchsorted(self.x_eta, x_0, side="left")
-		dTaudx = - self.n_e[i]*sigma_T*c/self.Get_Hubble_param(x_0)
+		n_e = self.Cubic_Spline_OnePoint(self.x_eta, self.n_e, x_0)
+		dTaudx = -n_e*sigma_T*c/self.Get_Hubble_param(x_0)
 		return dTaudx
 
 	def Visibility_func(self, x, tau, tauDerv):
@@ -239,9 +242,16 @@ class time_mod():
 			g[i] = -tauDerv[i]*np.exp(-tau[i])
 		return g
 
+	def Kronecker_Delta_2(self, l):
+		""" Kronecker delta that only returns 1 if l = 2 """
+		if l == 2:
+			return 1
+		else:
+			return 0
+
 	def BoltzmannEinstein_InitConditions(self):
 		""" Initial conditions for the Boltzmann equations """
-		Phi = 1*np.ones(100)
+		Phi = 1*np.ones(self.k_N)
 		delta_b = 3.0*Phi/2.0
 		HPrime_0 = self.Get_Hubble_param(self.x_eta[0])
 		v_b = c*self.k*Phi/(2.0*HPrime_0)
@@ -286,35 +296,49 @@ class time_mod():
 		
 	def BoltzmannEinstein_Equations(self, variables, x_0):
 		""" Solves Boltzmann Einstein equations """
-		Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6. delta, delta_b, v, v_b, Phi = np.reshape(variables, (self.NumVariables, self.k_N))
+		Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, delta, delta_b, v, v_b, Phi = np.reshape(variables, (self.NumVariables, self.k_N))
 		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x_0)
 		# Calculating some prefactors
 		Hprimed = self.Get_Hubble_prime(x_0)
 		Hprimed_Squared = Hprimed*Hprimed
-		ck_Hprimed = ck/Hprimed
+		ck_Hprimed = self.ck/Hprimed
 		i = np.searchsorted(self.x_eta, x_0, side="left")
+
+		InterTauDerivative = self.Spline_Derivative(x_0, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
+		InterEta = self.Cubic_Spline(x_0, self.ScipyEta, 1, x_start=x_0, x_end=x_0)
 
 		R = 4.0*Om_r/(3.0*Om_b*np.exp(x_0))
 		Psi = -Phi - PsiPrefactor*(np.exp(-2.0*x_0)/(self.k_squared))*Om_r*Theta_2
-		dPhidx = Psi - ((c_Squared*self.k_squared)/(3.0*Hprimed_Squared))*Psi \
+
+		dPhidx = Psi - (ck_Hprimed**2/3.0)*Phi\
 				+ (H_0Squared/(2.0*Hprimed_Squared))*(Om_m*np.exp(-x_0)*delta + Om_b*np.exp(-x_0)*delta_b + 4.0*Om_r*np.exp(-2.0*x_0)*Theta_0)
+
 		ThetaDerivatives = []
 		Thetas = [Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6]
-		dTheta0dx = -(ck/Hprimed)*Theta_1 - dPhidx
-		dTheta1dx = ck/(3.0*Hprimed)*Theta_0 - ((2.0*ck)/(3.0*Hprimed))*Theta_2 \
-					+ ck/(3.0*Hprimed)*Psi + self.TauDerivative[i]*[Theta_1 + 1.0/(3.0*v_b)]
+		dTheta0dx = -ck_Hprimed*Theta_1 - dPhidx
+		dTheta1dx = (ck_Hprimed/3.0)*Theta_0 - ((2.0*ck_Hprimed)/3.0)*Theta_2 \
+					+ (ck_Hprimed/3.0)*Psi + InterTauDerivative*(Theta_1 + 1.0/(3.0*v_b))#self.TauDerivative[i]*(Theta_1 + 1.0/(3.0*v_b))
 		ThetaDerivatives.append(dTheta0dx)
 		ThetaDerivatives.append(dTheta1dx)
-		for l in range(2, self.l_max): 
+		for l in range(2, self.l_max):
 			dThetaldx = l*ck_Hprimed/(2.0*l+1.0)*Thetas[l-1] - ck_Hprimed*((l+1.0)/(2.0*l+1.0))*Thetas[l+1] \
-						+ self.TauDerivative[i]*(Thetas[l] - 0.1*Thetas[l]*)
+						+ InterTauDerivative*(Thetas[l] - 0.1*Thetas[l]*self.Kronecker_Delta_2(l))
+						#+ self.TauDerivative[i]*(Thetas[l] - 0.1*Thetas[l]*self.Kronecker_Delta_2(l))
+			ThetaDerivatives.append(dThetaldx)
+		dThetalmaxdx = ck_Hprimed*Thetas[self.l_max-1] - c*(self.l_max + 1)/(Hprimed*self.ScipyEta[i])*Thetas[self.l_max]\
+						+ InterTauDerivative*Thetas[self.l_max]
+						#+ self.TauDerivative[i]*Thetas[self.l_max]
 
-		dDeltadx = ck_Hprimed*v - 3*dThetadx
-		dDeltabdx = ck_Hprimed*v_b - 3.0*dThetadx
+		ThetaDerivatives.append(dThetalmaxdx)
+		dDeltadx = ck_Hprimed*v - 3*dPhidx
+		dDeltabdx = ck_Hprimed*v_b - 3.0*dPhidx
 		dvdx = -v - ck_Hprimed*Psi
-		dvbdx = -v_b - ck_Hprimed*Psi + self.TauDerivative[i]*R*(3*Theta_1 + v_b)
+		dvbdx = -v_b - ck_Hprimed*Psi + InterTauDerivative*R*(3*Theta_1 + v_b) #self.TauDerivative[i]*R*(3*Theta_1 + v_b)
 
-		derivatives = np.array([dTheta0dx, dTheta1dx])
+		derivatives = np.array([ThetaDerivatives[0], ThetaDerivatives[1], ThetaDerivatives[2], ThetaDerivatives[3], ThetaDerivatives[4] ,ThetaDerivatives[5]\
+					, ThetaDerivatives[6], dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
+		#print derivatives
+		return np.reshape(derivatives, self.NumVariables*self.k_N)
 
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
@@ -328,14 +352,21 @@ class time_mod():
 		self.TauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=1)
 		self.TauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 100, derivative=2)
 		# Calculate g, and interpolates the first and second derivatives
-		
 		self.g_tilde = self.Visibility_func(self.x_eta, self.Taus, self.TauDerivative)
 		self.g_tildeDerivative = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=1)
 		self.g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=2)
 		
-		self.BoltzmannEinstein_InitConditions()
-
+		#self.BoltzmannEinstein_InitConditions()
+		#EBSoltuions = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)\
+		#		,self.x_t_today_rev)#,atol=1.0e-8, rtol=1.0e-6)
 		"""
+		x = self.x_eta[30]
+		eta = self.ScipyEta[30]/(Mpc*1e3)
+		etaInt = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x)
+		print eta
+		print etaInt/(Mpc*1e3)
+		"""
+		
 		fig3 = plt.figure()
 		ax3 = plt.subplot(111)
 		plt.hold("on")
@@ -358,7 +389,7 @@ class time_mod():
 		plt.ylabel(r'$\tilde{g}$')
 		plt.title(r"The visibility function $\tilde{g(x)}$ and its derivatives")
 		ax4.legend(loc='lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
-		"""
+		
 		if self.savefig == 1:
 			a=1
 		else:
