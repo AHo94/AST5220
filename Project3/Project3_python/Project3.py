@@ -76,7 +76,7 @@ class time_mod():
 		self.a_end_rec = 1.0/(1.0 + self.z_end_rec)
 
 		# Used for the x-values for the conformal time
-		self.n_eta = 1000
+		self.n_eta = 100
 		self.a_init = 1e-8
 		self.x_eta_init = np.log(self.a_init)
 		self.x_eta_end = 0
@@ -95,7 +95,7 @@ class time_mod():
 		self.l_max = l_max
 		k_min = 0.1*H_0
 		k_max = 340*H_0
-		self.k_N = 2
+		self.k_N =100
 		self.k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(self.k_N)])
 		self.k_squared = self.k*self.k
 		self.ck = c*self.k
@@ -231,7 +231,7 @@ class time_mod():
 		Solves the differential equation of tau. This is the right hand side of the equation
 		Finds the n_e value that corresponds to the x value, since we use a reversed x-array.
 		"""
-		n_e = self.Cubic_Spline_OnePoint(self.x_eta, self.n_e, x_0)
+		n_e = np.exp(self.Cubic_Spline_OnePoint(self.x_eta, np.log(self.n_e), x_0))
 		dTaudx = -n_e*sigma_T*c/self.Get_Hubble_param(x_0)
 		return dTaudx
 
@@ -298,14 +298,14 @@ class time_mod():
 		""" Solves Boltzmann Einstein equations """
 		Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, delta, delta_b, v, v_b, Phi = np.reshape(variables, (self.NumVariables, self.k_N))
 		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x_0)
+		
 		# Calculating some prefactors
 		Hprimed = self.Get_Hubble_prime(x_0)
 		Hprimed_Squared = Hprimed*Hprimed
 		ck_Hprimed = self.ck/Hprimed
-		i = np.searchsorted(self.x_eta, x_0, side="left")
-
-		InterTauDerivative = self.Spline_Derivative(x_0, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
-		InterEta = self.Cubic_Spline(x_0, self.ScipyEta, 1, x_start=x_0, x_end=x_0)
+		# Interpolating Conformal time and Optical depth at the point x_0
+		InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
+		InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
 
 		R = 4.0*Om_r/(3.0*Om_b*np.exp(x_0))
 		Psi = -Phi - PsiPrefactor*(np.exp(-2.0*x_0)/(self.k_squared))*Om_r*Theta_2
@@ -325,7 +325,7 @@ class time_mod():
 						+ InterTauDerivative*(Thetas[l] - 0.1*Thetas[l]*self.Kronecker_Delta_2(l))
 						#+ self.TauDerivative[i]*(Thetas[l] - 0.1*Thetas[l]*self.Kronecker_Delta_2(l))
 			ThetaDerivatives.append(dThetaldx)
-		dThetalmaxdx = ck_Hprimed*Thetas[self.l_max-1] - c*(self.l_max + 1)/(Hprimed*self.ScipyEta[i])*Thetas[self.l_max]\
+		dThetalmaxdx = ck_Hprimed*Thetas[self.l_max-1] - c*(self.l_max + 1)/(Hprimed*InterEta)*Thetas[self.l_max]\
 						+ InterTauDerivative*Thetas[self.l_max]
 						#+ self.TauDerivative[i]*Thetas[self.l_max]
 
@@ -356,16 +356,15 @@ class time_mod():
 		self.g_tildeDerivative = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=1)
 		self.g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=2)
 		
-		#self.BoltzmannEinstein_InitConditions()
-		#EBSoltuions = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)\
-		#		,self.x_t_today_rev)#,atol=1.0e-8, rtol=1.0e-6)
+		self.BoltzmannEinstein_InitConditions()
+		EBSoltuions = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)\
+				,self.x_t_today_rev)#,atol=1.0e-8, rtol=1.0e-6)
 		"""
 		x = self.x_eta[30]
 		eta = self.ScipyEta[30]/(Mpc*1e3)
 		etaInt = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x)
 		print eta
 		print etaInt/(Mpc*1e3)
-		"""
 		
 		fig3 = plt.figure()
 		ax3 = plt.subplot(111)
@@ -394,6 +393,6 @@ class time_mod():
 			a=1
 		else:
 			plt.show()
-
+		"""
 solver = time_mod(savefig=0, l_max=6)
 solver.Plot_results(100)
