@@ -276,23 +276,7 @@ class time_mod():
 		self.BoltzmannVariables.append(Phi)
 
 		self.NumVariables = len(self.BoltzmannVariables)
-		"""
-		self.BoltzmannVariables = np.zeros(l+6)
-		self.BoltzmannVariables[0] = Theta_0
-		self.BoltzmannVariables[1] = Theta_1
-		self.BoltzmannVariables[2] = Theta_2
-		if l > 2:
-			for i in range(3, l+1):
-				self.BoltzmannVariables[i] = -(i/(2.0*i+1))*(c*self.k/(HPrime_0*self.TauDerivative[0]))*self.BoltzmannVariables[i-1]
-		else:
-			raise ValueError('Value of l is a little too small. Try to increase it to l=3 or larger')
 
-		self.BoltzmannVariables[l+1] = delta_b
-		self.BoltzmannVariables[l+2] = delta_b
-		self.BoltzmannVariables[l+3] = v_b
-		self.BoltzmannVariables[l+4] = v_b
-		self.BoltzmannVariables[l+5] = Phi
-		"""
 		
 	def BoltzmannEinstein_Equations(self, variables, x_0):
 		""" Solves Boltzmann Einstein equations """
@@ -317,23 +301,21 @@ class time_mod():
 		Thetas = [Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6]
 		dTheta0dx = -ck_Hprimed*Theta_1 - dPhidx
 		dTheta1dx = (ck_Hprimed/3.0)*Theta_0 - ((2.0*ck_Hprimed)/3.0)*Theta_2 \
-					+ (ck_Hprimed/3.0)*Psi + InterTauDerivative*(Theta_1 + 1.0/(3.0*v_b))#self.TauDerivative[i]*(Theta_1 + 1.0/(3.0*v_b))
+					+ (ck_Hprimed/3.0)*Psi + InterTauDerivative*(Theta_1 + 1.0/(3.0*v_b))
 		ThetaDerivatives.append(dTheta0dx)
 		ThetaDerivatives.append(dTheta1dx)
 		for l in range(2, self.l_max):
 			dThetaldx = l*ck_Hprimed/(2.0*l+1.0)*Thetas[l-1] - ck_Hprimed*((l+1.0)/(2.0*l+1.0))*Thetas[l+1] \
 						+ InterTauDerivative*(Thetas[l] - 0.1*Thetas[l]*self.Kronecker_Delta_2(l))
-						#+ self.TauDerivative[i]*(Thetas[l] - 0.1*Thetas[l]*self.Kronecker_Delta_2(l))
 			ThetaDerivatives.append(dThetaldx)
-		dThetalmaxdx = ck_Hprimed*Thetas[self.l_max-1] - c*(self.l_max + 1)/(Hprimed*InterEta)*Thetas[self.l_max]\
+		dThetalmaxdx = ck_Hprimed*Thetas[self.l_max-1] - c*((self.l_max + 1)/(Hprimed*InterEta))*Thetas[self.l_max]\
 						+ InterTauDerivative*Thetas[self.l_max]
-						#+ self.TauDerivative[i]*Thetas[self.l_max]
 
 		ThetaDerivatives.append(dThetalmaxdx)
-		dDeltadx = ck_Hprimed*v - 3*dPhidx
+		dDeltadx = ck_Hprimed*v - 3.0*dPhidx
 		dDeltabdx = ck_Hprimed*v_b - 3.0*dPhidx
 		dvdx = -v - ck_Hprimed*Psi
-		dvbdx = -v_b - ck_Hprimed*Psi + InterTauDerivative*R*(3*Theta_1 + v_b) #self.TauDerivative[i]*R*(3*Theta_1 + v_b)
+		dvbdx = -v_b - ck_Hprimed*Psi + InterTauDerivative*R*(3.0*Theta_1 + v_b)
 
 		derivatives = np.array([ThetaDerivatives[0], ThetaDerivatives[1], ThetaDerivatives[2], ThetaDerivatives[3], ThetaDerivatives[4] ,ThetaDerivatives[5]\
 					, ThetaDerivatives[6], dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
