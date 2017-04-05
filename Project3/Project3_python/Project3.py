@@ -76,7 +76,7 @@ class time_mod():
 		self.a_end_rec = 1.0/(1.0 + self.z_end_rec)
 
 		# Used for the x-values for the conformal time
-		self.n_eta = 100
+		self.n_eta = 3000
 		self.a_init = 1e-8
 		self.x_eta_init = np.log(self.a_init)
 		self.x_eta_end = 0
@@ -95,7 +95,7 @@ class time_mod():
 		self.l_max = l_max
 		k_min = 0.1*H_0
 		k_max = 340*H_0
-		self.k_N =100
+		self.k_N = 2
 		self.k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(self.k_N)])
 		self.k_squared = self.k*self.k
 		self.ck = c*self.k
@@ -111,7 +111,7 @@ class time_mod():
 
 	def Get_Hubble_prime_derivative(self, x):
 		""" Function returns the derivative of the scaled Hubble parameter. See report 1 """
-		return -H_0**2*(0.5*(Omega_b + Omega_m)*np.exp(-x) + Omega_r*np.exp(-2*x) - Omega_lambda*np.exp(2*x))/(Get_Hubble_prime(x))
+		return -H_0**2*(0.5*(Omega_b + Omega_m)*np.exp(-x) + Omega_r*np.exp(-2*x) - Omega_lambda*np.exp(2*x))/(self.Get_Hubble_prime(x))
 
 	def Get_Omegas(self, x):
 		""" 
@@ -251,13 +251,14 @@ class time_mod():
 
 	def BoltzmannEinstein_InitConditions(self):
 		""" Initial conditions for the Boltzmann equations """
-		Phi = 1*np.ones(self.k_N)
+		Phi = 1.0*np.ones(self.k_N)
 		delta_b = 3.0*Phi/2.0
-		HPrime_0 = self.Get_Hubble_param(self.x_eta[0])
-		v_b = c*self.k*Phi/(2.0*HPrime_0)
+		HPrime_0 = self.Get_Hubble_param(self.x_eta_init)
+		InterpolateTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative = 1, x_start = self.x_eta_init, x_end =self.x_eta_init)
+		v_b = self.ck*Phi/(2.0*HPrime_0)
 		Theta_0 = 0.5*Phi
 		Theta_1 = -c*self.k*Phi/(6.0*HPrime_0)
-		Theta_2 = -8.0*c*self.k*Theta_1/(15*self.TauDerivative[0]*HPrime_0)
+		Theta_2 = -8.0*c*self.k*Theta_1/(15*InterpolateTauDerivative*HPrime_0)
 		
 		self.BoltzmannVariables = []
 		self.BoltzmannVariables.append(Theta_0)
@@ -265,7 +266,7 @@ class time_mod():
 		self.BoltzmannVariables.append(Theta_2)
 		if self.l_max > 2:
 			for l in range(3, self.l_max+1):
-				self.BoltzmannVariables.append(-(l/(2.0*l+1))*(c*self.k/(HPrime_0*self.TauDerivative[0]))*self.BoltzmannVariables[l-1])
+				self.BoltzmannVariables.append(-(l/(2.0*l+1))*(c*self.k/(HPrime_0*InterpolateTauDerivative))*self.BoltzmannVariables[l-1])
 		else:
 			raise ValueError('Value of l_max is a little too small. Try to increase it to l_max=3 or larger')
 
@@ -322,6 +323,40 @@ class time_mod():
 		#print derivatives
 		return np.reshape(derivatives, self.NumVariables*self.k_N)
 
+	def TightCouplingRegime(self, variables, x_0):
+		""" Boltzmann equation in the tight coupling regime """
+		Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, delta, delta_b, v, v_b, Phi = np.reshape(variables, (self.NumVariables, self.k_N))
+		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x_0)
+		
+		# Calculating some prefactors
+		Hprimed = self.Get_Hubble_prime(x_0)
+		#HPrimedDerivative = self.Get_Hubble_prime_derivative(x_0)
+		Hprime_HprimeDer = Hprimed/self.Get_Hubble_prime_derivative(x_0)
+		Hprimed_Squared = Hprimed*Hprimed
+		ck_Hprimed = self.ck/Hprimed
+		# Interpolating Conformal time and Optical depth at the point x_0
+		InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
+		InterTauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=2, x_start=x_0, x_end=x_0)
+		InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
+
+		R = 4.0*Om_r/(3.0*Om_b*np.exp(x_0))
+		Psi = -Phi - PsiPrefactor*(np.exp(-2.0*x_0)/(self.k_squared))*Om_r*Theta_2
+		dPhidx = Psi - (ck_Hprimed**2/3.0)*Phi\
+				+ (H_0Squared/(2.0*Hprimed_Squared))*(Om_m*np.exp(-x_0)*delta + Om_b*np.exp(-x_0)*delta_b + 4.0*Om_r*np.exp(-2.0*x_0)*Theta_0)
+		dTheta0dx = -ck_Hprimed*Theta_1 - dPhidx
+		q = -(((1.0-2.0*R)*InterTauDerivative + (1.0+R)*InterTauDoubleDer)*(3.0*Theta_1 + v_b) -ck_Hprimed*Psi \
+					+ (1.0-Hprime_HprimeDer)*ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*dTheta0dx)/((1.0+R)*InterTauDerivative + Hprime_HprimeDer - 1.0)
+
+		dDeltadx = ck_Hprimed*v - 3.0*dPhidx
+		dDeltabdx = ck_Hprimed*v_b - 3.0*dPhidx
+		dvdx = -v - ck_Hprimed*Psi
+		dvbdx = (-v_b - ck_Hprimed*Psi + R*(q + ck_Hprimed*(-Theta_0 + 2*Theta_2) - ck_Hprimed*Psi))/(1.0+R)
+		dTheta1dx = (q-dvbdx)/3.0
+		print dTheta0dx[0], x_0
+		derivatives = np.array([dTheta0dx, dTheta1dx, dTheta1dx,dTheta1dx,dTheta1dx,dTheta1dx,dTheta1dx, dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
+		return np.reshape(derivatives, self.NumVariables*self.k_N)		
+
+
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
@@ -337,10 +372,12 @@ class time_mod():
 		self.g_tilde = self.Visibility_func(self.x_eta, self.Taus, self.TauDerivative)
 		self.g_tildeDerivative = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=1)
 		self.g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=2)
-		
+		print 'Calculating Boltzmann equations'
 		self.BoltzmannEinstein_InitConditions()
-		EBSoltuions = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)\
-				,self.x_t_today_rev)#,atol=1.0e-8, rtol=1.0e-6)
+		print self.BoltzmannVariables
+		EBTightCoupling = integrate.odeint(self.TightCouplingRegime, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N), self.x_t_rec)
+		#EBSoltuions = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)\
+		#		,self.x_t_today_rev, full_output=True)#,atol=1.0e-8, rtol=1.0e-6)
 		"""
 		x = self.x_eta[30]
 		eta = self.ScipyEta[30]/(Mpc*1e3)
