@@ -84,7 +84,6 @@ class time_mod():
 		# Set up grid, these are currently unused
 		self.x_t_rec = np.linspace(self.x_start_rec, self.x_end_rec, self.n1)
 		self.x_t_today = np.linspace(self.x_end_rec, self.x_0, self.n2)
-		self.x_t_today_rev = np.linspace(self.x_0, self.x_end_rec, self.n2)
 		# Merging the arrays into one
 		self.x_t = np.concatenate([self.x_t_rec, self.x_t_today])
 
@@ -350,10 +349,10 @@ class time_mod():
 		dDeltadx = ck_Hprimed*v - 3.0*dPhidx
 		dDeltabdx = ck_Hprimed*v_b - 3.0*dPhidx
 		dvdx = -v - ck_Hprimed*Psi
-		dvbdx = (-v_b - ck_Hprimed*Psi + R*(q + ck_Hprimed*(-Theta_0 + 2*Theta_2) - ck_Hprimed*Psi))/(1.0+R)
+		dvbdx = (-v_b - ck_Hprimed*Psi + R*(q + ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*Psi))/(1.0+R)
 		dTheta1dx = (q-dvbdx)/3.0
-		print dTheta0dx[0], x_0
-		derivatives = np.array([dTheta0dx, dTheta1dx, dTheta1dx,dTheta1dx,dTheta1dx,dTheta1dx,dTheta1dx, dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
+
+		derivatives = np.array([dTheta0dx, dTheta1dx, dTheta1dx, dTheta1dx, dTheta1dx, dTheta1dx, dTheta1dx, dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
 		return np.reshape(derivatives, self.NumVariables*self.k_N)		
 
 
@@ -374,10 +373,17 @@ class time_mod():
 		self.g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=2)
 		print 'Calculating Boltzmann equations'
 		self.BoltzmannEinstein_InitConditions()
-		print self.BoltzmannVariables
-		EBTightCoupling = integrate.odeint(self.TightCouplingRegime, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N), self.x_t_rec)
-		#EBSoltuions = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)\
-		#		,self.x_t_today_rev, full_output=True)#,atol=1.0e-8, rtol=1.0e-6)
+		#print self.BoltzmannVariables
+		EBTightCoupling = integrate.odeint(self.TightCouplingRegime, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)
+					, self.x_t_rec, mxstep=100000)
+		print 'Tight coupling regime complete, now calculating after tight coupling'
+		#print EBTightCoupling
+		EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(EBTightCoupling[-1], self.NumVariables*self.k_N)\
+				,self.x_t_today, mxstep = 100000)
+		print 'Done, now plotting'
+		EBSolutions = np.concatenate([EBTightCoupling, EBAfterTC])
+		plt.plot(self.k, EBSolutions[2]/self.k/(10e-6/H_0))
+		plt.show()
 		"""
 		x = self.x_eta[30]
 		eta = self.ScipyEta[30]/(Mpc*1e3)
