@@ -463,6 +463,8 @@ class time_mod():
 		print len(self.x_t_rec)
 		plt.plot(self.x_t_rec, Transposed[0])
 		plt.show()
+
+		a = 1
 		"""
 		x = self.x_eta[30]
 		eta = self.ScipyEta[30]/(Mpc*1e3)
