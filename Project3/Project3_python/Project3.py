@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import interpolate
 from scipy import integrate
+import time
 
 # Global constants
 # Units
@@ -62,6 +63,7 @@ class time_mod():
 			print 'Current value of savefig = ', savefig
 			raise ValueError('Argument savefig not properly set. Try savefig = 1 (saves as pdf) or savefig = 0 (do not save as pdf)')
 
+		self.time_start = time.clock()
 		self.n1 = 200
 		self.n2 = 300
 		self.n_t = self.n1 + self.n2
@@ -446,8 +448,9 @@ class time_mod():
 		print 'Calculating for tight coupling regime'
 		EBTightCoupling = integrate.odeint(self.TightCouplingRegime, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)
 					, self.x_t_rec, mxstep=100000)
-		#print 'Tight coupling regime complete, now calculating after tight coupling'
+		print 'Tight coupling regime complete, now calculating after tight coupling'
 		#print EBTightCoupling
+		"""		
 		EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(EBTightCoupling[-1], self.NumVariables*self.k_N)\
 				,self.x_t_today, mxstep = 10000)
 		print 'Done, now plotting'
@@ -463,8 +466,8 @@ class time_mod():
 		print len(self.x_t_rec)
 		plt.plot(self.x_t_rec, Transposed[0])
 		plt.show()
-
-		a = 1
+		"""
+		print (time.clock() - self.time_start)
 		"""
 		x = self.x_eta[30]
 		eta = self.ScipyEta[30]/(Mpc*1e3)
