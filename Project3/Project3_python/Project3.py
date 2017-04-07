@@ -97,7 +97,7 @@ class time_mod():
 		self.lValues = np.linspace(2, l_max-1, l_max-2)
 		k_min = 0.1*H_0
 		k_max = 340*H_0
-		self.k_N = 100
+		self.k_N = 2
 		self.k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(self.k_N)])
 		self.k_squared = self.k*self.k
 		self.ck = c*self.k
