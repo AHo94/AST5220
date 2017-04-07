@@ -92,13 +92,36 @@ class time_mod():
 		self.x_tau = np.linspace(self.x_eta_end, self.x_eta_init, self.n_eta)	# Reversed array, used to calculate tau
 
 		self.l_max = l_max
+		self.lValues = np.linspace(2, l_max-1, l_max-2)
 		k_min = 0.1*H_0
 		k_max = 340*H_0
-		self.k_N = 2
+		self.k_N = 100
 		self.k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(self.k_N)])
 		self.k_squared = self.k*self.k
 		self.ck = c*self.k
 
+		Ks = np.array([1,2])
+		Ls = np.array([0,1,2,3,4])
+		B = np.array([1,2,3,4,5])
+		A = np.array([0,0,0,0,0])
+		AA = np.array([[1,2],[2,3]])
+		#print Ls[1:-1]
+		#A[1:-1] = Ls[1:-1]*B[2:] + B[0:-2]
+		
+		# LL = (l*k)
+		LL = np.array([1*np.array([1.0,2.0,3.0,4.0]), 2*np.array([1.0,2.0,3.0,4.0]), 3*np.array([1.0,2.0,3.0, 4.0])])
+		LLdiv = np.array([1.0,2.0,3.0])
+		THET = np.array([10,20,30])
+		THET0 = np.zeros((3,4))
+		print THET0
+		THET0[1:-1] = LL[1:-1]/(2.0*LLdiv[1:-1]+1)*THET[0]
+		print THET0
+
+		"""
+		Premake l*k array, so it is a (6x100) array
+		Calculate thetas as above, index every array possible
+		first element array corresponds to the l values, each l value multiplied with thetas applies for all k 
+		"""
 
 	def Get_Hubble_param(self, x):
 		""" Function returns the Hubble parameter for a given x """
@@ -308,6 +331,52 @@ class time_mod():
 			dThetaldx = l*ck_Hprimed/(2.0*l+1.0)*Thetas[l-1] - ck_Hprimed*((l+1.0)/(2.0*l+1.0))*Thetas[l+1] \
 						+ InterTauDerivative*(Thetas[l] - 0.1*Thetas[l]*self.Kronecker_Delta_2(l))
 			ThetaDerivatives.append(dThetaldx)
+		
+		dThetalmaxdx = ck_Hprimed*Thetas[self.l_max-1] - c*((self.l_max + 1)/(Hprimed*InterEta))*Thetas[self.l_max]\
+						+ InterTauDerivative*Thetas[self.l_max]
+
+		ThetaDerivatives.append(dThetalmaxdx)
+		dDeltadx = ck_Hprimed*v - 3.0*dPhidx
+		dDeltabdx = ck_Hprimed*v_b - 3.0*dPhidx
+		dvdx = -v - ck_Hprimed*Psi
+		dvbdx = -v_b - ck_Hprimed*Psi + InterTauDerivative*R*(3.0*Theta_1 + v_b)
+
+		derivatives = np.array([ThetaDerivatives[0], ThetaDerivatives[1], ThetaDerivatives[2], ThetaDerivatives[3], ThetaDerivatives[4] ,ThetaDerivatives[5]\
+					, ThetaDerivatives[6], dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
+		#print derivatives
+		return np.reshape(derivatives, self.NumVariables*self.k_N)
+
+	def BoltzmannEinstein_Equations2(self, variables, x_0):
+		""" Solves Boltzmann Einstein equations """
+		Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, delta, delta_b, v, v_b, Phi = np.reshape(variables, (self.NumVariables, self.k_N))
+		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x_0)
+		
+		# Calculating some prefactors
+		Hprimed = self.Get_Hubble_prime(x_0)
+		Hprimed_Squared = Hprimed*Hprimed
+		ck_Hprimed = self.ck/Hprimed
+		# Interpolating Conformal time and Optical depth at the point x_0
+		InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
+		InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
+
+		R = 4.0*Om_r/(3.0*Om_b*np.exp(x_0))
+		Psi = -Phi - PsiPrefactor*(np.exp(-2.0*x_0)/(self.k_squared))*Om_r*Theta_2
+
+		dPhidx = Psi - (ck_Hprimed**2/3.0)*Phi\
+				+ (H_0Squared/(2.0*Hprimed_Squared))*(Om_m*np.exp(-x_0)*delta + Om_b*np.exp(-x_0)*delta_b + 4.0*Om_r*np.exp(-2.0*x_0)*Theta_0)
+
+		ThetaDerivatives = np.zeros((self.l_max, self.k_N))
+		Thetas = np.array([Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6])
+		ThetaDerivatives[0] = -ck_Hprimed*Theta_1 - dPhidx
+		ThetaDerivatives[1] = (ck_Hprimed/3.0)*Theta_0 - ((2.0*ck_Hprimed)/3.0)*Theta_2 \
+					+ (ck_Hprimed/3.0)*Psi + InterTauDerivative*(Theta_1 + 1.0/(3.0*v_b))
+		ThetaDerivatives.append(dTheta0dx)
+		ThetaDerivatives.append(dTheta1dx)
+		for l in range(2, self.l_max):
+			dThetaldx = l*ck_Hprimed/(2.0*l+1.0)*Thetas[l-1] - ck_Hprimed*((l+1.0)/(2.0*l+1.0))*Thetas[l+1] \
+						+ InterTauDerivative*(Thetas[l] - 0.1*Thetas[l]*self.Kronecker_Delta_2(l))
+			ThetaDerivatives.append(dThetaldx)
+		
 		dThetalmaxdx = ck_Hprimed*Thetas[self.l_max-1] - c*((self.l_max + 1)/(Hprimed*InterEta))*Thetas[self.l_max]\
 						+ InterTauDerivative*Thetas[self.l_max]
 
@@ -371,18 +440,28 @@ class time_mod():
 		self.g_tilde = self.Visibility_func(self.x_eta, self.Taus, self.TauDerivative)
 		self.g_tildeDerivative = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=1)
 		self.g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=2)
-		print 'Calculating Boltzmann equations'
+		print 'Setting Boltzmann initial conditions'
 		self.BoltzmannEinstein_InitConditions()
 		#print self.BoltzmannVariables
+		print 'Calculating for tight coupling regime'
 		EBTightCoupling = integrate.odeint(self.TightCouplingRegime, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)
 					, self.x_t_rec, mxstep=100000)
-		print 'Tight coupling regime complete, now calculating after tight coupling'
+		#print 'Tight coupling regime complete, now calculating after tight coupling'
 		#print EBTightCoupling
 		EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(EBTightCoupling[-1], self.NumVariables*self.k_N)\
-				,self.x_t_today, mxstep = 100000)
+				,self.x_t_today, mxstep = 10000)
 		print 'Done, now plotting'
 		EBSolutions = np.concatenate([EBTightCoupling, EBAfterTC])
-		plt.plot(self.k, EBSolutions[2]/self.k/(10e-6/H_0))
+		Transposed = np.transpose(EBSolutions)
+		theta0 = []
+		print EBTightCoupling
+		for j in range(self.k_N):
+			theta0.append(Transposed[0])
+		print '\n'
+		print Transposed[0]
+		print len(theta0)
+		print len(self.x_t_rec)
+		plt.plot(self.x_t_rec, Transposed[0])
 		plt.show()
 		"""
 		x = self.x_eta[30]
