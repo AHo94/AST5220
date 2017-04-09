@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from scipy import interpolate
 from scipy import integrate
 import time
+import cProfile
 
 # Global constants
 # Units
@@ -98,9 +99,19 @@ class time_mod():
 		k_min = 0.1*H_0
 		k_max = 340*H_0
 		self.k_N = 2
+		#self.k1 = np.linspace(k_min, k_max, self.k_N)
 		self.k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(self.k_N)])
+		#print self.k-self.k1
 		self.k_squared = self.k*self.k
 		self.ck = c*self.k
+
+		self.hmin = (self.x_t_today[-1]-self.x_t_today[0])/float(self.n2)
+		"""
+		k = 1 , 16 seconds
+		k = 2 , 24 seconds, + 8 s
+		k = 3 , 42 seconds, + 18 s
+		k = 4 , 55 seconds, + 13 s
+		"""
 
 		Ks = np.array([1,2])
 		Ls = np.array([0,1,2,3,4])
@@ -346,6 +357,7 @@ class time_mod():
 		derivatives = np.array([ThetaDerivatives[0], ThetaDerivatives[1], ThetaDerivatives[2], ThetaDerivatives[3], ThetaDerivatives[4] ,ThetaDerivatives[5]\
 					, ThetaDerivatives[6], dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
 		#print derivatives
+		print x_0
 		return np.reshape(derivatives, self.NumVariables*self.k_N)
 
 	def BoltzmannEinstein_Equations2(self, variables, x_0):
@@ -391,13 +403,13 @@ class time_mod():
 		derivatives = np.array([ThetaDerivatives[0], ThetaDerivatives[1], ThetaDerivatives[2], ThetaDerivatives[3], ThetaDerivatives[4] ,ThetaDerivatives[5]\
 					, ThetaDerivatives[6], dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
 		#print derivatives
+		#print x_0
 		return np.reshape(derivatives, self.NumVariables*self.k_N)
 
 	def TightCouplingRegime(self, variables, x_0):
 		""" Boltzmann equation in the tight coupling regime """
 		Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, delta, delta_b, v, v_b, Phi = np.reshape(variables, (self.NumVariables, self.k_N))
 		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x_0)
-		
 		# Calculating some prefactors
 		Hprimed = self.Get_Hubble_prime(x_0)
 		#HPrimedDerivative = self.Get_Hubble_prime_derivative(x_0)
@@ -408,13 +420,13 @@ class time_mod():
 		InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
 		InterTauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=2, x_start=x_0, x_end=x_0)
 		InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
-
+		
 		R = 4.0*Om_r/(3.0*Om_b*np.exp(x_0))
 		Psi = -Phi - PsiPrefactor*(np.exp(-2.0*x_0)/(self.k_squared))*Om_r*Theta_2
 		dPhidx = Psi - (ck_Hprimed**2/3.0)*Phi\
 				+ (H_0Squared/(2.0*Hprimed_Squared))*(Om_m*np.exp(-x_0)*delta + Om_b*np.exp(-x_0)*delta_b + 4.0*Om_r*np.exp(-2.0*x_0)*Theta_0)
 		dTheta0dx = -ck_Hprimed*Theta_1 - dPhidx
-		q = -(((1.0-2.0*R)*InterTauDerivative + (1.0+R)*InterTauDoubleDer)*(3.0*Theta_1 + v_b) -ck_Hprimed*Psi \
+		q = -(((1.0-2.0*R)*InterTauDerivative + (1.0+R)*InterTauDoubleDer)*(3.0*Theta_1 + v_b) - ck_Hprimed*Psi \
 					+ (1.0-Hprime_HprimeDer)*ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*dTheta0dx)/((1.0+R)*InterTauDerivative + Hprime_HprimeDer - 1.0)
 
 		dDeltadx = ck_Hprimed*v - 3.0*dPhidx
@@ -422,10 +434,13 @@ class time_mod():
 		dvdx = -v - ck_Hprimed*Psi
 		dvbdx = (-v_b - ck_Hprimed*Psi + R*(q + ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*Psi))/(1.0+R)
 		dTheta1dx = (q-dvbdx)/3.0
-
 		derivatives = np.array([dTheta0dx, dTheta1dx, dTheta1dx, dTheta1dx, dTheta1dx, dTheta1dx, dTheta1dx, dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
 		return np.reshape(derivatives, self.NumVariables*self.k_N)		
 
+	def WriteOutfile(self, filename, array):
+		if type(filname) != str:
+			raise ValueError("Argiment 'filename' not a string!")
+		text_file = open(filename, "w")
 
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
@@ -437,7 +452,7 @@ class time_mod():
 		# Calculates tau and interpolates the first and second derivatives
 		self.Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
 		self.TauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=1)
-		self.TauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 100, derivative=2)
+		self.TauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=2)
 		# Calculate g, and interpolates the first and second derivatives
 		self.g_tilde = self.Visibility_func(self.x_eta, self.Taus, self.TauDerivative)
 		self.g_tildeDerivative = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=1)
@@ -447,17 +462,30 @@ class time_mod():
 		#print self.BoltzmannVariables
 		print 'Calculating for tight coupling regime'
 		EBTightCoupling = integrate.odeint(self.TightCouplingRegime, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)
-					, self.x_t_rec, mxstep=100000)
+					, self.x_t_rec)
 		print 'Tight coupling regime complete, now calculating after tight coupling'
 		#print EBTightCoupling
-		"""		
-		EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(EBTightCoupling[-1], self.NumVariables*self.k_N)\
-				,self.x_t_today, mxstep = 10000)
+				
+		#EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(EBTightCoupling[-1], self.NumVariables*self.k_N)\
+		#		,self.x_t_today, mxstep = 10000)
 		print 'Done, now plotting'
+
+		Transposed = np.transpose(EBTightCoupling)
+		print Transposed[0]
+		print Transposed[1]
+		plt.figure()
+		plt.hold("on")
+		plt.semilogy(self.x_t_rec, Transposed[0])
+		plt.semilogy(self.x_t_rec, Transposed[1])
+		plt.show()
+		plt.legend(['k=0', 'k=1'])
+
+		"""
 		EBSolutions = np.concatenate([EBTightCoupling, EBAfterTC])
 		Transposed = np.transpose(EBSolutions)
 		theta0 = []
 		print EBTightCoupling
+		
 		for j in range(self.k_N):
 			theta0.append(Transposed[0])
 		print '\n'
@@ -505,3 +533,4 @@ class time_mod():
 		"""
 solver = time_mod(savefig=0, l_max=6)
 solver.Plot_results(100)
+#cProfile.run('solver.Plot_results(100)')
