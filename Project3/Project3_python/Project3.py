@@ -412,8 +412,9 @@ class time_mod():
 		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x_0)
 		# Calculating some prefactors
 		Hprimed = self.Get_Hubble_prime(x_0)
+		HprimedDer = self.Get_Hubble_prime_derivative(x_0)
 		#HPrimedDerivative = self.Get_Hubble_prime_derivative(x_0)
-		Hprime_HprimeDer = Hprimed/self.Get_Hubble_prime_derivative(x_0)
+		Hprime_HprimeDer = Hprimed/HprimedDer
 		Hprimed_Squared = Hprimed*Hprimed
 		ck_Hprimed = self.ck/Hprimed
 		# Interpolating Conformal time and Optical depth at the point x_0
@@ -434,7 +435,14 @@ class time_mod():
 		dvdx = -v - ck_Hprimed*Psi
 		dvbdx = (-v_b - ck_Hprimed*Psi + R*(q + ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*Psi))/(1.0+R)
 		dTheta1dx = (q-dvbdx)/3.0
-		derivatives = np.array([dTheta0dx, dTheta1dx, dTheta1dx, dTheta1dx, dTheta1dx, dTheta1dx, dTheta1dx, dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
+		# NEW STUFF
+		HPTAU = Hprimed*InterTauDerivative
+		dTheta2dx = (20.0*self.ck/(45.0))*(Theta_1*(HprimedDer/(Hprimed*HPTAU) + InterTauDoubleDer/(HPTAU*InterTauDerivative))+ dTheta1dx/HPTAU)
+		dTheta3dx = (3.0/7.0)*self.ck*(Theta_2*(HprimedDer/(Hprimed*HPTAU) + InterTauDoubleDer/(HPTAU*InterTauDerivative) + dTheta2dx/(HPTAU)))
+		dTheta4dx = (4.0/9.0)*self.ck*(Theta_3*(HprimedDer/(Hprimed*HPTAU) + InterTauDoubleDer/(HPTAU*InterTauDerivative) + dTheta3dx/(HPTAU)))
+		dTheta5dx = (5.0/11.0)*self.ck*(Theta_4*(HprimedDer/(Hprimed*HPTAU) + InterTauDoubleDer/(HPTAU*InterTauDerivative) + dTheta4dx/(HPTAU)))
+		dTheta6dx = (6.0/13.0)*self.ck*(Theta_5*(HprimedDer/(Hprimed*HPTAU) + InterTauDoubleDer/(HPTAU*InterTauDerivative) + dTheta5dx/(HPTAU)))
+		derivatives = np.array([dTheta0dx, dTheta1dx, dTheta2dx, dTheta3dx, dTheta4dx, dTheta5dx, dTheta6dx, dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
 		return np.reshape(derivatives, self.NumVariables*self.k_N)		
 
 	def WriteOutfile(self, filename, array):
@@ -452,14 +460,14 @@ class time_mod():
 		# Calculates tau and interpolates the first and second derivatives
 		self.Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
 		self.TauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=1)
-		self.TauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=2)
+		self.TauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 200, derivative=2)
 		# Calculate g, and interpolates the first and second derivatives
 		self.g_tilde = self.Visibility_func(self.x_eta, self.Taus, self.TauDerivative)
 		self.g_tildeDerivative = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=1)
 		self.g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=2)
 		print 'Setting Boltzmann initial conditions'
 		self.BoltzmannEinstein_InitConditions()
-		#print self.BoltzmannVariables
+		print self.BoltzmannVariables
 		print 'Calculating for tight coupling regime'
 		EBTightCoupling = integrate.odeint(self.TightCouplingRegime, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)
 					, self.x_t_rec)
@@ -471,15 +479,17 @@ class time_mod():
 		print 'Done, now plotting'
 
 		Transposed = np.transpose(EBTightCoupling)
+		print EBTightCoupling
 		print Transposed[0]
 		print Transposed[1]
+		#print -20.0*self.ck/(45.0*self.Get_Hubble_prime(self.x_t_rec)*self.Spline_Derivative(self.x_t_rec, self.Taus, self.n1, derivative=1))*self.Transposed[2:3]
 		plt.figure()
 		plt.hold("on")
 		plt.semilogy(self.x_t_rec, Transposed[0])
 		plt.semilogy(self.x_t_rec, Transposed[1])
 		plt.show()
 		plt.legend(['k=0', 'k=1'])
-
+		
 		"""
 		EBSolutions = np.concatenate([EBTightCoupling, EBAfterTC])
 		Transposed = np.transpose(EBSolutions)
