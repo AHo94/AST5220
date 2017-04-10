@@ -98,7 +98,7 @@ class time_mod():
 		self.lValues = np.linspace(2, l_max-1, l_max-2)
 		k_min = 0.1*H_0
 		k_max = 340*H_0
-		self.k_N = 2
+		self.k_N = 15
 		#self.k1 = np.linspace(k_min, k_max, self.k_N)
 		self.k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(self.k_N)])
 		#print self.k-self.k1
@@ -310,8 +310,10 @@ class time_mod():
 		self.BoltzmannVariables.append(v_b)
 		self.BoltzmannVariables.append(v_b)
 		self.BoltzmannVariables.append(Phi)
-
 		self.NumVariables = len(self.BoltzmannVariables)
+
+		self.BoltzmannTightCoupling = np.array([Theta_0, Theta_1, delta_b, delta_b, v_b, v_b, Phi])
+		self.NumVarTightCoupling = len(self.BoltzmannTightCoupling)
 
 		
 	def BoltzmannEinstein_Equations(self, variables, x_0):
@@ -445,6 +447,71 @@ class time_mod():
 		derivatives = np.array([dTheta0dx, dTheta1dx, dTheta2dx, dTheta3dx, dTheta4dx, dTheta5dx, dTheta6dx, dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
 		return np.reshape(derivatives, self.NumVariables*self.k_N)		
 
+	def TightCouplingRegime2(self, variables, x_0):
+		""" Boltzmann equation in the tight coupling regime """
+		Theta_0, Theta_1, delta, delta_b, v, v_b, Phi = np.reshape(variables, (self.NumVarTightCoupling, self.k_N))
+		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x_0)
+		# Calculating some prefactors
+		Hprimed = self.Get_Hubble_prime(x_0)
+		HprimedDer = self.Get_Hubble_prime_derivative(x_0)
+		#HPrimedDerivative = self.Get_Hubble_prime_derivative(x_0)
+		Hprime_HprimeDer = Hprimed/HprimedDer
+		Hprimed_Squared = Hprimed*Hprimed
+		ck_Hprimed = self.ck/Hprimed
+		# Interpolating Conformal time and Optical depth at the point x_0
+		InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
+		InterTauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=2, x_start=x_0, x_end=x_0)
+		InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
+		
+		Theta_2 = -20.0*ck_Hprimed*Theta_1/(45.0*InterTauDerivative)
+		R = 4.0*Om_r/(3.0*Om_b*np.exp(x_0))
+		Psi = -Phi - PsiPrefactor*(np.exp(-2.0*x_0)/(self.k_squared))*Om_r*Theta_2
+		dPhidx = Psi - (ck_Hprimed**2/3.0)*Phi\
+				+ (H_0Squared/(2.0*Hprimed_Squared))*(Om_m*np.exp(-x_0)*delta + Om_b*np.exp(-x_0)*delta_b + 4.0*Om_r*np.exp(-2.0*x_0)*Theta_0)
+		dTheta0dx = -ck_Hprimed*Theta_1 - dPhidx
+		q = -(((1.0-2.0*R)*InterTauDerivative + (1.0+R)*InterTauDoubleDer)*(3.0*Theta_1 + v_b) - ck_Hprimed*Psi \
+					+ (1.0-Hprime_HprimeDer)*ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*dTheta0dx)/((1.0+R)*InterTauDerivative + Hprime_HprimeDer - 1.0)
+
+		dDeltadx = ck_Hprimed*v - 3.0*dPhidx
+		dDeltabdx = ck_Hprimed*v_b - 3.0*dPhidx
+		dvdx = -v - ck_Hprimed*Psi
+		dvbdx = (-v_b - ck_Hprimed*Psi + R*(q + ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*Psi))/(1.0+R)
+		dTheta1dx = (q-dvbdx)/3.0
+		derivatives = np.array([dTheta0dx, dTheta1dx, dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
+		return np.reshape(derivatives, self.NumVarTightCoupling*self.k_N)		
+	
+	def TightCouplingONEKATATIME(self, variables, x_0, k):
+		Theta_0, Theta_1, delta, delta_b, v, v_b, Phi = variables
+		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x_0)
+		# Calculating some prefactors
+		Hprimed = self.Get_Hubble_prime(x_0)
+		HprimedDer = self.Get_Hubble_prime_derivative(x_0)
+		#HPrimedDerivative = self.Get_Hubble_prime_derivative(x_0)
+		Hprime_HprimeDer = Hprimed/HprimedDer
+		Hprimed_Squared = Hprimed*Hprimed
+		ck_Hprimed = c*k/Hprimed
+		# Interpolating Conformal time and Optical depth at the point x_0
+		InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
+		InterTauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=2, x_start=x_0, x_end=x_0)
+		InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
+		
+		Theta_2 = -20.0*ck_Hprimed*Theta_1/(45.0*InterTauDerivative)
+		R = 4.0*Om_r/(3.0*Om_b*np.exp(x_0))
+		Psi = -Phi - PsiPrefactor*(np.exp(-2.0*x_0)/(self.k_squared))*Om_r*Theta_2
+		dPhidx = Psi - (ck_Hprimed**2/3.0)*Phi\
+				+ (H_0Squared/(2.0*Hprimed_Squared))*(Om_m*np.exp(-x_0)*delta + Om_b*np.exp(-x_0)*delta_b + 4.0*Om_r*np.exp(-2.0*x_0)*Theta_0)
+		dTheta0dx = -ck_Hprimed*Theta_1 - dPhidx
+		q = -(((1.0-2.0*R)*InterTauDerivative + (1.0+R)*InterTauDoubleDer)*(3.0*Theta_1 + v_b) - ck_Hprimed*Psi \
+					+ (1.0-Hprime_HprimeDer)*ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*dTheta0dx)/((1.0+R)*InterTauDerivative + Hprime_HprimeDer - 1.0)
+
+		dDeltadx = ck_Hprimed*v - 3.0*dPhidx
+		dDeltabdx = ck_Hprimed*v_b - 3.0*dPhidx
+		dvdx = -v - ck_Hprimed*Psi
+		dvbdx = (-v_b - ck_Hprimed*Psi + R*(q + ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*Psi))/(1.0+R)
+		dTheta1dx = (q-dvbdx)/3.0
+		derivatives = np.array([dTheta0dx, dTheta1dx, dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
+		return derivatives		
+	
 	def WriteOutfile(self, filename, array):
 		if type(filname) != str:
 			raise ValueError("Argiment 'filename' not a string!")
@@ -469,15 +536,18 @@ class time_mod():
 		self.BoltzmannEinstein_InitConditions()
 		print self.BoltzmannVariables
 		print 'Calculating for tight coupling regime'
-		EBTightCoupling = integrate.odeint(self.TightCouplingRegime, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)
-					, self.x_t_rec)
+		#EBTightCoupling = integrate.odeint(self.TightCouplingRegime, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)
+		#			, self.x_t_rec)
+		#EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, np.reshape(self.BoltzmannTightCoupling, self.NumVarTightCoupling*self.k_N),
+		#			self.x_t_rec, mxstep=10000)
+		
 		print 'Tight coupling regime complete, now calculating after tight coupling'
 		#print EBTightCoupling
 				
 		#EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(EBTightCoupling[-1], self.NumVariables*self.k_N)\
 		#		,self.x_t_today, mxstep = 10000)
 		print 'Done, now plotting'
-
+		print 'Time elapsed: ', (time.clock() - self.time_start)
 		Transposed = np.transpose(EBTightCoupling)
 		print EBTightCoupling
 		print Transposed[0]
@@ -487,9 +557,25 @@ class time_mod():
 		plt.hold("on")
 		plt.semilogy(self.x_t_rec, Transposed[0])
 		plt.semilogy(self.x_t_rec, Transposed[1])
-		plt.show()
+		plt.semilogy(self.x_t_rec, Transposed[2])
+		plt.semilogy(self.x_t_rec, Transposed[3])
+		plt.semilogy(self.x_t_rec, Transposed[4])
 		plt.legend(['k=0', 'k=1'])
+		plt.xlabel('$x$')
+		plt.ylabel('$Theta_0$')
+		#plt.show()
 		
+		plt.figure()
+		plt.hold("on")
+		plt.plot(self.x_t_rec, Transposed[0])
+		plt.plot(self.x_t_rec, Transposed[1])
+		plt.plot(self.x_t_rec, Transposed[2])
+		plt.plot(self.x_t_rec, Transposed[3])
+		plt.plot(self.x_t_rec, Transposed[4])
+		plt.legend(['k=0', 'k=1'])
+		plt.xlabel('$x$')
+		plt.ylabel('$Theta_0$')
+		plt.show()
 		"""
 		EBSolutions = np.concatenate([EBTightCoupling, EBAfterTC])
 		Transposed = np.transpose(EBSolutions)
@@ -505,7 +591,6 @@ class time_mod():
 		plt.plot(self.x_t_rec, Transposed[0])
 		plt.show()
 		"""
-		print (time.clock() - self.time_start)
 		"""
 		x = self.x_eta[30]
 		eta = self.ScipyEta[30]/(Mpc*1e3)
