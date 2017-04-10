@@ -98,7 +98,7 @@ class time_mod():
 		self.lValues = np.linspace(2, l_max-1, l_max-2)
 		k_min = 0.1*H_0
 		k_max = 340*H_0
-		self.k_N = 15
+		self.k_N = 50
 		#self.k1 = np.linspace(k_min, k_max, self.k_N)
 		self.k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(self.k_N)])
 		#print self.k-self.k1
@@ -480,7 +480,38 @@ class time_mod():
 		derivatives = np.array([dTheta0dx, dTheta1dx, dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
 		return np.reshape(derivatives, self.NumVarTightCoupling*self.k_N)		
 	
-	def TightCouplingONEKATATIME(self, variables, x_0, k):
+	def BoltzmannEinstein_InitConditions_ONEATATIME(self, k):
+		""" Initial conditions for the Boltzmann equations """
+		Phi = 1.0
+		delta_b = 3.0*Phi/2.0
+		HPrime_0 = self.Get_Hubble_param(self.x_eta_init)
+		InterpolateTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative = 1, x_start = self.x_eta_init, x_end =self.x_eta_init)
+		v_b = c*k*Phi/(2.0*HPrime_0)
+		Theta_0 = 0.5*Phi
+		Theta_1 = -c*k*Phi/(6.0*HPrime_0)
+		Theta_2 = -8.0*c*k*Theta_1/(15*InterpolateTauDerivative*HPrime_0)
+		
+		self.BoltzmannVariables2 = []
+		self.BoltzmannVariables2.append(Theta_0)
+		self.BoltzmannVariables2.append(Theta_1)
+		self.BoltzmannVariables2.append(Theta_2)
+		if self.l_max > 2:
+			for l in range(3, self.l_max+1):
+				self.BoltzmannVariables2.append(-(l/(2.0*l+1))*(c*k/(HPrime_0*InterpolateTauDerivative))*self.BoltzmannVariables[l-1])
+		else:
+			raise ValueError('Value of l_max is a little too small. Try to increase it to l_max=3 or larger')
+
+		self.BoltzmannVariables2.append(delta_b)
+		self.BoltzmannVariables2.append(delta_b)
+		self.BoltzmannVariables2.append(v_b)
+		self.BoltzmannVariables2.append(v_b)
+		self.BoltzmannVariables2.append(Phi)
+		self.NumVariables2 = len(self.BoltzmannVariables2)
+
+		self.BoltzmannTightCoupling2 = np.array([Theta_0, Theta_1, delta_b, delta_b, v_b, v_b, Phi])
+		self.NumVarTightCoupling2 = len(self.BoltzmannTightCoupling2)
+
+	def TightCouplingONEKATATIME(self, variables, x_0, kv):
 		Theta_0, Theta_1, delta, delta_b, v, v_b, Phi = variables
 		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x_0)
 		# Calculating some prefactors
@@ -489,7 +520,7 @@ class time_mod():
 		#HPrimedDerivative = self.Get_Hubble_prime_derivative(x_0)
 		Hprime_HprimeDer = Hprimed/HprimedDer
 		Hprimed_Squared = Hprimed*Hprimed
-		ck_Hprimed = c*k/Hprimed
+		ck_Hprimed = c*kv/Hprimed
 		# Interpolating Conformal time and Optical depth at the point x_0
 		InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
 		InterTauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=2, x_start=x_0, x_end=x_0)
@@ -497,7 +528,7 @@ class time_mod():
 		
 		Theta_2 = -20.0*ck_Hprimed*Theta_1/(45.0*InterTauDerivative)
 		R = 4.0*Om_r/(3.0*Om_b*np.exp(x_0))
-		Psi = -Phi - PsiPrefactor*(np.exp(-2.0*x_0)/(self.k_squared))*Om_r*Theta_2
+		Psi = -Phi - PsiPrefactor*(np.exp(-2.0*x_0)/kv**2)*Om_r*Theta_2
 		dPhidx = Psi - (ck_Hprimed**2/3.0)*Phi\
 				+ (H_0Squared/(2.0*Hprimed_Squared))*(Om_m*np.exp(-x_0)*delta + Om_b*np.exp(-x_0)*delta_b + 4.0*Om_r*np.exp(-2.0*x_0)*Theta_0)
 		dTheta0dx = -ck_Hprimed*Theta_1 - dPhidx
@@ -509,14 +540,10 @@ class time_mod():
 		dvdx = -v - ck_Hprimed*Psi
 		dvbdx = (-v_b - ck_Hprimed*Psi + R*(q + ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*Psi))/(1.0+R)
 		dTheta1dx = (q-dvbdx)/3.0
-		derivatives = np.array([dTheta0dx, dTheta1dx, dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
+		derivatives = np.array([dTheta0dx[0], dTheta1dx[0], dDeltadx[0], dDeltabdx[0], dvdx[0], dvbdx[0], dPhidx[0]])
+		#print dTheta0dx
 		return derivatives		
 	
-	def WriteOutfile(self, filename, array):
-		if type(filname) != str:
-			raise ValueError("Argiment 'filename' not a string!")
-		text_file = open(filename, "w")
-
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
@@ -534,13 +561,19 @@ class time_mod():
 		self.g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=2)
 		print 'Setting Boltzmann initial conditions'
 		self.BoltzmannEinstein_InitConditions()
-		print self.BoltzmannVariables
+		#print self.BoltzmannVariables
 		print 'Calculating for tight coupling regime'
 		#EBTightCoupling = integrate.odeint(self.TightCouplingRegime, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)
 		#			, self.x_t_rec)
-		#EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, np.reshape(self.BoltzmannTightCoupling, self.NumVarTightCoupling*self.k_N),
-		#			self.x_t_rec, mxstep=10000)
-		
+		EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, np.reshape(self.BoltzmannTightCoupling, self.NumVarTightCoupling*self.k_N),
+					self.x_t_rec, mxstep=10000)
+		#EBTightCoupling = []
+		"""
+		for i in range(len(self.k)):
+			self.BoltzmannEinstein_InitConditions_ONEATATIME(self.k[i])
+			Sol = integrate.odeint(self.TightCouplingONEKATATIME , self.BoltzmannTightCoupling2 , self.x_t_rec, args=(self.k[i],))
+			EBTightCoupling.append(Sol)
+		"""
 		print 'Tight coupling regime complete, now calculating after tight coupling'
 		#print EBTightCoupling
 				
@@ -550,21 +583,21 @@ class time_mod():
 		print 'Time elapsed: ', (time.clock() - self.time_start)
 		Transposed = np.transpose(EBTightCoupling)
 		print EBTightCoupling
-		print Transposed[0]
-		print Transposed[1]
+		#print Transposed[0]
+		#print Transposed[1]
 		#print -20.0*self.ck/(45.0*self.Get_Hubble_prime(self.x_t_rec)*self.Spline_Derivative(self.x_t_rec, self.Taus, self.n1, derivative=1))*self.Transposed[2:3]
 		plt.figure()
 		plt.hold("on")
 		plt.semilogy(self.x_t_rec, Transposed[0])
 		plt.semilogy(self.x_t_rec, Transposed[1])
-		plt.semilogy(self.x_t_rec, Transposed[2])
-		plt.semilogy(self.x_t_rec, Transposed[3])
-		plt.semilogy(self.x_t_rec, Transposed[4])
+		#plt.semilogy(self.x_t_rec, Transposed[2])
+		#plt.semilogy(self.x_t_rec, Transposed[3])
+		#plt.semilogy(self.x_t_rec, Transposed[4])
 		plt.legend(['k=0', 'k=1'])
 		plt.xlabel('$x$')
 		plt.ylabel('$Theta_0$')
-		#plt.show()
-		
+		plt.show()
+		"""
 		plt.figure()
 		plt.hold("on")
 		plt.plot(self.x_t_rec, Transposed[0])
@@ -576,6 +609,7 @@ class time_mod():
 		plt.xlabel('$x$')
 		plt.ylabel('$Theta_0$')
 		plt.show()
+		"""
 		"""
 		EBSolutions = np.concatenate([EBTightCoupling, EBAfterTC])
 		Transposed = np.transpose(EBSolutions)
