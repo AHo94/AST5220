@@ -96,6 +96,7 @@ class time_mod():
 
 		self.l_max = l_max
 		self.lValues = np.linspace(2, l_max-1, l_max-2)
+		self.NumVariables = self.l_max + 1 + 5
 		k_min = 0.1*H_0
 		k_max = 340*H_0
 		self.k_N = 2
@@ -294,7 +295,7 @@ class time_mod():
 		Theta_0 = 0.5*Phi
 		Theta_1 = -c*self.k*Phi/(6.0*HPrime_0)
 		Theta_2 = -8.0*c*self.k*Theta_1/(15*InterpolateTauDerivative*HPrime_0)
-		
+		"""
 		self.BoltzmannVariables = []
 		self.BoltzmannVariables.append(Theta_0)
 		self.BoltzmannVariables.append(Theta_1)
@@ -311,7 +312,7 @@ class time_mod():
 		self.BoltzmannVariables.append(v_b)
 		self.BoltzmannVariables.append(Phi)
 		self.NumVariables = len(self.BoltzmannVariables)
-
+		"""
 		self.BoltzmannTightCoupling = np.array([Theta_0, Theta_1, delta_b, delta_b, v_b, v_b, Phi])
 		self.NumVarTightCoupling = len(self.BoltzmannTightCoupling)
 
@@ -349,11 +350,25 @@ class time_mod():
 			Theta5.append(-5.0*c*self.k[i]*Theta4[i]/(11.0*Hprimed*TauDer))
 			Theta6.append(-6.0*c*self.k[i]*Theta5[i]/(13.0*Hprimed*TauDer))
 
-		self.BoltzmannVariablesAFTERTC = np.array([Theta0, Theta1, Theta2, Theta3, Theta4, Theta5, Theta6, delta, deltab, v, vb, Phi])
-		self.BoltzmannVariablesAFTERTC_INIT = []
-		for i in range(self.NumVariables):
-			self.BoltzmannVariablesAFTERTC_INIT.append(self.BoltzmannVariablesAFTERTC[i][0][-1]*self.k)
+		self.BoltzmannVariablesAFTERTC = [0]*self.NumVariables*self.k_N
+		for j in range(self.k_N):
+			self.BoltzmannVariablesAFTERTC[j] = Theta0[j]
+			self.BoltzmannVariablesAFTERTC[j+self.k_N] = Theta1[j]
+			self.BoltzmannVariablesAFTERTC[j+self.k_N*2] = Theta2[j]
+			self.BoltzmannVariablesAFTERTC[j+self.k_N*3] = Theta3[j]
+			self.BoltzmannVariablesAFTERTC[j+self.k_N*4] = Theta4[j]
+			self.BoltzmannVariablesAFTERTC[j+self.k_N*5] = Theta5[j]
+			self.BoltzmannVariablesAFTERTC[j+self.k_N*6] = Theta6[j]
+			self.BoltzmannVariablesAFTERTC[j+self.k_N*7] = delta[j]
+			self.BoltzmannVariablesAFTERTC[j+self.k_N*8] = deltab[j]
+			self.BoltzmannVariablesAFTERTC[j+self.k_N*9] = v[j]
+			self.BoltzmannVariablesAFTERTC[j+self.k_N*10] = vb[j]
+			self.BoltzmannVariablesAFTERTC[j+self.k_N*11] = Phi[j]
 		
+		self.BoltzmannVariablesAFTERTC_INIT = []
+		for i in range(self.NumVariables*self.k_N):
+			self.BoltzmannVariablesAFTERTC_INIT.append(self.BoltzmannVariablesAFTERTC[i][-1])
+
 	def BoltzmannEinstein_Equations(self, variables, x_0):
 		""" Solves Boltzmann Einstein equations """
 		Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, delta, delta_b, v, v_b, Phi = np.reshape(variables, (self.NumVariables, self.k_N))
@@ -426,6 +441,7 @@ class time_mod():
 					+ (ck_Hprimed/3.0)*Psi + InterTauDerivative*(Theta_1 + 1.0/(3.0*v_b))
 		ThetaDerivatives.append(dTheta0dx)
 		ThetaDerivatives.append(dTheta1dx)
+
 		for l in range(2, self.l_max):
 			dThetaldx = l*ck_Hprimed/(2.0*l+1.0)*Thetas[l-1] - ck_Hprimed*((l+1.0)/(2.0*l+1.0))*Thetas[l+1] \
 						+ InterTauDerivative*(Thetas[l] - 0.1*Thetas[l]*self.Kronecker_Delta_2(l))
@@ -520,13 +536,14 @@ class time_mod():
 
 	def Write_Outfile(self, filename, variables, k):
 		""" Saves data to a text file """
-		Transposed = np.transpose(variables)
+		Transposed = variables#np.transpose(variables)
+		#print Transposed[k+self.k_N*11]
 		text_file = open(filename, "w")
 		text_file.write(("Theta0, Theta1, Theta2, Theta3, Theta4, Theta5, Theta6, delta, delta_b, v, v_b, phi, k=%.8e \n") %self.k[k])
-		for i in range(len(self.x_t_rec)):
+		for i in range(self.n_t):
 			text_file.write(("%.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e \n") \
 			%(Transposed[k][i], Transposed[k+self.k_N][i], Transposed[k+self.k_N*2][i], Transposed[k+self.k_N*3][i],\
-			 Transposed[k+self.k_N*4][i], Transposed[k+self.k_N*5][i], Transposed[k+self.k_N*6][i], Transposed[k+self.k_N*7][i]\
+			 Transposed[k+self.k_N*4][i], Transposed[k+self.k_N*5][i], Transposed[k+self.k_N*6][i], Transposed[k+self.k_N*7][i],\
 			 Transposed[k+self.k_N*8][i], Transposed[k+self.k_N*9][i], Transposed[k+self.k_N*10][i], Transposed[k+self.k_N*11][i]))
 		text_file.close()
 
@@ -558,22 +575,31 @@ class time_mod():
 		#print EBTightCoupling
 		self.BoltzmannEinstein_InitConditions_AfterTC()
 		EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(self.BoltzmannVariablesAFTERTC_INIT, self.NumVariables*self.k_N)\
-				,self.x_t_today, mxstep = 10000)
+				,self.x_t_today, mxstep = 20000)
 		print 'Done, now plotting'
 		print 'Time elapsed: ', (time.clock() - self.time_start)
-		
-		"""
+		#print EBAfterTC
+		EBSolutions = np.concatenate([self.BoltzmannVariablesAFTERTC, np.transpose(EBAfterTC)], axis=1)
+		print 'HEYAYA'
+		print EBSolutions
+		print 'HEEE'
+		print np.transpose(EBSolutions)
+		print 'LENS'
+		print len(EBSolutions)
+		print len(np.transpose(EBSolutions))
+		print len(np.transpose(EBSolutions)[0])
+
+		print 'Writing to file'
 		for ks in range(self.k_N):
 			filename = "../VariableData/BoltzmannVariables_k" + str(ks) + ".txt"
-			self.Write_Outfile(filename, self.EBTightCoupling, ks)
-		"""
+			self.Write_Outfile(filename, EBSolutions, ks)
 		
-		EBSolutions = np.concatenate([self.EBTightCoupling, EBAfterTC], axis=1)
-		Transposed = np.transpose(EBSolutions)
-		print EBTightCoupling
+
+		#Transposed = np.transpose(EBSolutions)
+		Transposed = EBSolutions
+		#print EBTightCoupling
 		#print Transposed[0]
 		#print Transposed[1]
-		#print -20.0*self.ck/(45.0*self.Get_Hubble_prime(self.x_t_rec)*self.Spline_Derivative(self.x_t_rec, self.Taus, self.n1, derivative=1))*self.Transposed[2:3]
 		plt.figure()
 		plt.hold("on")
 		plt.semilogy(self.x_t, Transposed[0])
@@ -583,7 +609,7 @@ class time_mod():
 		#plt.semilogy(self.x_t_rec, Transposed[4])
 		plt.legend(['k=0', 'k=1'])
 		plt.xlabel('$x$')
-		plt.ylabel('$Theta_0$')
+		plt.ylabel('$\Theta_0$')
 		plt.show()
 		"""
 		plt.figure()
@@ -607,3 +633,7 @@ class time_mod():
 solver = time_mod(savefig=0, l_max=6)
 solver.Plot_results(100)
 #cProfile.run('solver.Plot_results(100)')
+
+Array = np.array([[1,2],[10,20],[100,200]])
+Array2 = np.array([[3,4,5],[30,40,50],[300,400,500]])
+print np.concatenate([Array, Array2], axis=1)
