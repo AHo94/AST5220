@@ -522,11 +522,12 @@ class time_mod():
 		""" Saves data to a text file """
 		Transposed = np.transpose(variables)
 		text_file = open(filename, "w")
-		text_file.write(("Theta0, Theta1, delta, delta_b, v, v_b, phi, k=%.8e \n") %self.k[k])
+		text_file.write(("Theta0, Theta1, Theta2, Theta3, Theta4, Theta5, Theta6, delta, delta_b, v, v_b, phi, k=%.8e \n") %self.k[k])
 		for i in range(len(self.x_t_rec)):
-			text_file.write(("%.6e %.6e %.6e %.6e %.6e %.6e %.6e \n") \
+			text_file.write(("%.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e \n") \
 			%(Transposed[k][i], Transposed[k+self.k_N][i], Transposed[k+self.k_N*2][i], Transposed[k+self.k_N*3][i],\
-			 Transposed[k+self.k_N*4][i], Transposed[k+self.k_N*5][i], Transposed[k+self.k_N*6][i]))
+			 Transposed[k+self.k_N*4][i], Transposed[k+self.k_N*5][i], Transposed[k+self.k_N*6][i], Transposed[k+self.k_N*7][i]\
+			 Transposed[k+self.k_N*8][i], Transposed[k+self.k_N*9][i], Transposed[k+self.k_N*10][i], Transposed[k+self.k_N*11][i]))
 		text_file.close()
 
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
@@ -552,7 +553,7 @@ class time_mod():
 		#			, self.x_t_rec)
 		self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, np.reshape(self.BoltzmannTightCoupling, self.NumVarTightCoupling*self.k_N),
 					self.x_t_rec, mxstep=10000)
-		print np.transpose(self.EBTightCoupling)
+		#print np.transpose(self.EBTightCoupling)
 		print 'Tight coupling regime complete, now calculating after tight coupling'
 		#print EBTightCoupling
 		self.BoltzmannEinstein_InitConditions_AfterTC()
@@ -566,8 +567,8 @@ class time_mod():
 			filename = "../VariableData/BoltzmannVariables_k" + str(ks) + ".txt"
 			self.Write_Outfile(filename, self.EBTightCoupling, ks)
 		"""
-		"""
-		EBSolutions = np.concatenate([EBTightCoupling, EBAfterTC])
+		
+		EBSolutions = np.concatenate([self.EBTightCoupling, EBAfterTC], axis=1)
 		Transposed = np.transpose(EBSolutions)
 		print EBTightCoupling
 		#print Transposed[0]
@@ -575,8 +576,8 @@ class time_mod():
 		#print -20.0*self.ck/(45.0*self.Get_Hubble_prime(self.x_t_rec)*self.Spline_Derivative(self.x_t_rec, self.Taus, self.n1, derivative=1))*self.Transposed[2:3]
 		plt.figure()
 		plt.hold("on")
-		plt.semilogy(self.x_t_rec, Transposed[0])
-		plt.semilogy(self.x_t_rec, Transposed[1])
+		plt.semilogy(self.x_t, Transposed[0])
+		plt.semilogy(self.x_t, Transposed[1])
 		#plt.semilogy(self.x_t_rec, Transposed[2])
 		#plt.semilogy(self.x_t_rec, Transposed[3])
 		#plt.semilogy(self.x_t_rec, Transposed[4])
@@ -584,7 +585,6 @@ class time_mod():
 		plt.xlabel('$x$')
 		plt.ylabel('$Theta_0$')
 		plt.show()
-		"""
 		"""
 		plt.figure()
 		plt.hold("on")
@@ -599,50 +599,6 @@ class time_mod():
 		plt.show()
 		"""
 		"""
-		EBSolutions = np.concatenate([EBTightCoupling, EBAfterTC])
-		Transposed = np.transpose(EBSolutions)
-		theta0 = []
-		print EBTightCoupling
-		
-		for j in range(self.k_N):
-			theta0.append(Transposed[0])
-		print '\n'
-		print Transposed[0]
-		print len(theta0)
-		print len(self.x_t_rec)
-		plt.plot(self.x_t_rec, Transposed[0])
-		plt.show()
-		"""
-		"""
-		x = self.x_eta[30]
-		eta = self.ScipyEta[30]/(Mpc*1e3)
-		etaInt = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x)
-		print eta
-		print etaInt/(Mpc*1e3)
-		
-		fig3 = plt.figure()
-		ax3 = plt.subplot(111)
-		plt.hold("on")
-		ax3.semilogy(self.x_eta, self.Taus, 'b-', label=r'Zeroth derivative $\tau$')
-		ax3.semilogy(self.x_eta, np.fabs(self.TauDerivative), 'r-', label=r"First derivative $|\tau'|$")
-		ax3.semilogy(np.linspace(self.x_eta_init, self.x_eta_end, 100), np.fabs(self.TauDoubleDer), 'g-', label=r"Second derivative $|\tau''|$")
-		plt.xlabel('$x$')
-		plt.ylabel('$n_e$')
-		plt.title(r"Plot of $\tau$ and $|\tau'|$ as a function of $x=\ln(a)$")
-		ax3.legend(loc='upper right', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
-		
-		fig4 = plt.figure()
-		ax4 = plt.subplot(111)
-		plt.hold("on")
-		ax4.plot(self.x_eta, self.g_tilde, 'b-', label=r"$\tilde{g}$")
-		ax4.plot(self.x_eta, self.g_tildeDerivative/10.0, 'r-', label=r"$\tilde{g}'/10$")
-		ax4.plot(self.x_eta, self.g_tildeDoubleDer/300.0, 'g-', label=r"$\tilde{g}''/300$")
-		ax4.set_xlim([-8,-6])
-		plt.xlabel('$x$')
-		plt.ylabel(r'$\tilde{g}$')
-		plt.title(r"The visibility function $\tilde{g(x)}$ and its derivatives")
-		ax4.legend(loc='lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
-		
 		if self.savefig == 1:
 			a=1
 		else:
