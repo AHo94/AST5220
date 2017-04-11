@@ -316,10 +316,20 @@ class time_mod():
 		self.NumVarTightCoupling = len(self.BoltzmannTightCoupling)
 
 	def BoltzmannEinstein_InitConditions_AfterTC(self):
-		""" Initial conditions for the Boltzmann equations """
+		""" 
+		Properly set up all variables into a parameter in the tight coupling regime
+		Also sets up initial conditions of the different parameters, that is to be calculated for time after recombination
+		"""
 		Transposed = np.transpose(self.EBTightCoupling)
+		Hprimed = self.Get_Hubble_prime(self.x_t_rec)
+		TauDer = self.Spline_Derivative(self.x_eta, self.Taus, self.n1, derivative=1, x_start=self.x_t_rec[0], x_end=self.x_t_rec[-1])
 		Theta0 = []
 		Theta1 = []
+		Theta2 = []
+		Theta3 = []
+		Theta4 = []
+		Theta5 = []
+		Theta6 = []
 		delta = []
 		deltab = []
 		v = []
@@ -333,16 +343,17 @@ class time_mod():
 			v.append(Transposed[4*self.k_N+i])
 			vb.append(Transposed[5*self.k_N+i])
 			Phi.append(Transposed[6*self.k_N+i])
+			Theta2.append(-20.0*c*self.k[i]*Theta1[i]/(45.0*Hprimed*TauDer))
+			Theta3.append(-3.0*c*self.k[i]*Theta2[i]/(7.0*Hprimed*TauDer))
+			Theta4.append(-4.0*c*self.k[i]*Theta3[i]/(9.0*Hprimed*TauDer))
+			Theta5.append(-5.0*c*self.k[i]*Theta4[i]/(11.0*Hprimed*TauDer))
+			Theta6.append(-6.0*c*self.k[i]*Theta5[i]/(13.0*Hprimed*TauDer))
 
-		Theta2 = -20.0*c*self.k*Theta1/()
-		self.BoltzmannVariables222 = []
-		if self.l_max > 2:
-			for l in range(3, self.l_max+1):
-				self.BoltzmannVariables222.append(-(l/(2.0*l+1))*(c*self.k/(HPrime_0*InterpolateTauDerivative))*self.BoltzmannVariables[l-1])
-		else:
-			raise ValueError('Value of l_max is a little too small. Try to increase it to l_max=3 or larger')
+		self.BoltzmannVariablesAFTERTC = np.array([Theta0, Theta1, Theta2, Theta3, Theta4, Theta5, Theta6, delta, deltab, v, vb, Phi])
+		self.BoltzmannVariablesAFTERTC_INIT = []
+		for i in range(self.NumVariables):
+			self.BoltzmannVariablesAFTERTC_INIT.append(self.BoltzmannVariablesAFTERTC[i][0][-1]*self.k)
 		
-
 	def BoltzmannEinstein_Equations(self, variables, x_0):
 		""" Solves Boltzmann Einstein equations """
 		Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, delta, delta_b, v, v_b, Phi = np.reshape(variables, (self.NumVariables, self.k_N))
@@ -545,7 +556,7 @@ class time_mod():
 		print 'Tight coupling regime complete, now calculating after tight coupling'
 		#print EBTightCoupling
 		self.BoltzmannEinstein_InitConditions_AfterTC()
-		EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(EBTightCoupling[-1], self.NumVariables*self.k_N)\
+		EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(self.BoltzmannVariablesAFTERTC_INIT, self.NumVariables*self.k_N)\
 				,self.x_t_today, mxstep = 10000)
 		print 'Done, now plotting'
 		print 'Time elapsed: ', (time.clock() - self.time_start)
