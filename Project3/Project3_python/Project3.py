@@ -506,7 +506,18 @@ class time_mod():
 		dTheta1dx = (q-dvbdx)/3.0
 		derivatives = np.array([dTheta0dx, dTheta1dx, dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
 		return np.reshape(derivatives, self.NumVarTightCoupling*self.k_N)		
-	
+
+	def Write_Outfile(self, filename, variables, k):
+		""" Saves data to a text file """
+		Transposed = np.transpose(variables)
+		text_file = open(filename, "w")
+		text_file.write(("Theta0, Theta1, delta, delta_b, v, v_b, phi, k=%.8e \n") %self.k[k])
+		for i in range(len(self.x_t_rec)):
+			text_file.write(("%.6e %.6e %.6e %.6e %.6e %.6e %.6e \n") \
+			%(Transposed[k][i], Transposed[k+self.k_N][i], Transposed[k+self.k_N*2][i], Transposed[k+self.k_N*3][i],\
+			 Transposed[k+self.k_N*4][i], Transposed[k+self.k_N*5][i], Transposed[k+self.k_N*6][i]))
+		text_file.close()
+
 	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
@@ -531,14 +542,6 @@ class time_mod():
 		self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, np.reshape(self.BoltzmannTightCoupling, self.NumVarTightCoupling*self.k_N),
 					self.x_t_rec, mxstep=10000)
 		print np.transpose(self.EBTightCoupling)
-
-		"""
-		EBTightCoupling = []
-		for i in range(len(self.k)):
-			self.BoltzmannEinstein_InitConditions_ONEATATIME(self.k[i])
-			Sol = integrate.odeint(self.TightCouplingONEKATATIME , self.BoltzmannTightCoupling2 , self.x_t_rec, args=(self.k[i],))
-			EBTightCoupling.append(Sol)
-		"""
 		print 'Tight coupling regime complete, now calculating after tight coupling'
 		#print EBTightCoupling
 		self.BoltzmannEinstein_InitConditions_AfterTC()
@@ -546,6 +549,13 @@ class time_mod():
 				,self.x_t_today, mxstep = 10000)
 		print 'Done, now plotting'
 		print 'Time elapsed: ', (time.clock() - self.time_start)
+		
+		"""
+		for ks in range(self.k_N):
+			filename = "../VariableData/BoltzmannVariables_k" + str(ks) + ".txt"
+			self.Write_Outfile(filename, self.EBTightCoupling, ks)
+		"""
+		"""
 		EBSolutions = np.concatenate([EBTightCoupling, EBAfterTC])
 		Transposed = np.transpose(EBSolutions)
 		print EBTightCoupling
@@ -563,6 +573,7 @@ class time_mod():
 		plt.xlabel('$x$')
 		plt.ylabel('$Theta_0$')
 		plt.show()
+		"""
 		"""
 		plt.figure()
 		plt.hold("on")
