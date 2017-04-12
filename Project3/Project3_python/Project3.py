@@ -83,10 +83,11 @@ class time_mod():
 		self.a_init = 1e-8
 		self.x_eta_init = np.log(self.a_init)
 		self.x_eta_end = 0
-
+		print self.x_start_rec
 		# Set up grid, these are currently unused
-		self.x_t_rec = np.linspace(self.x_start_rec, self.x_end_rec, self.n1)
-		self.x_t_today = np.linspace(self.x_end_rec, self.x_0, self.n2)
+		self.x_t_rec = np.linspace(self.x_eta_init, self.x_end_rec, self.n1)
+		#self.x_t_rec = np.linspace(self.x_start_rec, self.x_end_rec, self.n1)
+		self.x_t_today = np.linspace(self.x_start_rec, self.x_0, self.n2)
 		# Merging the arrays into one
 		self.x_t = np.concatenate([self.x_t_rec, self.x_t_today])
 		# Set up grid of x-values for the integrated eta
@@ -103,15 +104,10 @@ class time_mod():
 		self.k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(self.k_N)])
 		#print self.k-self.k1
 		self.k_squared = self.k*self.k
+		print self.k_squared
 		self.ck = c*self.k
 
 		self.hmin = (self.x_t_today[-1]-self.x_t_today[0])/float(self.n2)
-		"""
-		k = 1 , 16 seconds
-		k = 2 , 24 seconds, + 8 s
-		k = 3 , 42 seconds, + 18 s
-		k = 4 , 55 seconds, + 13 s
-		"""
 
 		Ks = np.array([1,2])
 		Ls = np.array([0,1,2,3,4])
@@ -129,7 +125,7 @@ class time_mod():
 		print THET0
 		THET0[1:-1] = LL[1:-1]/(2.0*LLdiv[1:-1]+1)*THET[0]
 		print THET0
-
+		print 'k = ', self.k_N
 		"""
 		Premake l*k array, so it is a (6x100) array
 		Calculate thetas as above, index every array possible
@@ -146,7 +142,7 @@ class time_mod():
 
 	def Get_Hubble_prime_derivative(self, x):
 		""" Function returns the derivative of the scaled Hubble parameter. See report 1 """
-		return -H_0**2*(0.5*(Omega_b + Omega_m)*np.exp(-x) + Omega_r*np.exp(-2*x) - Omega_lambda*np.exp(2*x))/(self.Get_Hubble_prime(x))
+		return -H_0Squared*(0.5*(Omega_b + Omega_m)*np.exp(-x) + Omega_r*np.exp(-2.0*x) - Omega_lambda*np.exp(2.0*x))/(self.Get_Hubble_prime(x))
 
 	def Get_Omegas(self, x):
 		""" 
@@ -507,23 +503,22 @@ class time_mod():
 		# Calculating some prefactors
 		Hprimed = self.Get_Hubble_prime(x_0)
 		HprimedDer = self.Get_Hubble_prime_derivative(x_0)
-		#HPrimedDerivative = self.Get_Hubble_prime_derivative(x_0)
 		Hprime_HprimeDer = Hprimed/HprimedDer
 		Hprimed_Squared = Hprimed*Hprimed
 		ck_Hprimed = self.ck/Hprimed
-		# Interpolating Conformal time and Optical depth at the point x_0
+		# Interpolating Conformal time and Optical depth (its derivatives) at the point x_0
 		InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
 		InterTauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=2, x_start=x_0, x_end=x_0)
 		InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
-		
+
 		Theta_2 = -20.0*ck_Hprimed*Theta_1/(45.0*InterTauDerivative)
 		R = 4.0*Om_r/(3.0*Om_b*np.exp(x_0))
-		Psi = -Phi - PsiPrefactor*(np.exp(-2.0*x_0)/(self.k_squared))*Om_r*Theta_2
+		Psi = -Phi - PsiPrefactor*Om_r*Theta_2/(self.k_squared*np.exp(2.0*x_0))
 		dPhidx = Psi - (ck_Hprimed**2/3.0)*Phi\
 				+ (H_0Squared/(2.0*Hprimed_Squared))*(Om_m*np.exp(-x_0)*delta + Om_b*np.exp(-x_0)*delta_b + 4.0*Om_r*np.exp(-2.0*x_0)*Theta_0)
 		dTheta0dx = -ck_Hprimed*Theta_1 - dPhidx
-		q = -(((1.0-2.0*R)*InterTauDerivative + (1.0+R)*InterTauDoubleDer)*(3.0*Theta_1 + v_b) - ck_Hprimed*Psi \
-					+ (1.0-Hprime_HprimeDer)*ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*dTheta0dx)/((1.0+R)*InterTauDerivative + Hprime_HprimeDer - 1.0)
+		q = -(((1.0 - 2.0*R)*InterTauDerivative + (1.0 + R)*InterTauDoubleDer)*(3.0*Theta_1 + v_b) - ck_Hprimed*Psi +
+			 (1.0-Hprime_HprimeDer)*ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*dTheta0dx)/((1.0+R)*InterTauDerivative + Hprime_HprimeDer - 1.0)
 
 		dDeltadx = ck_Hprimed*v - 3.0*dPhidx
 		dDeltabdx = ck_Hprimed*v_b - 3.0*dPhidx
@@ -535,8 +530,7 @@ class time_mod():
 
 	def Write_Outfile(self, filename, variables, k):
 		""" Saves data to a text file """
-		Transposed = variables#np.transpose(variables)
-		#print Transposed[k+self.k_N*11]
+		Transposed = variables
 		text_file = open(filename, "w")
 		text_file.write(("Theta0, Theta1, Theta2, Theta3, Theta4, Theta5, Theta6, delta, delta_b, v, v_b, phi, k=%.8e \n") %self.k[k])
 		for i in range(self.n_t):
@@ -568,16 +562,16 @@ class time_mod():
 		#EBTightCoupling = integrate.odeint(self.TightCouplingRegime, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)
 		#			, self.x_t_rec)
 		self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, np.reshape(self.BoltzmannTightCoupling, self.NumVarTightCoupling*self.k_N),
-					self.x_t_rec, mxstep=30000)
+					self.x_t_rec, mxstep=10000)
 		#print np.transpose(self.EBTightCoupling)
 		print 'Tight coupling regime complete, now calculating after tight coupling'
 		#print EBTightCoupling
 		self.BoltzmannEinstein_InitConditions_AfterTC()
 		EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(self.BoltzmannVariablesAFTERTC_INIT, self.NumVariables*self.k_N)\
-				,self.x_t_today, mxstep = 20000)
+				,self.x_t_today, mxstep = 10000)
 		print 'Done, now plotting'
 		#print EBAfterTC
-		EBSolutions = np.concatenate([self.BoltzmannVariablesAFTERTC, np.transpose(EBAfterTC)], axis=1)
+		EBSolutions = np.transpose(self.EBTightCoupling) #np.concatenate([self.BoltzmannVariablesAFTERTC, np.transpose(EBAfterTC)], axis=1)
 		print 'HEYAYA'
 		print EBSolutions
 		print 'HEEE'
@@ -587,8 +581,9 @@ class time_mod():
 		print len(np.transpose(EBSolutions))
 		print len(np.transpose(EBSolutions)[0])
 
-		print 'Time elapsed: ', (time.clock() - self.time_start), 's'
+		print 'Time elapsed: ', (time.clock() - self.time_start), ' s'
 		print 'Writing to file'
+		#print info
 		for ks in range(self.k_N):
 			filename = "../VariableData/BoltzmannVariables_k" + str(ks) + ".txt"
 			self.Write_Outfile(filename, EBSolutions, ks)
@@ -596,14 +591,15 @@ class time_mod():
 
 		#Transposed = np.transpose(EBSolutions)
 		Transposed = EBSolutions
+		#print Transposed
 		#print EBTightCoupling
 		#print Transposed[0]
 		#print Transposed[1]
 		"""
 		plt.figure()
 		plt.hold("on")
-		plt.semilogy(self.x_t, Transposed[0])
-		plt.semilogy(self.x_t, Transposed[1])
+		plt.semilogy(self.x_t_rec, Transposed[0])
+		#plt.semilogy(self.x_t, Transposed[1])
 		#plt.semilogy(self.x_t_rec, Transposed[2])
 		#plt.semilogy(self.x_t_rec, Transposed[3])
 		#plt.semilogy(self.x_t_rec, Transposed[4])
@@ -634,7 +630,8 @@ class time_mod():
 solver = time_mod(savefig=0, l_max=6)
 solver.Plot_results(100)
 #cProfile.run('solver.Plot_results(100)')
-
+"""
 Array = np.array([[1,2],[10,20],[100,200]])
 Array2 = np.array([[3,4,5],[30,40,50],[300,400,500]])
 print np.concatenate([Array, Array2], axis=1)
+"""
