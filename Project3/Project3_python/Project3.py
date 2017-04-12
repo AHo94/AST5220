@@ -576,7 +576,6 @@ class time_mod():
 		EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(self.BoltzmannVariablesAFTERTC_INIT, self.NumVariables*self.k_N)\
 				,self.x_t_today, mxstep = 20000)
 		print 'Done, now plotting'
-		print 'Time elapsed: ', (time.clock() - self.time_start)
 		#print EBAfterTC
 		EBSolutions = np.concatenate([self.BoltzmannVariablesAFTERTC, np.transpose(EBAfterTC)], axis=1)
 		print 'HEYAYA'
@@ -588,6 +587,7 @@ class time_mod():
 		print len(np.transpose(EBSolutions))
 		print len(np.transpose(EBSolutions)[0])
 
+		print 'Time elapsed: ', (time.clock() - self.time_start), 's'
 		print 'Writing to file'
 		for ks in range(self.k_N):
 			filename = "../VariableData/BoltzmannVariables_k" + str(ks) + ".txt"
