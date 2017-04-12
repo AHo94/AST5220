@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from scipy import interpolate
 from scipy import integrate
 import time
@@ -89,7 +89,6 @@ class time_mod():
 		self.x_t_today = np.linspace(self.x_end_rec, self.x_0, self.n2)
 		# Merging the arrays into one
 		self.x_t = np.concatenate([self.x_t_rec, self.x_t_today])
-
 		# Set up grid of x-values for the integrated eta
 		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
 		self.x_tau = np.linspace(self.x_eta_end, self.x_eta_init, self.n_eta)	# Reversed array, used to calculate tau
@@ -99,7 +98,7 @@ class time_mod():
 		self.NumVariables = self.l_max + 1 + 5
 		k_min = 0.1*H_0
 		k_max = 340*H_0
-		self.k_N = 2
+		self.k_N = 5
 		#self.k1 = np.linspace(k_min, k_max, self.k_N)
 		self.k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(self.k_N)])
 		#print self.k-self.k1
@@ -569,7 +568,7 @@ class time_mod():
 		#EBTightCoupling = integrate.odeint(self.TightCouplingRegime, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)
 		#			, self.x_t_rec)
 		self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, np.reshape(self.BoltzmannTightCoupling, self.NumVarTightCoupling*self.k_N),
-					self.x_t_rec, mxstep=10000)
+					self.x_t_rec, mxstep=30000)
 		#print np.transpose(self.EBTightCoupling)
 		print 'Tight coupling regime complete, now calculating after tight coupling'
 		#print EBTightCoupling
@@ -600,6 +599,7 @@ class time_mod():
 		#print EBTightCoupling
 		#print Transposed[0]
 		#print Transposed[1]
+		"""
 		plt.figure()
 		plt.hold("on")
 		plt.semilogy(self.x_t, Transposed[0])
@@ -611,6 +611,7 @@ class time_mod():
 		plt.xlabel('$x$')
 		plt.ylabel('$\Theta_0$')
 		plt.show()
+		"""
 		"""
 		plt.figure()
 		plt.hold("on")
