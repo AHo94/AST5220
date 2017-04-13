@@ -571,7 +571,7 @@ class time_mod():
 				,self.x_t_today, mxstep = 10000)
 		print 'Done, now plotting'
 		#print EBAfterTC
-		EBSolutions = np.transpose(self.EBTightCoupling) #np.concatenate([self.BoltzmannVariablesAFTERTC, np.transpose(EBAfterTC)], axis=1)
+		EBSolutions = np.concatenate([self.BoltzmannVariablesAFTERTC, np.transpose(EBAfterTC)], axis=1)
 		print 'HEYAYA'
 		print EBSolutions
 		print 'HEEE'
