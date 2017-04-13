@@ -67,9 +67,10 @@ class time_mod():
 		self.time_start = time.clock()
 		#self.n1 = 200
 		#self.n2 = 300
-		self.n_t = self.n1 + self.n2
 		self.n1 = 1000
 		self.n2 = 2000
+		self.n_t = self.n1 + self.n2
+		
 		self.z_start_rec = 1630.4
 		self.z_end_rec = 614.2
 		self.z_0 = 0.0
