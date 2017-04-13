@@ -1,5 +1,5 @@
 import numpy as np
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from scipy import interpolate
 from scipy import integrate
 import time
@@ -99,7 +99,7 @@ class time_mod():
 		self.NumVariables = self.l_max + 1 + 5
 		k_min = 0.1*H_0
 		k_max = 340*H_0
-		self.k_N = 100
+		self.k_N = 1
 		#self.k1 = np.linspace(k_min, k_max, self.k_N)
 		self.k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(self.k_N)])
 		#print self.k-self.k1
@@ -567,9 +567,9 @@ class time_mod():
 		timeTCEnd = time.clock()
 		#print np.transpose(self.EBTightCoupling)
 		print 'Tight coupling regime complete, now calculating after tight coupling'
-		#print EBTightCoupling
 		timeAFTC = time.clock()
 		self.BoltzmannEinstein_InitConditions_AfterTC()
+		print self.BoltzmannVariablesAFTERTC_INIT
 		EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(self.BoltzmannVariablesAFTERTC_INIT, self.NumVariables*self.k_N)\
 				,self.x_t_today, mxstep = 10000)
 		timeAFTCend = time.clock()
@@ -602,10 +602,10 @@ class time_mod():
 		#print EBTightCoupling
 		#print Transposed[0]
 		#print Transposed[1]
-		"""
+		
 		plt.figure()
 		plt.hold("on")
-		plt.semilogy(self.x_t_rec, Transposed[0])
+		plt.semilogy(self.x_t, Transposed[0])
 		#plt.semilogy(self.x_t, Transposed[1])
 		#plt.semilogy(self.x_t_rec, Transposed[2])
 		#plt.semilogy(self.x_t_rec, Transposed[3])
@@ -614,7 +614,7 @@ class time_mod():
 		plt.xlabel('$x$')
 		plt.ylabel('$\Theta_0$')
 		plt.show()
-		"""
+		
 		"""
 		plt.figure()
 		plt.hold("on")
