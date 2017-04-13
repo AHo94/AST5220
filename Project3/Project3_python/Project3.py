@@ -65,10 +65,11 @@ class time_mod():
 			raise ValueError('Argument savefig not properly set. Try savefig = 1 (saves as pdf) or savefig = 0 (do not save as pdf)')
 
 		self.time_start = time.clock()
-		self.n1 = 200
-		self.n2 = 300
+		#self.n1 = 200
+		#self.n2 = 300
 		self.n_t = self.n1 + self.n2
-
+		self.n1 = 1000
+		self.n2 = 2000
 		self.z_start_rec = 1630.4
 		self.z_end_rec = 614.2
 		self.z_0 = 0.0
@@ -101,7 +102,7 @@ class time_mod():
 		self.NumVariables = self.l_max + 1 + 5
 		k_min = 0.1*H_0
 		k_max = 10*H_0
-		self.k_N = 1
+		self.k_N = 10
 		#self.k1 = np.linspace(k_min, k_max, self.k_N)
 		self.k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(self.k_N)])
 		#print self.k-self.k1
