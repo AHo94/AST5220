@@ -87,7 +87,7 @@ class time_mod():
 		# Set up grid, these are currently unused
 		self.x_t_rec = np.linspace(self.x_eta_init, self.x_end_rec, self.n1)
 		#self.x_t_rec = np.linspace(self.x_start_rec, self.x_end_rec, self.n1)
-		self.x_t_today = np.linspace(self.x_start_rec, self.x_0, self.n2)
+		self.x_t_today = np.linspace(self.x_end_rec, self.x_0, self.n2)
 		# Merging the arrays into one
 		self.x_t = np.concatenate([self.x_t_rec, self.x_t_today])
 		# Set up grid of x-values for the integrated eta
@@ -577,6 +577,7 @@ class time_mod():
 		print 'HEEE'
 		print np.transpose(EBSolutions)
 		print 'LENS'
+		print len(EBAfterTC)
 		print len(EBSolutions)
 		print len(np.transpose(EBSolutions))
 		print len(np.transpose(EBSolutions)[0])
