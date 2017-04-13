@@ -561,14 +561,18 @@ class time_mod():
 		print 'Calculating for tight coupling regime'
 		#EBTightCoupling = integrate.odeint(self.TightCouplingRegime, np.reshape(self.BoltzmannVariables, self.NumVariables*self.k_N)
 		#			, self.x_t_rec)
+		timeTC = time.clock()
 		self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, np.reshape(self.BoltzmannTightCoupling, self.NumVarTightCoupling*self.k_N),
 					self.x_t_rec, mxstep=10000)
+		timeTCEnd = time.clock()
 		#print np.transpose(self.EBTightCoupling)
 		print 'Tight coupling regime complete, now calculating after tight coupling'
 		#print EBTightCoupling
+		timeAFTC = time.clock()
 		self.BoltzmannEinstein_InitConditions_AfterTC()
 		EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(self.BoltzmannVariablesAFTERTC_INIT, self.NumVariables*self.k_N)\
 				,self.x_t_today, mxstep = 10000)
+		timeAFTCend = time.clock()
 		print 'Done, now plotting'
 		#print EBAfterTC
 		EBSolutions = np.concatenate([self.BoltzmannVariablesAFTERTC, np.transpose(EBAfterTC)], axis=1)
@@ -582,7 +586,9 @@ class time_mod():
 		print len(np.transpose(EBSolutions))
 		print len(np.transpose(EBSolutions)[0])
 
-		print 'Time elapsed: ', (time.clock() - self.time_start), ' s'
+		print 'Total time elapsed: ', (time.clock() - self.time_start), ' s'
+		print 'TC time: ', timeTCEnd - timeTC, ' s'
+		print 'After TC time: ', timeAFTCend - timeAFTC, ' s'
 		print 'Writing to file'
 		#print info
 		for ks in range(self.k_N):
