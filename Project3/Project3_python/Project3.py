@@ -583,6 +583,10 @@ class time_mod():
 		print EBSolutions
 		print 'HEEE'
 		print np.transpose(EBSolutions)
+		print 'TC solu'
+		print self.EBTightCoupling
+		print 'TC transpose'
+		print np.transpose(self.EBTightCoupling)
 		print 'LENS'
 		print len(EBAfterTC)
 		print len(EBSolutions)
