@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from scipy import interpolate
 from scipy import integrate
 import time
@@ -85,9 +85,11 @@ class time_mod():
 		self.x_eta_end = 0
 		print self.x_start_rec
 		# Set up grid, these are currently unused
-		self.x_t_rec = np.linspace(self.x_eta_init, self.x_end_rec, self.n1)
+		x_tc_end = -6.5
+		self.x_t_rec = np.linspace(self.x_eta_init, x_tc_end, self.n1)
+		self.x_t_today = np.linspace(x_tc_end, self.x_0, self.n2)
 		#self.x_t_rec = np.linspace(self.x_start_rec, self.x_end_rec, self.n1)
-		self.x_t_today = np.linspace(self.x_end_rec, self.x_0, self.n2)
+		#self.x_t_today = np.linspace(self.x_end_rec, self.x_0, self.n2)
 		# Merging the arrays into one
 		self.x_t = np.concatenate([self.x_t_rec, self.x_t_today])
 		# Set up grid of x-values for the integrated eta
@@ -98,7 +100,7 @@ class time_mod():
 		self.lValues = np.linspace(2, l_max-1, l_max-2)
 		self.NumVariables = self.l_max + 1 + 5
 		k_min = 0.1*H_0
-		k_max = 340*H_0
+		k_max = 10*H_0
 		self.k_N = 1
 		#self.k1 = np.linspace(k_min, k_max, self.k_N)
 		self.k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(self.k_N)])
@@ -555,6 +557,7 @@ class time_mod():
 		self.g_tilde = self.Visibility_func(self.x_eta, self.Taus, self.TauDerivative)
 		self.g_tildeDerivative = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=1)
 		self.g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=2)
+
 		print 'Setting Boltzmann initial conditions'
 		self.BoltzmannEinstein_InitConditions()
 		#print self.BoltzmannVariables
@@ -563,7 +566,7 @@ class time_mod():
 		#			, self.x_t_rec)
 		timeTC = time.clock()
 		self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, np.reshape(self.BoltzmannTightCoupling, self.NumVarTightCoupling*self.k_N),
-					self.x_t_rec, mxstep=10000)
+					self.x_t_rec, mxstep=10000, rtol=1e-11)
 		timeTCEnd = time.clock()
 		#print np.transpose(self.EBTightCoupling)
 		print 'Tight coupling regime complete, now calculating after tight coupling'
@@ -571,7 +574,7 @@ class time_mod():
 		self.BoltzmannEinstein_InitConditions_AfterTC()
 		print self.BoltzmannVariablesAFTERTC_INIT
 		EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(self.BoltzmannVariablesAFTERTC_INIT, self.NumVariables*self.k_N)\
-				,self.x_t_today, mxstep = 10000)
+				,self.x_t_today, mxstep = 10000, rtol=1e-11)
 		timeAFTCend = time.clock()
 		print 'Done, now plotting'
 		#print EBAfterTC
@@ -602,7 +605,7 @@ class time_mod():
 		#print EBTightCoupling
 		#print Transposed[0]
 		#print Transposed[1]
-		
+		"""
 		plt.figure()
 		plt.hold("on")
 		plt.semilogy(self.x_t, Transposed[0])
@@ -614,7 +617,7 @@ class time_mod():
 		plt.xlabel('$x$')
 		plt.ylabel('$\Theta_0$')
 		plt.show()
-		
+		"""
 		"""
 		plt.figure()
 		plt.hold("on")
