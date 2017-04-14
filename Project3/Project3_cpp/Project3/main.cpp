@@ -4,11 +4,14 @@
 #include <boost/numeric/odeint.hpp> // Boost odeint
 #include <boost/tuple/tuple.hpp>    // Boost tuple, used to return multiple values
 #include <constants.h>      // Precalculated constants
-#include "spline.h"         // Cubic spline (linear) interpolator
+//#include "spline.h"         // Cubic spline (linear) interpolator
+//#include "linalg.h"
+#include "interpolation.h"  // Alglib interpolation
 
 using namespace std;
 using namespace boost::numeric::odeint;
 using namespace constants;
+using namespace alglib;
 
 typedef std::vector<double> variables;
 
@@ -78,14 +81,13 @@ void Diff_eq_eta(const variables &eta, variables &detadt, double x0){
     detadt[0] = constants::c/Get_Hubble_prime(x0);
 }
 
-void write_outfile(vector<double> x, vector<variables> Value, string Value_name, string filename){
+void write_outfile(vector<double> x, vector<double> Value, string Value_name, string filename){
     int vec_size = Value.size();
-    cout << vec_size << endl;
     ofstream datafile;
     datafile.open(filename);
     datafile << "x" << setw(15) << Value_name << "\n";
     for (int i=0; i<vec_size; i++){
-        datafile << x[i] << setw(15) << Value[0][i] << '\n';
+        datafile << x[i] << setw(15) << Value[i] << '\n';
     }
     datafile.close();
 }
@@ -107,25 +109,44 @@ int main(int argc, char *argv[])
     double a_init = 1e-11;
     double x_eta_init = log(a_init);
     double x_eta_end = 0.0;
-    vector<double> x_eta(n_eta), x_tau(n_eta);
-    linspace(x_eta_init, x_eta_end, n_eta, x_eta);
 
-    vector<variables> Etas;
+    vector<variables> Etas_temp;
     vector<double> x_etas;
     variables eta_init = {0};
-    //double eta_init = 0;
-    typedef runge_kutta4<double> RK4_stepper;
-    //integrate_adaptive(RK4_stepper(), Diff_eq_eta, eta_init, x_eta_init,
-    //                   x_eta_end, (x_eta_end - x_eta_init)/(n_eta-1),
-    //                   Save_single_variable(Etas));
-    size_t steps = integrate(Diff_eq_eta, eta_init, x_eta_init,
-                       x_eta_end, (x_eta_end - x_eta_init)/(n_eta-1),
-                       Save_single_variable(Etas, x_etas));
-    cout << "steps" << steps << endl;
-    for (int i=0; i<steps; i++){
-        cout << x_etas[i] << '\t' << Etas[i][0] << endl;
+    typedef runge_kutta4<variables> rk4_step;
+    //typedef bulirsch_stoer<variables> bulst_step;
+
+    // Solving for conformal time
+    size_t eta_size = integrate_adaptive(rk4_step(), Diff_eq_eta, eta_init, x_eta_init,
+                  x_eta_end, (x_eta_end - x_eta_init)/(n_eta-1.0),
+                  Save_single_variable(Etas_temp, x_etas));
+    cout << eta_size << endl;
+    vector<double> Etas(eta_size-1);
+    for (int i=0; i<=eta_size; i++){
+        Etas[i] = Etas_temp[i][0];
     }
-    //write_outfile(x_eta, Etas, "Eta", "Eta_test.txt");
+
+    write_outfile(x_etas, Etas, "Eta", "Eta_test.txt");
+    vector<double> interp_x_eta(100);
+    cout << "Linspacing" << endl;
+    linspace(x_start_rec, x_end_rec, 100, interp_x_eta);
+    real_1d_array Xs, etay;
+    cout << "set content 1" << endl;
+    Xs.setcontent(x_etas.size(), &(x_etas[0]));
+    cout << x_etas.size() << '\t' << Etas.size() << endl;
+    cout << "set content 2" << endl;
+    etay.setcontent(Etas.size(), &(Etas[0]));
+    cout << "Interp setup" << endl;
+    spline1dinterpolant spline;
+    cout << "Interp setup 2" << endl;
+    spline1dbuildcubic(Xs, etay, spline);
+    cout << "Interp eta define" << endl;
+    vector<double> InterpEta(100);
+    cout << "Doing interp" << endl;
+    for (int i=0; i<100; i++){
+        InterpEta[i] = spline1dcalc(spline,interp_x_eta[i]);
+    }
+    write_outfile(interp_x_eta, InterpEta, "EtaInterpol", "InterpTest.txt");
 
     /*
     double Omm, Omb, Omr, Oml;
@@ -135,14 +156,32 @@ int main(int argc, char *argv[])
     std::vector<double> X(5), Y(5);
     X[0]=0.1; X[1]=0.4; X[2]=1.2; X[3]=1.8; X[4]=2.0;
     Y[0]=0.1; Y[1]=0.7; Y[2]=0.6; Y[3]=1.1; Y[4]=0.9;
+    alglib::real_1d_array AX, AY;
+    AX.setcontent(X.size(), &(X[0]));
+    AY.setcontent(Y.size(), &(Y[0]));
+    alglib::spline1dinterpolant spline;
+    alglib::spline1dbuildcubic(AX, AY, X.size(), 2,0.0,2,0.0,spline);
+
+    for(size_t i=0; i<X.size(); i++){
+       printf("%f %f\n", X[i], Y[i]);
+    }
+    printf("\n");
+    for(int i=-50; i<250; i++){
+       double x=0.01*i;
+       double s, ds, d2s;
+       alglib::spline1ddiff(spline,x,s,ds,d2s);
+       printf("%f %f %f %f\n", x, s, ds, d2s);
+    }
+    printf("\n");
+    */
+    /*
     tk::spline s;
     s.set_points(X,Y);    // currently it is required that X is already sorted
-    double x=1.5;
-    printf("spline at %f is %f\n", x, s(x));
-
-    vector<double> a1(11), a2(11);
-    linspace(0, 10.0, 11, a1);
-    linspace(2, 12, 11, a2);
+    for (int i =-50; i<250; i++){
+        double x=0.01*i;
+        printf("%f %f %f \n", x, s(x), s.deriv(1,x), s.deriv(2,x));
+    }
     */
+
     return 0;
 }
