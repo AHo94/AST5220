@@ -4,8 +4,7 @@
 #include <boost/numeric/odeint.hpp> // Boost odeint
 #include <boost/tuple/tuple.hpp>    // Boost tuple, used to return multiple values
 #include <constants.h>      // Precalculated constants
-//#include "spline.h"         // Cubic spline (linear) interpolator
-//#include "linalg.h"
+#include <math.h>     // Mathematical expressions.
 #include "interpolation.h"  // Alglib interpolation
 
 using namespace std;
@@ -14,19 +13,8 @@ using namespace constants;
 using namespace alglib;
 
 typedef std::vector<double> variables;
-
-struct push_back_state_and_time{
-    std::vector<variables>& m_states;
-    std::vector<double>& m_times;
-    push_back_state_and_time(std::vector<variables> &states, std::vector<double>&times)
-    :m_states(states), m_times(times) {}
-
-    void operator()(const variables &x, double t)
-    {
-        m_states.push_back(x);
-        m_times.push_back(t);
-    }
-};
+typedef runge_kutta4<variables> rk4_step;
+typedef bulirsch_stoer<variables> bulst_step;
 
 struct Save_single_variable{
     // Saves the computed values from a differential equation to a vector
@@ -45,6 +33,13 @@ void linspace(double start, double end, int NumberPts, vector<double> &array){
     double step = (end-start)/(NumberPts-1);
     for (int i=0; i<NumberPts; i++){
         array[i] = start + i*step;
+    }
+}
+
+void Sort_variable_to_vector_SingleVar(vector<variables> VariableArr, vector<double>&OutputArr, int Arrsize){
+    // Converts type vector<variables> to vector<double>
+    for (int i=0; i<=Arrsize; i++){
+        OutputArr[i] = VariableArr[i][0];
     }
 }
 
@@ -78,7 +73,36 @@ boost::tuple<double, double, double, double> Get_omegas(double x0){
 }
 
 void Diff_eq_eta(const variables &eta, variables &detadt, double x0){
+    // Right hand side of the diff. equation for conformal time
     detadt[0] = constants::c/Get_Hubble_prime(x0);
+}
+
+double Get_n_b(double x0){
+    // Returns number density for baryons (or electrons) for a given x
+    return constants::n_bConst*exp(-3.0*x0);
+}
+
+double Saha_Equation(double x0){
+    /* Solves saha equation. Only returns the positively valued solution of X_e.
+       Assumes that the equation is in the form x^2 + bx + c = 0. Also assume c = -b.
+       With a = 1, we can drop calculating the factor a and c.
+    */
+    double b = constants::Saha_b_factor*exp(-constants::EpsTemp_factor*exp(x0) - 3.0*x0/2.0)/Get_n_b(x0);
+    return 0.5*(-b + sqrt(b*b + 4*b));
+}
+
+void Peebles_equation(const variables &X_e, variables dXedx, double x0){
+    // Returns the right hand side of Peebles equation
+    double n_b = Get_n_b(x0);
+    double H = Get_Hubble_param(x0);
+    double exp_factor = constants::EpsTemp_factor*exp(x0);
+    double phi2 = 0.448*log(exp_factor);
+    double alpha2 = constants::alpha_factor*sqrt(exp_factor)*phi2;
+    double beta = alpha2*constants::beta_factor*exp(-3.0*x0/2.0 - exp_factor);
+    double beta2 = alpha2*constants::beta_factor*exp(-3.0*x0/2.0 - exp_factor/4.0);
+    double Lambda_alpha = H*constants::Lambda_alpha_factor/((1.0*X_e[0])*n_b);
+    double C_r = (constants::Lambda_2sto1s + Lambda_alpha)/(constants::Lambda_2sto1s + Lambda_alpha + beta2);
+    dXedx[0] = (C_r/H)*(beta*(1.0 - X_e[0]) - n_b*alpha2*X_e[0]*X_e[0]);
 }
 
 void write_outfile(vector<double> x, vector<double> Value, string Value_name, string filename){
@@ -113,13 +137,31 @@ int main(int argc, char *argv[])
     vector<variables> Etas_temp;
     vector<double> x_etas;
     variables eta_init = {0};
-    typedef runge_kutta4<variables> rk4_step;
-    //typedef bulirsch_stoer<variables> bulst_step;
-
     // Solving for conformal time
     size_t eta_size = integrate_adaptive(rk4_step(), Diff_eq_eta, eta_init, x_eta_init,
                   x_eta_end, (x_eta_end - x_eta_init)/(n_eta-1.0),
                   Save_single_variable(Etas_temp, x_etas));
+
+    vector<double> Etas(eta_size+1);
+    Sort_variable_to_vector_SingleVar(Etas_temp, Etas, eta_size); // Sorting Etas_temp to Etas
+    // Solving n_e
+    vector<double> X_e;
+    vector<variables> X_e_temp;
+    X_e.push_back(1.0);
+    /*
+    for (int i=0; i<n_eta; i++){
+        if (X_e[i] > 0.99){
+            X_e.push_back(Saha_Equation(x_etas[i]));
+        }
+        else{
+            size_t X_e_size = integrate_adaptive(rk4_step(), Peebles_equation, X_e[i], x_etas[i],
+                                                 x_etas[eta_size], (x_etas[0] - x_etas[eta_size])/(n_eta-1),
+                                                Save_single_variable(X_e_temp, x_etas));
+            break;
+        }
+    }
+    */
+    /*
     cout << eta_size << endl;
     vector<double> Etas(eta_size+1);
     for (int i=0; i<=eta_size; i++){
@@ -147,7 +189,7 @@ int main(int argc, char *argv[])
         InterpEta[i] = spline1dcalc(spline,interp_x_eta[i]);
     }
     write_outfile(interp_x_eta, InterpEta, "EtaInterpol", "InterpTest.txt");
-
+    */
     /*
     double Omm, Omb, Omr, Oml;
     boost::tuple<double, double, double, double> Omegas = Get_omegas(0.0);
