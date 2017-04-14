@@ -51,5 +51,8 @@ namespace  constants
     const double beta_factor = pow((m_e*T_0*k_b)/(2.0*pi), 3.0/2.0)*(1.0/(hbar*hbar*hbar));
     const double Lambda_alpha_factor = pow(3.0*epsilon_0/(hbar*c), 3.0)/(64.0*pi*pi);
     const double EpsTemp_factor = epsilon_0/(k_b*T_0);
+
+    // Other constants
+    const double n_bConst = Omega_b*rho_c0/m_H;
 }
 #endif // CONSTANTS_H
