@@ -121,7 +121,7 @@ int main(int argc, char *argv[])
                   x_eta_end, (x_eta_end - x_eta_init)/(n_eta-1.0),
                   Save_single_variable(Etas_temp, x_etas));
     cout << eta_size << endl;
-    vector<double> Etas(eta_size-1);
+    vector<double> Etas(eta_size+1);
     for (int i=0; i<=eta_size; i++){
         Etas[i] = Etas_temp[i][0];
     }
