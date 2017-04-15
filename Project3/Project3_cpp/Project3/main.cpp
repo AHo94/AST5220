@@ -194,15 +194,15 @@ struct Solve_TightCoupling{
 
         double R = 4.0*Om_r/(3.0*Om_m*exp(x0));
         double Theta2 = -20.0*ck_Hprimed*Var[1]/(45.0*TauDer);
-        double Psi = -Var[6] - PsiPrefactor*Om_r*Theta_2/(k*k*exp(2.0*x0));
+        double Psi = -Var[6] - PsiPrefactor*Om_r*Theta2/(m_k*m_k*exp(2.0*x0));
         double dPhidx = - Psi - ck_Hprimed*ck_Hprimed*Var[6]/3.0
             + (H_0Squared/(2.0*Hprimed*Hprimed))*(Om_m*Var[2]*exp(-x0) + Om_b*Var[3]*exp(-x0) + 4*Om_r*exp(-x0)*Var[0]);
         double dTheta0dx = -ck_Hprimed*Var[1] - dPhidx;
         double q = -(((1.0-2.0*R)*TauDer + (1.0+R)*TauDoubleDer)*(3.0*Var[1] + Var[5]) - ck_Hprimed*Psi
                 + (1.0-Hprime_HPrimedDer)*ck_Hprimed*(-Var[0] + 2*Theta2) - ck_Hprimed*dTheta0dx)
-                /((1.0+R)*TauDer + Hprime_HPrimeDer - 1);
-        double dDeltax = ck_Hprimed*Var[4] - 3.0*dPhidx;
-        double dDeltabx = ck_Hprimed*Var[5] - 3.0*dPhidx;
+                /((1.0+R)*TauDer + Hprime_HPrimedDer - 1);
+        double dDeltadx = ck_Hprimed*Var[4] - 3.0*dPhidx;
+        double dDeltabdx = ck_Hprimed*Var[5] - 3.0*dPhidx;
         double dvdx = -Var[4] - ck_Hprimed*Psi;
         double dvbdx = (-Var[5] - ck_Hprimed*Psi + R*(q + ck_Hprimed*(-Var[0] + 2*Theta2) - ck_Hprimed*Psi))/(1.0+R);
         double dTheta1dx = (q-dvbdx)/3.0;
@@ -261,7 +261,6 @@ int main(int argc, char *argv[])
     vector<double> x_eta2(n_eta);
     linspace(x_eta_init, x_0, n_eta, x_eta2);
     Compute_Xe(n_eta, x_eta_init, x_0, X_e);
-    write_outfile(x_eta2, X_e, "X_e", "X_e_test.txt");
 
     // Stores n_e (logarithmic scale) to an array. Used to interpolate for taus
     vector<double> LOGn_e(X_e.size());
@@ -277,7 +276,6 @@ int main(int argc, char *argv[])
     size_t Tau_size = integrate_adaptive(rk4_step(), Taudif_instance, tau_init,
                     x_0, x_eta_init, (x_eta_init-x_0)/(n_eta-1), Save_single_variable(Taus_temp, x_tau));
     Sort_variable_to_vector_SingleVar(Taus_temp, Taus, Tau_size);
-    write_outfile(x_tau, Taus, "Tau", "TauTest.txt");
 
     // Interpolate derivatives of tau
     int n_doublederPtS = 100;
@@ -295,8 +293,6 @@ int main(int argc, char *argv[])
         spline1ddiff(splineTaus, x_tau[i], s_temp, TauDerivative[i], d2s_temp);}
     for (int j=0; j<n_doublederPtS; j++){
         spline1ddiff(splineTaus, x_TauDoubleDer[j], s_temp, d2s_temp, TauDoubleDer[j]);}
-    write_outfile(x_tau, TauDerivative, "TauDer", "TauDerTest.txt");
-    write_outfile(x_TauDoubleDer, TauDoubleDer, "TauDoubleDer", "TauDoublDerText.txt");
 
     // Compute visibility function and its derivatives (interpolated)
     vector<double> g(n_eta);
@@ -310,8 +306,5 @@ int main(int argc, char *argv[])
     spline1dbuildcubic(X_Interp, G_Interp, splineGs);
     for (int i=0; i<n_eta; i++){
         spline1ddiff(splineGs, x_tau[i], s_temp, gDer[i], gDoubleDer[i]);}
-    write_outfile(x_tau, g, "g", "gTest.txt");
-    write_outfile(x_tau, gDer, "gDer", "gDerTest.txt");
-    write_outfile(x_tau, gDoubleDer, "gDoubleDer", "gDoubleDerTest.txt");
     return 0;
 }
