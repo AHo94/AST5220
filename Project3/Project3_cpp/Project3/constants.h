@@ -42,12 +42,12 @@ namespace  constants
     const double rho_lambda0 = Omega_lambda*rho_c0;
 
     // Precalculate certain factors to reduce number of float point operations
-    const double Saha_b_factor = pow((m_e*T_0*k_b)/(2*pi*pow(hbar, 2)), 3.0/2.0); // Factor in front of 'b' in Saha equation
+    const double Saha_b_factor = pow((m_e*T_0*k_b)/(2.0*pi*hbar*hbar), 3.0/2.0); // Factor in front of 'b' in Saha equation
     const double rhoCrit_factor = 3.0/(8*pi*G_grav);                  // Used for critical density at arbitrary times
 
     // Constant used for Peebles equation and some constant factors that can be precalculated
     const double Lambda_2sto1s = 8.227;
-    const double alpha_factor = ((64.0*pi)/(sqrt(27.0*pi)))*(pow((alpha/m_e), 2.0))*(hbar*hbar/c);
+    const double alpha_factor = ((64.0*pi)/(sqrt(27.0*pi)))*(alpha*alpha/(m_e*m_e))*(hbar*hbar/c);
     const double beta_factor = pow((m_e*T_0*k_b)/(2.0*pi), 3.0/2.0)*(1.0/(hbar*hbar*hbar));
     const double Lambda_alpha_factor = pow(3.0*epsilon_0/(hbar*c), 3.0)/(64.0*pi*pi);
     const double EpsTemp_factor = epsilon_0/(k_b*T_0);
