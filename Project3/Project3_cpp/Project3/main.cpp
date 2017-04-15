@@ -34,8 +34,7 @@ void linspace(double start, double end, int NumberPts, vector<double> &array){
     // Creating a function equivalent to linspace from Numpy in Python
     double step = (end-start)/(NumberPts-1);
     for (int i=0; i<NumberPts; i++){
-        array[i] = start + i*step;
-    }
+        array[i] = start + i*step;}
 }
 
 void Sort_variable_to_vector_SingleVar(vector<variables> VariableArr, vector<double>&OutputArr, int Arrsize, int merge=0){
@@ -44,13 +43,11 @@ void Sort_variable_to_vector_SingleVar(vector<variables> VariableArr, vector<dou
     */
     if (merge == 0){
         for (int i=0; i<=Arrsize; i++){
-            OutputArr[i] = VariableArr[i][0];
-        }
+            OutputArr[i] = VariableArr[i][0];}
     }
     else if (merge == 1){
         for (int i=0; i<=Arrsize; i++){
-            OutputArr.push_back(VariableArr[i][0]);
-        }
+            OutputArr.push_back(VariableArr[i][0]);}
     }
     else{
         cout << "Argument merge not properly set. Try merge=0 or merge=1" << endl;
@@ -96,11 +93,9 @@ double Saha_Equation(double x0){
     */
     double b = (Saha_b_factor/Get_n_b(x0))*exp(-EpsTemp_factor*exp(x0) - 3.0*x0/2.0);
     if (0.5*(-b + sqrt(b*b + 4.0*b)) > 0){
-        return 0.5*(-b + sqrt(b*b + 4.0*b));
-    }
+        return 0.5*(-b + sqrt(b*b + 4.0*b));}
     else if (0.5*(-b - sqrt(b*b + 4.0*b)) > 0){
-        return 0.5*(-b - sqrt(b*b + 4.0*b));
-    }
+        return 0.5*(-b - sqrt(b*b + 4.0*b));}
 }
 void Peebles_equation(const variables &X_e, variables &dXedx, double x0){
     // Returns the right hand side of Peebles equation
@@ -126,17 +121,14 @@ void Compute_Xe(int n, double x_init, double x_0, vector<double> &ComputedX_e){
     int EndI;
     for (int i=0; i<n; i++){
         if (ComputedX_e[i] > 0.97){
-            ComputedX_e.push_back(Saha_Equation(x_values[i]));
-        }
+            ComputedX_e.push_back(Saha_Equation(x_values[i]));}
         else{
             EndI = i;
-            break;
-        }
+            break;}
     }
     variables X_e_init = {ComputedX_e[EndI]};
     size_t X_e_size = integrate_adaptive(rk4_step(), Peebles_equation, X_e_init, x_values[EndI],
-                                         x_0, (x_0 - x_values[EndI])/(n-EndI-1),
-                                         Save_single_variable(X_e_temp, x_n_e));
+                            x_0, (x_0 - x_values[EndI])/(n-EndI-1), Save_single_variable(X_e_temp, x_n_e));
     Sort_variable_to_vector_SingleVar(X_e_temp, ComputedX_e, X_e_size-1, 1);
 }
 
@@ -160,6 +152,70 @@ struct Diff_eq_tau{
     }
 };
 
+void TightCoupling_InitialCondition(double x0,  double k, variables &InitialCond){
+    /* Sets the initial conditions for the relevant variables in the tight coupling regime.
+     * Array order is Theta0, Theta1, delta, delta_b, v, v_b, Phi.
+     */
+    double Hprime0 = Get_Hubble_prime(x0);
+    double Phi = 1.0;
+    double delta_b = 3.0*Phi/2.0;
+    double v_b = k*Phi/(2.0*Hprime0);
+    double Theta_0 = 0.5*Phi;
+    double Theta_1 = -c*k*Phi/(6.0*Hprime0);
+    InitialCond = {Theta_0, Theta_1, delta_b, delta_b, v_b, v_b, Phi};
+}
+
+struct Solve_TightCoupling{
+    // Class that sets up interpolation for tight coupling regime calculation
+    vector<double> m_TauTC;
+    vector<double> m_xTC;
+    double m_kTC;
+    spline1dinterpolant m_splineTC;
+    real_1d_array m_XInterp, m_TauInterp;
+    Solve_TightCoupling(vector<double>&TauVec, vector<double>&x_values, double &k_values)
+        : m_TauTC(TauVec), m_xTC(x_values), m_kTC(k_values) {
+        m_XInterp.setcontent(m_xTC.size(), &(m_xTC[0]));
+        m_TauInterp.setcontent(m_TauTC.size(), &(m_TauTC[0]));
+        spline1dbuildcubic(m_XInterp, m_TauInterp, m_splineTC);}
+    void operator()(const variables &Var, variables &dVardx, double x0){
+        // Solves Boltzmann equations for tight coupling
+        double Om_m, Om_b, Om_r, Om_lambda;
+        boost::tuple<double, double, double, double> Omegas = Get_omegas(x0);
+        Om_m = Omegas.get<0>();
+        Om_b = Omegas.get<1>();
+        Om_r = Omegas.get<2>();
+        Om_lambda = Omegas.get<3>();
+        double Hprimed = Get_Hubble_prime(x0);
+        double HprimedDer = Get_Hubble_prime_derivative(x0);
+        double Hprime_HPrimedDer = Hprimed/HprimedDer;
+        double ck_Hprimed = c*m_kTC/Hprimed;
+        double Tau, TauDer, TauDoubleDer;
+        spline1ddiff(m_splineTC, x0, Tau, TauDer, TauDoubleDer);
+
+        double R = 4.0*Om_r/(3.0*Om_m*exp(x0));
+        double Theta2 = -20.0*ck_Hprimed*Var[1]/(45.0*TauDer);
+        double Psi = -Var[6] - PsiPrefactor*Om_r*Theta_2/(k*k*exp(2.0*x0));
+        double dPhidx = - Psi - ck_Hprimed*ck_Hprimed*Var[6]/3.0
+            + (H_0Squared/(2.0*Hprimed*Hprimed))*(Om_m*Var[2]*exp(-x0) + Om_b*Var[3]*exp(-x0) + 4*Om_r*exp(-x0)*Var[0]);
+        double dTheta0dx = -ck_Hprimed*Var[1] - dPhidx;
+        double q = -(((1.0-2.0*R)*TauDer + (1.0+R)*TauDoubleDer)*(3.0*Var[1] + Var[5]) - ck_Hprimed*Psi
+                + (1.0-Hprime_HPrimedDer)*ck_Hprimed*(-Var[0] + 2*Theta2) - ck_Hprimed*dTheta0dx)
+                /((1.0+R)*TauDer + Hprime_HPrimeDer - 1);
+        double dDeltax = ck_Hprimed*Var[4] - 3.0*dPhidx;
+        double dDeltabx = ck_Hprimed*Var[5] - 3.0*dPhidx;
+        double dvdx = -Var[4] - ck_Hprimed*Psi;
+        double dvbdx = (-Var[5] - ck_Hprimed*Psi + R*(q + ck_Hprimed*(-Var[0] + 2*Theta2) - ck_Hprimed*Psi))/(1.0+R);
+        double dTheta1dx = (q-dvbdx)/3.0;
+        dVardx[0] = dTheta0dx;
+        dVardx[1] = dTheta1dx;
+        dVardx[2] = dDeltadx;
+        dVardx[3] = dDeltabdx;
+        dVardx[4] = dvdx;
+        dVardx[5] = dvbdx;
+        dVardx[6] = dPhidx;
+    }
+};
+
 void write_outfile(vector<double> x, vector<double> Value, string Value_name, string filename){
     // Saves data to text file.
     int vec_size = Value.size();
@@ -174,6 +230,7 @@ void write_outfile(vector<double> x, vector<double> Value, string Value_name, st
 
 int main(int argc, char *argv[])
 {
+
     // Initializing some arrays
     clock_t timer;
     int n1 = 200;
@@ -195,9 +252,7 @@ int main(int argc, char *argv[])
     vector<double> x_etas;
     variables eta_init = {0};
     size_t eta_size = integrate_adaptive(rk4_step(), Diff_eq_eta, eta_init, x_eta_init,
-                  x_0, (x_0 - x_eta_init)/(n_eta-1.0),
-                  Save_single_variable(Etas_temp, x_etas));
-
+                  x_0, (x_0 - x_eta_init)/(n_eta-1.0), Save_single_variable(Etas_temp, x_etas));
     vector<double> Etas(eta_size+1);
     Sort_variable_to_vector_SingleVar(Etas_temp, Etas, eta_size); // Sorting Etas_temp to Etas
 
@@ -211,8 +266,8 @@ int main(int argc, char *argv[])
     // Stores n_e (logarithmic scale) to an array. Used to interpolate for taus
     vector<double> LOGn_e(X_e.size());
     for (int i=0; i<X_e.size(); i++){
-        LOGn_e[i] = log(X_e[i]*Get_n_b(x_eta2[i]));
-    }
+        LOGn_e[i] = log(X_e[i]*Get_n_b(x_eta2[i]));}
+
     // Calculate tau
     vector<variables> Taus_temp;
     vector<double> Taus(n_eta);
@@ -220,9 +275,7 @@ int main(int argc, char *argv[])
     variables tau_init = {0};
     Diff_eq_tau Taudif_instance(LOGn_e, x_eta2);
     size_t Tau_size = integrate_adaptive(rk4_step(), Taudif_instance, tau_init,
-                                         x_0, x_eta_init, (x_eta_init-x_0)/(n_eta-1),
-                                         Save_single_variable(Taus_temp, x_tau));
-
+                    x_0, x_eta_init, (x_eta_init-x_0)/(n_eta-1), Save_single_variable(Taus_temp, x_tau));
     Sort_variable_to_vector_SingleVar(Taus_temp, Taus, Tau_size);
     write_outfile(x_tau, Taus, "Tau", "TauTest.txt");
 
@@ -239,11 +292,9 @@ int main(int argc, char *argv[])
     spline1dbuildcubic(X_Interp, TAU_Interp, splineTaus);
     double s_temp, d2s_temp;
     for (int i=0; i<n_eta; i++){
-        spline1ddiff(splineTaus, x_tau[i], s_temp, TauDerivative[i], d2s_temp);
-    }
+        spline1ddiff(splineTaus, x_tau[i], s_temp, TauDerivative[i], d2s_temp);}
     for (int j=0; j<n_doublederPtS; j++){
-        spline1ddiff(splineTaus, x_TauDoubleDer[j], s_temp, d2s_temp, TauDoubleDer[j]);
-    }
+        spline1ddiff(splineTaus, x_TauDoubleDer[j], s_temp, d2s_temp, TauDoubleDer[j]);}
     write_outfile(x_tau, TauDerivative, "TauDer", "TauDerTest.txt");
     write_outfile(x_TauDoubleDer, TauDoubleDer, "TauDoubleDer", "TauDoublDerText.txt");
 
@@ -252,83 +303,15 @@ int main(int argc, char *argv[])
     vector<double> gDer(n_eta);
     vector<double> gDoubleDer(n_eta);
     for (int i=0; i<n_eta; i++){
-        g[i] = -TauDerivative[i]*exp(-Taus[i]);
-    }
+        g[i] = -TauDerivative[i]*exp(-Taus[i]);}
     spline1dinterpolant splineGs;
     real_1d_array G_Interp, X_Interp2;
     G_Interp.setcontent(g.size(), &(g[0]));
-    //X_Interp2.setcontent(x_tau.size(), &(x_tau[0]));
     spline1dbuildcubic(X_Interp, G_Interp, splineGs);
     for (int i=0; i<n_eta; i++){
-        spline1ddiff(splineGs, x_tau[i], s_temp, gDer[i], gDoubleDer[i]);
-    }
+        spline1ddiff(splineGs, x_tau[i], s_temp, gDer[i], gDoubleDer[i]);}
     write_outfile(x_tau, g, "g", "gTest.txt");
     write_outfile(x_tau, gDer, "gDer", "gDerTest.txt");
     write_outfile(x_tau, gDoubleDer, "gDoubleDer", "gDoubleDerTest.txt");
-
-    /*
-    cout << eta_size << endl;
-    vector<double> Etas(eta_size+1);
-    for (int i=0; i<=eta_size; i++){
-        Etas[i] = Etas_temp[i][0];
-    }
-
-    write_outfile(x_etas, Etas, "Eta", "Eta_test.txt");
-    vector<double> interp_x_eta(100);
-    cout << "Linspacing" << endl;
-    linspace(x_start_rec, x_end_rec, 100, interp_x_eta);
-    real_1d_array Xs, etay;
-    cout << "set content 1" << endl;
-    Xs.setcontent(x_etas.size(), &(x_etas[0]));
-    cout << x_etas.size() << '\t' << Etas.size() << endl;
-    cout << "set content 2" << endl;
-    etay.setcontent(Etas.size(), &(Etas[0]));
-    cout << "Interp setup" << endl;
-    spline1dinterpolant spline;
-    cout << "Interp setup 2" << endl;
-    spline1dbuildcubic(Xs, etay, spline);
-    cout << "Interp eta define" << endl;
-    vector<double> InterpEta(100);
-    cout << "Doing interp" << endl;
-    for (int i=0; i<100; i++){
-        InterpEta[i] = spline1dcalc(spline,interp_x_eta[i]);
-    }
-    write_outfile(interp_x_eta, InterpEta, "EtaInterpol", "InterpTest.txt");
-    */
-    /*
-    double Omm, Omb, Omr, Oml;
-    boost::tuple<double, double, double, double> Omegas = Get_omegas(0.0);
-    cout << Omegas.get<0>() << '\t' << Omegas.get<1>() << '\t' << Omegas.get<2>() << '\t' << Omegas.get<3>() << endl;
-
-    std::vector<double> X(5), Y(5);
-    X[0]=0.1; X[1]=0.4; X[2]=1.2; X[3]=1.8; X[4]=2.0;
-    Y[0]=0.1; Y[1]=0.7; Y[2]=0.6; Y[3]=1.1; Y[4]=0.9;
-    alglib::real_1d_array AX, AY;
-    AX.setcontent(X.size(), &(X[0]));
-    AY.setcontent(Y.size(), &(Y[0]));
-    alglib::spline1dinterpolant spline;
-    alglib::spline1dbuildcubic(AX, AY, X.size(), 2,0.0,2,0.0,spline);
-
-    for(size_t i=0; i<X.size(); i++){
-       printf("%f %f\n", X[i], Y[i]);
-    }
-    printf("\n");
-    for(int i=-50; i<250; i++){
-       double x=0.01*i;
-       double s, ds, d2s;
-       alglib::spline1ddiff(spline,x,s,ds,d2s);
-       printf("%f %f %f %f\n", x, s, ds, d2s);
-    }
-    printf("\n");
-    */
-    /*
-    tk::spline s;
-    s.set_points(X,Y);    // currently it is required that X is already sorted
-    for (int i =-50; i<250; i++){
-        double x=0.01*i;
-        printf("%f %f %f \n", x, s(x), s.deriv(1,x), s.deriv(2,x));
-    }
-    */
-
     return 0;
 }
