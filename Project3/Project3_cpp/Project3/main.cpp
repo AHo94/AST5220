@@ -15,6 +15,7 @@ using namespace alglib;
 typedef std::vector<double> variables;
 typedef runge_kutta4<variables> rk4_step;
 typedef bulirsch_stoer<variables> bulst_step;
+typedef bulirsch_stoer_dense_out<variables> bulst_step_dense;
 
 struct Save_single_variable{
     // Saves the computed values from a differential equation to a vector
@@ -36,74 +37,105 @@ void linspace(double start, double end, int NumberPts, vector<double> &array){
     }
 }
 
-void Sort_variable_to_vector_SingleVar(vector<variables> VariableArr, vector<double>&OutputArr, int Arrsize){
-    // Converts type vector<variables> to vector<double>
-    for (int i=0; i<=Arrsize; i++){
-        OutputArr[i] = VariableArr[i][0];
+void Sort_variable_to_vector_SingleVar(vector<variables> VariableArr, vector<double>&OutputArr, int Arrsize, int merge=0){
+    /* If merge = 0 (default), converts type vector<variables> to vector<double>.
+     * If merge = 1, merges two vectors together. Specifically used for the electron number density vector.
+    */
+    if (merge == 0){
+        for (int i=0; i<=Arrsize; i++){
+            OutputArr[i] = VariableArr[i][0];
+        }
+    }
+    else if (merge == 1){
+        for (int i=0; i<=Arrsize; i++){
+            OutputArr.push_back(VariableArr[i][0]);
+        }
+    }
+    else{
+        cout << "Argument merge not properly set. Try merge=0 or merge=1" << endl;
+        exit(EXIT_FAILURE);
     }
 }
 
 double Get_Hubble_param(double x0){
     // Function that returns the Hubble parameter
-    return constants::H_0*sqrt((constants::Omega_m + constants::Omega_b)*exp(-3.0*x0)
-                               +constants::Omega_r*exp(-4.0*x0) + constants::Omega_lambda);
-}
+    return H_0*sqrt((Omega_m + Omega_b)*exp(-3.0*x0) + Omega_r*exp(-4.0*x0) + Omega_lambda);}
 
 double Get_Hubble_prime(double x0){
     // Function that returns the scaled Hubble parameter a*H
-    return constants::H_0*sqrt((constants::Omega_m + constants::Omega_b)*exp(-x0)
-                               +constants::Omega_r*exp(-2.0*x0) + constants::Omega_lambda*exp(2.0*x0));
-}
+    return H_0*sqrt((Omega_m + Omega_b)*exp(-x0) + Omega_r*exp(-2.0*x0) + Omega_lambda*exp(2.0*x0));}
 
 double Get_Hubble_prime_derivative(double x0){
     // Function that returns the derivative of the scaled Hubble parameter
-    return constants::H_0Squared*(0.5*(constants::Omega_m + constants::Omega_b)
-                                  +2.0*constants::Omega_r + 2.0*constants::Omega_lambda)/Get_Hubble_prime(x0);
-}
+    return H_0Squared*(0.5*(Omega_m + Omega_b) + 2.0*Omega_r + 2.0*Omega_lambda)/Get_Hubble_prime(x0);}
 
 boost::tuple<double, double, double, double> Get_omegas(double x0){
     // Computes the Omegas for a given 'time' x
     double H = Get_Hubble_param(x0);
-    double rho_c = constants::rhoCrit_factor*H*H;
-    double Omega_m_z = constants::rho_m0*exp(-3.0*x0)/rho_c;
-    double Omega_b_z = constants::rho_b0*exp(-3.0*x0)/rho_c;
-    double Omega_r_z = constants::rho_r0*exp(-4.0*x0)/rho_c;
-    double Omega_lambda_z = constants::rho_lambda0/rho_c;
+    double rho_c = rhoCrit_factor*H*H;
+    double Omega_m_z = rho_m0*exp(-3.0*x0)/rho_c;
+    double Omega_b_z = rho_b0*exp(-3.0*x0)/rho_c;
+    double Omega_r_z = rho_r0*exp(-4.0*x0)/rho_c;
+    double Omega_lambda_z = rho_lambda0/rho_c;
     return boost::make_tuple(Omega_m_z, Omega_b_z, Omega_r_z, Omega_lambda_z);
 }
 
 void Diff_eq_eta(const variables &eta, variables &detadt, double x0){
     // Right hand side of the diff. equation for conformal time
-    detadt[0] = constants::c/Get_Hubble_prime(x0);
-}
+    detadt[0] = c/Get_Hubble_prime(x0);}
 
 double Get_n_b(double x0){
-    // Returns number density for baryons (or electrons) for a given x
-    return constants::n_bConst*exp(-3.0*x0);
-}
+    // Returns number density for baryons (or Hydrogen) for a given x
+    return n_bConst/exp(3.0*x0);}
 
 double Saha_Equation(double x0){
     /* Solves saha equation. Only returns the positively valued solution of X_e.
        Assumes that the equation is in the form x^2 + bx + c = 0. Also assume c = -b.
        With a = 1, we can drop calculating the factor a and c.
     */
-    double b = constants::Saha_b_factor*exp(-constants::EpsTemp_factor*exp(x0) - 3.0*x0/2.0)/Get_n_b(x0);
-    return 0.5*(-b + sqrt(b*b + 4*b));
+    double b = (Saha_b_factor/Get_n_b(x0))*exp(-EpsTemp_factor*exp(x0) - 3.0*x0/2.0);
+    if (0.5*(-b + sqrt(b*b + 4.0*b)) > 0){
+        return 0.5*(-b + sqrt(b*b + 4.0*b));
+    }
+    else if (0.5*(-b - sqrt(b*b + 4.0*b)) > 0){
+        return 0.5*(-b - sqrt(b*b + 4.0*b));
+    }
 }
-
-void Peebles_equation(const variables &X_e, variables dXedx, double x0){
+void Peebles_equation(const variables &X_e, variables &dXedx, double x0){
     // Returns the right hand side of Peebles equation
     double n_b = Get_n_b(x0);
     double H = Get_Hubble_param(x0);
-    double exp_factor = constants::EpsTemp_factor*exp(x0);
+    double exp_factor = EpsTemp_factor*exp(x0);
     double phi2 = 0.448*log(exp_factor);
-    double alpha2 = constants::alpha_factor*sqrt(exp_factor)*phi2;
-    double beta = alpha2*constants::beta_factor*exp(-3.0*x0/2.0 - exp_factor);
-    double beta2 = alpha2*constants::beta_factor*exp(-3.0*x0/2.0 - exp_factor/4.0);
-    double Lambda_alpha = H*constants::Lambda_alpha_factor/((1.0*X_e[0])*n_b);
-    double C_r = (constants::Lambda_2sto1s + Lambda_alpha)/(constants::Lambda_2sto1s + Lambda_alpha + beta2);
+    double alpha2 = alpha_factor*sqrt(exp_factor)*phi2;
+    double beta = alpha2*beta_factor*exp(-3.0*x0/2.0 - exp_factor);
+    double beta2 = alpha2*beta_factor*exp(-3.0*x0/2.0 - exp_factor/4.0);
+    double Lambda_alpha = H*Lambda_alpha_factor/((1.0-X_e[0])*n_b);
+    double C_r = (Lambda_2sto1s + Lambda_alpha)/(Lambda_2sto1s + Lambda_alpha + beta2);
     dXedx[0] = (C_r/H)*(beta*(1.0 - X_e[0]) - n_b*alpha2*X_e[0]*X_e[0]);
 }
+
+void Diff_eq_tau2(const variables &tau, variables &dtaudx, double x0){
+    // Solves the right hand side of the optical depth diff. eq.
+    real_1d_array XInterp, n_eInterp;
+    XInterp.setcontent(1, &(x0));
+   // n_eInterp.setcontent(1, );
+}
+
+struct Diff_eq_tau{
+    vector<double>& m_X_e;
+    vector<double>& m_x;
+    Diff_eq_tau(vector<double>&X_eVec, vector<double>&x_values) : m_X_e(X_eVec), m_x(x_values) {}
+    void operator()(variables const &tau, variables &dtaudx, double x0){
+        real_1d_array XInterp, X_eInterp;
+        XInterp.setcontent(m_x.size(), &(m_x[0]));
+        X_eInterp.setcontent(m_X_e.size(), &(m_X_e[0]));
+        spline1dinterpolant spline;
+        spline1dbuildcubic(XInterp, X_eInterp, spline);
+        double n_e = spline1dcalc(spline, x0)*Get_n_b(x0);
+        dtaudx[0] = -n_e*sigma_T*c/Get_Hubble_param(x0);
+    }
+};
 
 void write_outfile(vector<double> x, vector<double> Value, string Value_name, string filename){
     int vec_size = Value.size();
@@ -118,6 +150,7 @@ void write_outfile(vector<double> x, vector<double> Value, string Value_name, st
 
 int main(int argc, char *argv[])
 {
+    // Initializing some arrays
     int n1 = 200;
     int n2 = 300;
     int n_t = n1+n2;
@@ -130,37 +163,58 @@ int main(int argc, char *argv[])
     double x_0 = 0.0;
 
     int n_eta = 3000;
-    double a_init = 1e-11;
+    double a_init = 1e-8;
     double x_eta_init = log(a_init);
     double x_eta_end = 0.0;
 
+    // Solving for conformal time
     vector<variables> Etas_temp;
     vector<double> x_etas;
     variables eta_init = {0};
-    // Solving for conformal time
     size_t eta_size = integrate_adaptive(rk4_step(), Diff_eq_eta, eta_init, x_eta_init,
                   x_eta_end, (x_eta_end - x_eta_init)/(n_eta-1.0),
                   Save_single_variable(Etas_temp, x_etas));
 
     vector<double> Etas(eta_size+1);
     Sort_variable_to_vector_SingleVar(Etas_temp, Etas, eta_size); // Sorting Etas_temp to Etas
-    // Solving n_e
+
+    // Computing X_e
     vector<double> X_e;
+    vector<double> x_n_e;
+    vector<double> x_eta2(n_eta);
     vector<variables> X_e_temp;
+    linspace(x_eta_init, x_eta_end, n_eta, x_eta2);
     X_e.push_back(1.0);
-    /*
+    int EndI;
     for (int i=0; i<n_eta; i++){
-        if (X_e[i] > 0.99){
-            X_e.push_back(Saha_Equation(x_etas[i]));
+        if (X_e[i] > 0.97){
+            X_e.push_back(Saha_Equation(x_eta2[i]));
         }
         else{
-            size_t X_e_size = integrate_adaptive(rk4_step(), Peebles_equation, X_e[i], x_etas[i],
-                                                 x_etas[eta_size], (x_etas[0] - x_etas[eta_size])/(n_eta-1),
-                                                Save_single_variable(X_e_temp, x_etas));
+            EndI = i;
             break;
         }
     }
-    */
+    variables X_e_init = {X_e[EndI]};
+    size_t X_e_size = integrate_adaptive(rk4_step(), Peebles_equation, X_e_init, x_eta2[EndI],
+                                         x_eta_end, (x_eta_end - x_eta2[EndI])/(n_eta-EndI-1),
+                                         Save_single_variable(X_e_temp, x_n_e));
+    Sort_variable_to_vector_SingleVar(X_e_temp, X_e, X_e_size-1, 1);
+    write_outfile(x_eta2, X_e, "X_e", "X_e_test.txt");
+
+    // Calculate tau
+    vector<variables> Taus_temp;
+    vector<double> Taus;
+    vector<double> x_tau;
+    variables tau_init = {0};
+    Diff_eq_tau Taudif_instance(X_e, x_eta2);
+    size_t Tau_size = integrate_adaptive(rk4_step(), Taudif_instance, tau_init,
+                                         x_eta_end, x_eta_init, (x_eta_init-x_eta_end)/(n_eta-1),
+                                         Save_single_variable(Taus_temp, x_tau));
+    Sort_variable_to_vector_SingleVar(Taus_temp, Taus, Tau_size);
+    write_outfile(x_tau, Taus, "Tau", "TauTest.txt");
+
+
     /*
     cout << eta_size << endl;
     vector<double> Etas(eta_size+1);
