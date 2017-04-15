@@ -6,6 +6,7 @@
 #include <constants.h>      // Precalculated constants
 #include <math.h>     // Mathematical expressions.
 #include "interpolation.h"  // Alglib interpolation
+#include <time.h>
 
 using namespace std;
 using namespace boost::numeric::odeint;
@@ -115,29 +116,52 @@ void Peebles_equation(const variables &X_e, variables &dXedx, double x0){
     dXedx[0] = (C_r/H)*(beta*(1.0 - X_e[0]) - n_b*alpha2*X_e[0]*X_e[0]);
 }
 
-void Diff_eq_tau2(const variables &tau, variables &dtaudx, double x0){
-    // Solves the right hand side of the optical depth diff. eq.
-    real_1d_array XInterp, n_eInterp;
-    XInterp.setcontent(1, &(x0));
-   // n_eInterp.setcontent(1, );
+void Compute_Xe(int n, double x_init, double x_0, vector<double> &ComputedX_e){
+    // Computes X_e
+    vector<double> x_n_e;
+    vector<double> x_values(n);
+    vector<variables> X_e_temp;
+    linspace(x_init, x_0, n, x_values);
+    ComputedX_e.push_back(1.0);
+    int EndI;
+    for (int i=0; i<n; i++){
+        if (ComputedX_e[i] > 0.97){
+            ComputedX_e.push_back(Saha_Equation(x_values[i]));
+        }
+        else{
+            EndI = i;
+            break;
+        }
+    }
+    variables X_e_init = {ComputedX_e[EndI]};
+    size_t X_e_size = integrate_adaptive(rk4_step(), Peebles_equation, X_e_init, x_values[EndI],
+                                         x_0, (x_0 - x_values[EndI])/(n-EndI-1),
+                                         Save_single_variable(X_e_temp, x_n_e));
+    Sort_variable_to_vector_SingleVar(X_e_temp, ComputedX_e, X_e_size-1, 1);
 }
 
 struct Diff_eq_tau{
-    vector<double>& m_X_e;
+    /* A class for the optical depth differential equation.
+     * Sets up interpolation for given set of x and log(n_e) values.
+     */
+    vector<double>& m_Ne;
     vector<double>& m_x;
-    Diff_eq_tau(vector<double>&X_eVec, vector<double>&x_values) : m_X_e(X_eVec), m_x(x_values) {}
-    void operator()(variables const &tau, variables &dtaudx, double x0){
-        real_1d_array XInterp, X_eInterp;
-        XInterp.setcontent(m_x.size(), &(m_x[0]));
-        X_eInterp.setcontent(m_X_e.size(), &(m_X_e[0]));
-        spline1dinterpolant spline;
-        spline1dbuildcubic(XInterp, X_eInterp, spline);
-        double n_e = spline1dcalc(spline, x0)*Get_n_b(x0);
-        dtaudx[0] = -n_e*sigma_T*c/Get_Hubble_param(x0);
+    spline1dinterpolant m_spline;
+    real_1d_array m_XInterp, m_NeInterp;
+
+    Diff_eq_tau(vector<double>&n_eVec, vector<double>&x_values) : m_Ne(n_eVec), m_x(x_values) {
+        m_XInterp.setcontent(m_x.size(), &(m_x[0]));
+        m_NeInterp.setcontent(m_Ne.size(), &(m_Ne[0]));
+        spline1dbuildcubic(m_XInterp, m_NeInterp, m_spline);}
+
+    void operator()(const variables &tau, variables &dtaudx, double x0){
+        // Calculates the right hand side of the optical depth diff.eq.
+        dtaudx[0] = -exp(spline1dcalc(m_spline, x0))*sigma_T*c/Get_Hubble_param(x0);
     }
 };
 
 void write_outfile(vector<double> x, vector<double> Value, string Value_name, string filename){
+    // Saves data to text file.
     int vec_size = Value.size();
     ofstream datafile;
     datafile.open(filename);
@@ -151,13 +175,13 @@ void write_outfile(vector<double> x, vector<double> Value, string Value_name, st
 int main(int argc, char *argv[])
 {
     // Initializing some arrays
+    clock_t timer;
     int n1 = 200;
     int n2 = 300;
     int n_t = n1+n2;
 
     double z_start_rec = 1630.4;
     double z_end_rec = 614.2;
-    double z_0 = 0.0;
     double x_start_rec = -log(1.0 + z_start_rec);
     double x_end_rec = -log(1.0 + z_end_rec);
     double x_0 = 0.0;
@@ -165,14 +189,13 @@ int main(int argc, char *argv[])
     int n_eta = 3000;
     double a_init = 1e-8;
     double x_eta_init = log(a_init);
-    double x_eta_end = 0.0;
 
     // Solving for conformal time
     vector<variables> Etas_temp;
     vector<double> x_etas;
     variables eta_init = {0};
     size_t eta_size = integrate_adaptive(rk4_step(), Diff_eq_eta, eta_init, x_eta_init,
-                  x_eta_end, (x_eta_end - x_eta_init)/(n_eta-1.0),
+                  x_0, (x_0 - x_eta_init)/(n_eta-1.0),
                   Save_single_variable(Etas_temp, x_etas));
 
     vector<double> Etas(eta_size+1);
@@ -180,10 +203,11 @@ int main(int argc, char *argv[])
 
     // Computing X_e
     vector<double> X_e;
-    vector<double> x_n_e;
     vector<double> x_eta2(n_eta);
+    linspace(x_eta_init, x_0, n_eta, x_eta2);
+    /*
+    vector<double> x_n_e;
     vector<variables> X_e_temp;
-    linspace(x_eta_init, x_eta_end, n_eta, x_eta2);
     X_e.push_back(1.0);
     int EndI;
     for (int i=0; i<n_eta; i++){
@@ -197,23 +221,34 @@ int main(int argc, char *argv[])
     }
     variables X_e_init = {X_e[EndI]};
     size_t X_e_size = integrate_adaptive(rk4_step(), Peebles_equation, X_e_init, x_eta2[EndI],
-                                         x_eta_end, (x_eta_end - x_eta2[EndI])/(n_eta-EndI-1),
+                                         x_0, (x_0 - x_eta2[EndI])/(n_eta-EndI-1),
                                          Save_single_variable(X_e_temp, x_n_e));
     Sort_variable_to_vector_SingleVar(X_e_temp, X_e, X_e_size-1, 1);
+    */
+    Compute_Xe(n_eta, x_eta_init, x_0, X_e);
     write_outfile(x_eta2, X_e, "X_e", "X_e_test.txt");
 
+    // Stores n_e (logarithmic scale) to an array. Used to interpolate for taus
+    vector<double> LOGn_e(X_e.size());
+    for (int i=0; i<X_e.size(); i++){
+        LOGn_e[i] = log(X_e[i]*Get_n_b(x_eta2[i]));
+    }
     // Calculate tau
     vector<variables> Taus_temp;
-    vector<double> Taus;
+    vector<double> Taus(n_eta);
     vector<double> x_tau;
     variables tau_init = {0};
-    Diff_eq_tau Taudif_instance(X_e, x_eta2);
+    Diff_eq_tau Taudif_instance(LOGn_e, x_eta2);
     size_t Tau_size = integrate_adaptive(rk4_step(), Taudif_instance, tau_init,
-                                         x_eta_end, x_eta_init, (x_eta_init-x_eta_end)/(n_eta-1),
+                                         x_0, x_eta_init, (x_eta_init-x_0)/(n_eta-1),
                                          Save_single_variable(Taus_temp, x_tau));
+
     Sort_variable_to_vector_SingleVar(Taus_temp, Taus, Tau_size);
     write_outfile(x_tau, Taus, "Tau", "TauTest.txt");
 
+    // Interpolate derivatives of tau
+    vector<double> TauDerivative(n_eta);
+    vector<double> TauDoubleDer(n_eta);
 
     /*
     cout << eta_size << endl;
