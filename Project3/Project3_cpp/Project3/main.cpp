@@ -205,26 +205,6 @@ int main(int argc, char *argv[])
     vector<double> X_e;
     vector<double> x_eta2(n_eta);
     linspace(x_eta_init, x_0, n_eta, x_eta2);
-    /*
-    vector<double> x_n_e;
-    vector<variables> X_e_temp;
-    X_e.push_back(1.0);
-    int EndI;
-    for (int i=0; i<n_eta; i++){
-        if (X_e[i] > 0.97){
-            X_e.push_back(Saha_Equation(x_eta2[i]));
-        }
-        else{
-            EndI = i;
-            break;
-        }
-    }
-    variables X_e_init = {X_e[EndI]};
-    size_t X_e_size = integrate_adaptive(rk4_step(), Peebles_equation, X_e_init, x_eta2[EndI],
-                                         x_0, (x_0 - x_eta2[EndI])/(n_eta-EndI-1),
-                                         Save_single_variable(X_e_temp, x_n_e));
-    Sort_variable_to_vector_SingleVar(X_e_temp, X_e, X_e_size-1, 1);
-    */
     Compute_Xe(n_eta, x_eta_init, x_0, X_e);
     write_outfile(x_eta2, X_e, "X_e", "X_e_test.txt");
 
@@ -247,8 +227,44 @@ int main(int argc, char *argv[])
     write_outfile(x_tau, Taus, "Tau", "TauTest.txt");
 
     // Interpolate derivatives of tau
+    int n_doublederPtS = 100;
     vector<double> TauDerivative(n_eta);
-    vector<double> TauDoubleDer(n_eta);
+    vector<double> TauDoubleDer(n_doublederPtS);
+    vector<double> x_TauDoubleDer(n_doublederPtS);
+    linspace(x_0, x_eta_init, n_doublederPtS, x_TauDoubleDer);
+    real_1d_array TAU_Interp, X_Interp;
+    spline1dinterpolant splineTaus;
+    TAU_Interp.setcontent(Taus.size(), &(Taus[0]));
+    X_Interp.setcontent(x_tau.size(), &(x_tau[0]));
+    spline1dbuildcubic(X_Interp, TAU_Interp, splineTaus);
+    double s_temp, d2s_temp;
+    for (int i=0; i<n_eta; i++){
+        spline1ddiff(splineTaus, x_tau[i], s_temp, TauDerivative[i], d2s_temp);
+    }
+    for (int j=0; j<n_doublederPtS; j++){
+        spline1ddiff(splineTaus, x_TauDoubleDer[j], s_temp, d2s_temp, TauDoubleDer[j]);
+    }
+    write_outfile(x_tau, TauDerivative, "TauDer", "TauDerTest.txt");
+    write_outfile(x_TauDoubleDer, TauDoubleDer, "TauDoubleDer", "TauDoublDerText.txt");
+
+    // Compute visibility function and its derivatives (interpolated)
+    vector<double> g(n_eta);
+    vector<double> gDer(n_eta);
+    vector<double> gDoubleDer(n_eta);
+    for (int i=0; i<n_eta; i++){
+        g[i] = -TauDerivative[i]*exp(-Taus[i]);
+    }
+    spline1dinterpolant splineGs;
+    real_1d_array G_Interp, X_Interp2;
+    G_Interp.setcontent(g.size(), &(g[0]));
+    //X_Interp2.setcontent(x_tau.size(), &(x_tau[0]));
+    spline1dbuildcubic(X_Interp, G_Interp, splineGs);
+    for (int i=0; i<n_eta; i++){
+        spline1ddiff(splineGs, x_tau[i], s_temp, gDer[i], gDoubleDer[i]);
+    }
+    write_outfile(x_tau, g, "g", "gTest.txt");
+    write_outfile(x_tau, gDer, "gDer", "gDerTest.txt");
+    write_outfile(x_tau, gDoubleDer, "gDoubleDer", "gDoubleDerTest.txt");
 
     /*
     cout << eta_size << endl;
