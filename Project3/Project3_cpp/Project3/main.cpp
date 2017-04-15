@@ -13,23 +13,36 @@ using namespace boost::numeric::odeint;
 using namespace constants;
 using namespace alglib;
 
-typedef std::vector<double> variables;
-typedef runge_kutta4<variables> rk4_step;
-typedef bulirsch_stoer<variables> bulst_step;
-typedef bulirsch_stoer_dense_out<variables> bulst_step_dense;
+typedef std::vector<double> state_type;
+typedef runge_kutta4<state_type> rk4_step;
+typedef bulirsch_stoer<state_type> bulst_step;
+typedef bulirsch_stoer_dense_out<state_type> bulst_step_dense;
+typedef runge_kutta_cash_karp54<state_type> rk_fehl;
 
 struct Save_single_variable{
     // Saves the computed values from a differential equation to a vector
-    std::vector<variables> &m_states;
-    std::vector<double> &m_x;
-    Save_single_variable(std::vector<variables>&var_state, std::vector<double>&x):m_states(var_state),m_x(x) {}
-    void operator()(const variables &value, double x0)
+    vector<state_type> &m_states;
+    vector<double> &m_x;
+    Save_single_variable(vector<state_type>&var_state, vector<double>&x):m_states(var_state),m_x(x) {}
+    void operator()(const state_type &value, double x0)
     {
         m_states.push_back(value);
         m_x.push_back(x0);
     }
 };
-
+/*
+struct Save_state_type{
+    // Saves the computed state_type from the Boltzmann equations
+    std::vector<state_type> &m_states;
+    std::vector<double> &m_x;
+    Save_single_variable(std::vector<state_type>&var_state, std::vector<double>&x):m_states(var_state),m_x(x) {}
+    void operator()(const state_type &value, double x0)
+    {
+        m_states.push_back(value);
+        m_x.push_back(x0);
+    }
+};
+*/
 void linspace(double start, double end, int NumberPts, vector<double> &array){
     // Creating a function equivalent to linspace from Numpy in Python
     double step = (end-start)/(NumberPts-1);
@@ -37,8 +50,8 @@ void linspace(double start, double end, int NumberPts, vector<double> &array){
         array[i] = start + i*step;}
 }
 
-void Sort_variable_to_vector_SingleVar(vector<variables> VariableArr, vector<double>&OutputArr, int Arrsize, int merge=0){
-    /* If merge = 0 (default), converts type vector<variables> to vector<double>.
+void Sort_variable_to_vector_SingleVar(vector<state_type> VariableArr, vector<double>&OutputArr, int Arrsize, int merge=0){
+    /* If merge = 0 (default), converts type vector<state_type> to vector<double>.
      * If merge = 1, merges two vectors together. Specifically used for the electron number density vector.
     */
     if (merge == 0){
@@ -78,7 +91,7 @@ boost::tuple<double, double, double, double> Get_omegas(double x0){
     return boost::make_tuple(Omega_m_z, Omega_b_z, Omega_r_z, Omega_lambda_z);
 }
 
-void Diff_eq_eta(const variables &eta, variables &detadt, double x0){
+void Diff_eq_eta(const state_type &eta, state_type &detadt, double x0){
     // Right hand side of the diff. equation for conformal time
     detadt[0] = c/Get_Hubble_prime(x0);}
 
@@ -97,7 +110,7 @@ double Saha_Equation(double x0){
     else if (0.5*(-b - sqrt(b*b + 4.0*b)) > 0){
         return 0.5*(-b - sqrt(b*b + 4.0*b));}
 }
-void Peebles_equation(const variables &X_e, variables &dXedx, double x0){
+void Peebles_equation(const state_type &X_e, state_type &dXedx, double x0){
     // Returns the right hand side of Peebles equation
     double n_b = Get_n_b(x0);
     double H = Get_Hubble_param(x0);
@@ -115,7 +128,7 @@ void Compute_Xe(int n, double x_init, double x_0, vector<double> &ComputedX_e){
     // Computes X_e
     vector<double> x_n_e;
     vector<double> x_values(n);
-    vector<variables> X_e_temp;
+    vector<state_type> X_e_temp;
     linspace(x_init, x_0, n, x_values);
     ComputedX_e.push_back(1.0);
     int EndI;
@@ -126,7 +139,7 @@ void Compute_Xe(int n, double x_init, double x_0, vector<double> &ComputedX_e){
             EndI = i;
             break;}
     }
-    variables X_e_init = {ComputedX_e[EndI]};
+    state_type X_e_init = {ComputedX_e[EndI]};
     size_t X_e_size = integrate_adaptive(rk4_step(), Peebles_equation, X_e_init, x_values[EndI],
                             x_0, (x_0 - x_values[EndI])/(n-EndI-1), Save_single_variable(X_e_temp, x_n_e));
     Sort_variable_to_vector_SingleVar(X_e_temp, ComputedX_e, X_e_size-1, 1);
@@ -146,14 +159,14 @@ struct Diff_eq_tau{
         m_NeInterp.setcontent(m_Ne.size(), &(m_Ne[0]));
         spline1dbuildcubic(m_XInterp, m_NeInterp, m_spline);}
 
-    void operator()(const variables &tau, variables &dtaudx, double x0){
+    void operator()(const state_type &tau, state_type &dtaudx, double x0){
         // Calculates the right hand side of the optical depth diff.eq.
         dtaudx[0] = -exp(spline1dcalc(m_spline, x0))*sigma_T*c/Get_Hubble_param(x0);
     }
 };
 
-void TightCoupling_InitialCondition(double x0,  double k, variables &InitialCond){
-    /* Sets the initial conditions for the relevant variables in the tight coupling regime.
+void TightCoupling_InitialCondition(double x0,  double k, state_type &InitialCond){
+    /* Sets the initial conditions for the relevant state_type in the tight coupling regime.
      * Array order is Theta0, Theta1, delta, delta_b, v, v_b, Phi.
      */
     double Hprime0 = Get_Hubble_prime(x0);
@@ -177,7 +190,7 @@ struct Solve_TightCoupling{
         m_XInterp.setcontent(m_xTC.size(), &(m_xTC[0]));
         m_TauInterp.setcontent(m_TauTC.size(), &(m_TauTC[0]));
         spline1dbuildcubic(m_XInterp, m_TauInterp, m_splineTC);}
-    void operator()(const variables &Var, variables &dVardx, double x0){
+    void operator()(const state_type &Var, state_type &dVardx, double x0){
         // Solves Boltzmann equations for tight coupling
         double Om_m, Om_b, Om_r, Om_lambda;
         boost::tuple<double, double, double, double> Omegas = Get_omegas(x0);
@@ -194,25 +207,21 @@ struct Solve_TightCoupling{
 
         double R = 4.0*Om_r/(3.0*Om_m*exp(x0));
         double Theta2 = -20.0*ck_Hprimed*Var[1]/(45.0*TauDer);
-        double Psi = -Var[6] - PsiPrefactor*Om_r*Theta2/(m_k*m_k*exp(2.0*x0));
-        double dPhidx = - Psi - ck_Hprimed*ck_Hprimed*Var[6]/3.0
+
+        double Psi = -Var[6] - PsiPrefactor*Om_r*Theta2/(m_kTC*m_kTC*exp(2.0*x0));
+        double ck_HPsi = ck_Hprimed*Psi;
+        dVardx[6] = - Psi - ck_Hprimed*ck_Hprimed*Var[6]/3.0
             + (H_0Squared/(2.0*Hprimed*Hprimed))*(Om_m*Var[2]*exp(-x0) + Om_b*Var[3]*exp(-x0) + 4*Om_r*exp(-x0)*Var[0]);
-        double dTheta0dx = -ck_Hprimed*Var[1] - dPhidx;
-        double q = -(((1.0-2.0*R)*TauDer + (1.0+R)*TauDoubleDer)*(3.0*Var[1] + Var[5]) - ck_Hprimed*Psi
-                + (1.0-Hprime_HPrimedDer)*ck_Hprimed*(-Var[0] + 2*Theta2) - ck_Hprimed*dTheta0dx)
+        dVardx[0] = -ck_Hprimed*Var[1] - dVardx[6];
+        double q = -(((1.0-2.0*R)*TauDer + (1.0+R)*TauDoubleDer)*(3.0*Var[1] + Var[5]) - ck_HPsi
+                + (1.0-Hprime_HPrimedDer)*ck_Hprimed*(-Var[0] + 2*Theta2) - ck_Hprimed*dVardx[0])
                 /((1.0+R)*TauDer + Hprime_HPrimedDer - 1);
-        double dDeltadx = ck_Hprimed*Var[4] - 3.0*dPhidx;
-        double dDeltabdx = ck_Hprimed*Var[5] - 3.0*dPhidx;
-        double dvdx = -Var[4] - ck_Hprimed*Psi;
-        double dvbdx = (-Var[5] - ck_Hprimed*Psi + R*(q + ck_Hprimed*(-Var[0] + 2*Theta2) - ck_Hprimed*Psi))/(1.0+R);
-        double dTheta1dx = (q-dvbdx)/3.0;
-        dVardx[0] = dTheta0dx;
-        dVardx[1] = dTheta1dx;
-        dVardx[2] = dDeltadx;
-        dVardx[3] = dDeltabdx;
-        dVardx[4] = dvdx;
-        dVardx[5] = dvbdx;
-        dVardx[6] = dPhidx;
+        dVardx[2] = ck_Hprimed*Var[4] - 3.0*dVardx[6];
+        dVardx[3] = ck_Hprimed*Var[5] - 3.0*dVardx[6];
+        dVardx[4] = -Var[4] - ck_HPsi;
+        dVardx[5] = (-Var[5] - ck_HPsi + R*(q + ck_Hprimed*(-Var[0] + 2*Theta2) - ck_HPsi))/(1.0+R);
+        dVardx[1] = (q-dVardx[5])/3.0;
+
     }
 };
 
@@ -226,6 +235,11 @@ void write_outfile(vector<double> x, vector<double> Value, string Value_name, st
         datafile << x[i] << setw(15) << Value[i] << '\n';
     }
     datafile.close();
+}
+
+void printstuf(const state_type &Var, double x0){
+    cout << fixed;
+    cout << setprecision(10) << x0 << '\t' << Var[0] << endl;
 }
 
 int main(int argc, char *argv[])
@@ -245,22 +259,34 @@ int main(int argc, char *argv[])
 
     int n_eta = 3000;
     double a_init = 1e-8;
-    double x_eta_init = log(a_init);
+    double x_init = log(a_init);
+
+    vector<double> x_TC(200);
+    vector<double> x_after_TC(300);
+    linspace(x_init, x_start_rec, n1, x_TC);
+    linspace(x_start_rec, x_end_rec, n2, x_after_TC);
+
+    vector<double> k(100);
+    double k_min = 0.1*H_0;
+    double k_max = 10*H_0;
+    for (int i=0; i<100; i++){
+        k[i] = k_min + (k_max-k_min)*(i*i/10000.0);
+    }
 
     // Solving for conformal time
-    vector<variables> Etas_temp;
+    vector<state_type> Etas_temp;
     vector<double> x_etas;
-    variables eta_init = {0};
-    size_t eta_size = integrate_adaptive(rk4_step(), Diff_eq_eta, eta_init, x_eta_init,
-                  x_0, (x_0 - x_eta_init)/(n_eta-1.0), Save_single_variable(Etas_temp, x_etas));
+    state_type eta_init = {0};
+    size_t eta_size = integrate_adaptive(rk4_step(), Diff_eq_eta, eta_init, x_init,
+                  x_0, (x_0 - x_init)/(n_eta-1.0), Save_single_variable(Etas_temp, x_etas));
     vector<double> Etas(eta_size+1);
     Sort_variable_to_vector_SingleVar(Etas_temp, Etas, eta_size); // Sorting Etas_temp to Etas
 
     // Computing X_e
     vector<double> X_e;
     vector<double> x_eta2(n_eta);
-    linspace(x_eta_init, x_0, n_eta, x_eta2);
-    Compute_Xe(n_eta, x_eta_init, x_0, X_e);
+    linspace(x_init, x_0, n_eta, x_eta2);
+    Compute_Xe(n_eta, x_init, x_0, X_e);
 
     // Stores n_e (logarithmic scale) to an array. Used to interpolate for taus
     vector<double> LOGn_e(X_e.size());
@@ -268,13 +294,13 @@ int main(int argc, char *argv[])
         LOGn_e[i] = log(X_e[i]*Get_n_b(x_eta2[i]));}
 
     // Calculate tau
-    vector<variables> Taus_temp;
+    vector<state_type> Taus_temp;
     vector<double> Taus(n_eta);
     vector<double> x_tau;
-    variables tau_init = {0};
+    state_type tau_init = {0};
     Diff_eq_tau Taudif_instance(LOGn_e, x_eta2);
     size_t Tau_size = integrate_adaptive(rk4_step(), Taudif_instance, tau_init,
-                    x_0, x_eta_init, (x_eta_init-x_0)/(n_eta-1), Save_single_variable(Taus_temp, x_tau));
+                    x_0, x_init, (x_init-x_0)/(n_eta-1), Save_single_variable(Taus_temp, x_tau));
     Sort_variable_to_vector_SingleVar(Taus_temp, Taus, Tau_size);
 
     // Interpolate derivatives of tau
@@ -282,7 +308,7 @@ int main(int argc, char *argv[])
     vector<double> TauDerivative(n_eta);
     vector<double> TauDoubleDer(n_doublederPtS);
     vector<double> x_TauDoubleDer(n_doublederPtS);
-    linspace(x_0, x_eta_init, n_doublederPtS, x_TauDoubleDer);
+    linspace(x_0, x_init, n_doublederPtS, x_TauDoubleDer);
     real_1d_array TAU_Interp, X_Interp;
     spline1dinterpolant splineTaus;
     TAU_Interp.setcontent(Taus.size(), &(Taus[0]));
@@ -306,5 +332,18 @@ int main(int argc, char *argv[])
     spline1dbuildcubic(X_Interp, G_Interp, splineGs);
     for (int i=0; i<n_eta; i++){
         spline1ddiff(splineGs, x_tau[i], s_temp, gDer[i], gDoubleDer[i]);}
+
+    vector<state_type> state_type_Temp;
+    vector<double> x_var;
+    state_type state_type_InitTC(6);
+    TightCoupling_InitialCondition(x_init, k[0], state_type_InitTC);
+    Solve_TightCoupling TCInstance(Taus, x_tau, k[0]);
+    cout << "Instance ok" << endl;
+    timer = clock();
+    integrate_adaptive(bulst_step(), TCInstance, state_type_InitTC, x_init, x_start_rec,
+                       (x_start_rec-x_init)/(n_eta-1.0), printstuf);
+                       //Save_single_variable(state_type_Temp, x_var));
+    timer = clock() - timer;
+    cout << "tot time " << float(timer)/CLOCKS_PER_SEC << endl;
     return 0;
 }
