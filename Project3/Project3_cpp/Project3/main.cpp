@@ -200,8 +200,9 @@ struct Solve_TightCoupling{
         Om_lambda = Omegas.get<3>();
         double Hprimed = Get_Hubble_prime(x0);
         double HprimedDer = Get_Hubble_prime_derivative(x0);
-        double Hprime_HPrimedDer = Hprimed/HprimedDer;
-        double ck_Hprimed = c*m_kTC/Hprimed;
+        //double Hprime_HPrimedDer = Hprimed/HprimedDer;
+        double Hprime_HPrimedDer = HprimedDer/Hprimed;
+        double ck_Hprimed = (c*m_kTC)/Hprimed;
         double Tau, TauDer, TauDoubleDer;
         spline1ddiff(m_splineTC, x0, Tau, TauDer, TauDoubleDer);
 
@@ -210,28 +211,47 @@ struct Solve_TightCoupling{
 
         double Psi = -Var[6] - PsiPrefactor*Om_r*Theta2/(m_kTC*m_kTC*exp(2.0*x0));
         double ck_HPsi = ck_Hprimed*Psi;
-        dVardx[6] = - Psi - ck_Hprimed*ck_Hprimed*Var[6]/3.0
-            + (H_0Squared/(2.0*Hprimed*Hprimed))*(Om_m*Var[2]*exp(-x0) + Om_b*Var[3]*exp(-x0) + 4*Om_r*exp(-x0)*Var[0]);
+
+        dVardx[6] = Psi - ck_Hprimed*ck_Hprimed*Var[6]/3.0
+            + (H_0Squared/(2.0*Hprimed*Hprimed))*(Omega_m*Var[2]*exp(-x0) + Omega_b*Var[3]*exp(-x0)
+                            + 4.0*Omega_r*exp(-2.0*x0)*Var[0]);
+
         dVardx[0] = -ck_Hprimed*Var[1] - dVardx[6];
-        double q = -(((1.0-2.0*R)*TauDer + (1.0+R)*TauDoubleDer)*(3.0*Var[1] + Var[5]) - ck_HPsi
-                + (1.0-Hprime_HPrimedDer)*ck_Hprimed*(-Var[0] + 2*Theta2) - ck_Hprimed*dVardx[0])
+        double q = -(( (1.0-2.0*R)*TauDer + (1.0+R)*TauDoubleDer)*(3.0*Var[1] + Var[5]) - ck_HPsi
+                + (1.0-Hprime_HPrimedDer)*ck_Hprimed*(-Var[0] + 2.0*Theta2) - ck_Hprimed*dVardx[0])
                 /((1.0+R)*TauDer + Hprime_HPrimedDer - 1);
         dVardx[2] = ck_Hprimed*Var[4] - 3.0*dVardx[6];
         dVardx[3] = ck_Hprimed*Var[5] - 3.0*dVardx[6];
         dVardx[4] = -Var[4] - ck_HPsi;
-        dVardx[5] = (-Var[5] - ck_HPsi + R*(q + ck_Hprimed*(-Var[0] + 2*Theta2) - ck_HPsi))/(1.0+R);
+        dVardx[5] = (-Var[5] - ck_HPsi + R*(q + ck_Hprimed*(-Var[0] + 2.0*Theta2) - ck_HPsi))/(1.0+R);
         dVardx[1] = (q-dVardx[5])/3.0;
-
+        /*
+        cout << "----" << endl;
+        cout << dVardx[0] << endl;
+        cout << dVardx[1] << endl;
+        cout << dVardx[2] << endl;
+        cout << dVardx[3] << endl;
+        cout << dVardx[4] << endl;
+        cout << dVardx[5] << endl;
+        cout << "dPhi: " << dVardx[6] << endl;
+        cout << Var[6] << endl;
+        cout << "aaa" << endl;
+        cout << scientific;
+        cout << setprecision(8) << endl;
+        cout << "k = " << m_kTC << endl;
+        cout << Psi << '\t' << c*m_kTC/(Hprimed) << '\t' << H_0 << '\t' << Hprimed << '\t' << Omega_m << '\t' << Var[2]
+             << '\t' << exp(x0) << '\t' << Omega_b << '\t' << Var[3] << '\t' << Omega_r << '\t' << Var[0] << endl;
+        exit(1);
+        */
     }
 };
 
 void write_outfile(vector<double> x, vector<double> Value, string Value_name, string filename){
     // Saves data to text file.
-    int vec_size = Value.size();
     ofstream datafile;
     datafile.open(filename);
     datafile << "x" << setw(15) << Value_name << "\n";
-    for (int i=0; i<vec_size; i++){
+    for (int i=0; i<Value.size(); i++){
         datafile << x[i] << setw(15) << Value[i] << '\n';
     }
     datafile.close();
@@ -279,8 +299,8 @@ int main(int argc, char *argv[])
     linspace(x_start_rec, x_end_rec, n2, x_after_TC);
 
     vector<double> k(100);
-    double k_min = 0.1*H_0;
-    double k_max = 10*H_0;
+    double k_min = 0.1*H_0/c;
+    double k_max = 1000*H_0/c;
     for (int i=0; i<100; i++){
         k[i] = k_min + (k_max-k_min)*(i*i/10000.0);
     }
