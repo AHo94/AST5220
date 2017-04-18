@@ -236,11 +236,22 @@ void write_outfile(vector<double> x, vector<double> Value, string Value_name, st
     }
     datafile.close();
 }
+/*
+void Sort_Boltzmann_variables(vector<state_type> Input_vector, vector<double> &Theta0, vector<double> &Thet1,
+      vector<double> &Theta2, vector<double> &Theta3, vector<double> &Theta4, vector<double> &Theta5,
+      vector<double> &Theta6, vector<double> &delta, vector<double> &delta_b, vector<double> &v,
+      vector<double> &v_b, vector<double> &phi, int TightCoupling = 1){
+    // Sorting the boltzmann variables to their seperate
+    if (TightCoupling == 1){
 
+    }
+}
+*/
 void printstuf(const state_type &Var, double x0){
     cout << fixed;
     cout << setprecision(10) << x0 << '\t' << Var[0] << endl;
 }
+
 
 int main(int argc, char *argv[])
 {
