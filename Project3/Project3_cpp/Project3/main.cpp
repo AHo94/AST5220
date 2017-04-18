@@ -340,10 +340,11 @@ int main(int argc, char *argv[])
     Solve_TightCoupling TCInstance(Taus, x_tau, k[0]);
     cout << "Instance ok" << endl;
     timer = clock();
-    integrate_adaptive(bulst_step(), TCInstance, state_type_InitTC, x_init, x_start_rec,
-                       (x_start_rec-x_init)/(n_eta-1.0), printstuf);
-                       //Save_single_variable(state_type_Temp, x_var));
+    size_t EBTC_step = integrate_adaptive(bulst_step(), TCInstance, state_type_InitTC, x_init, x_start_rec,
+                       (x_start_rec-x_init)/(n_eta-1.0),
+                       Save_single_variable(state_type_Temp, x_var));
     timer = clock() - timer;
     cout << "tot time " << float(timer)/CLOCKS_PER_SEC << endl;
+    cout << "Number of datapoints for tight coupling: " << EBTC_step << endl;
     return 0;
 }
