@@ -53,6 +53,7 @@ namespace  constants
     const double EpsTemp_factor = epsilon_0/(k_b*T_0);
 
     // Other constants
+    const double PsiPrefactor = 12.0*H_0*H_0/(c*c);
     const double n_bConst = Omega_b*rho_c0/m_H;
 }
 #endif // CONSTANTS_H
