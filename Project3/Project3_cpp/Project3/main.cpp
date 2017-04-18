@@ -133,7 +133,7 @@ void Compute_Xe(int n, double x_init, double x_0, vector<double> &ComputedX_e){
     ComputedX_e.push_back(1.0);
     int EndI;
     for (int i=0; i<n; i++){
-        if (ComputedX_e[i] > 0.97){
+        if (ComputedX_e[i] > 0.965){
             ComputedX_e.push_back(Saha_Equation(x_values[i]));}
         else{
             EndI = i;
@@ -249,7 +249,8 @@ void Sort_Boltzmann_variables(vector<state_type> Input_vector, vector<double> &T
 */
 void printstuf(const state_type &Var, double x0){
     cout << fixed;
-    cout << setprecision(10) << x0 << '\t' << Var[0] << endl;
+    cout << setprecision(4) << x0 << '\t' << Var[0] << '\t' << Var[1] << '\t' << Var[2]
+         << '\t' << Var[3] << '\t' << Var[4] << '\t' << Var[5] << '\t' << Var[6] << endl;
 }
 
 
@@ -352,8 +353,8 @@ int main(int argc, char *argv[])
     cout << "Instance ok" << endl;
     timer = clock();
     size_t EBTC_step = integrate_adaptive(bulst_step(), TCInstance, state_type_InitTC, x_init, x_start_rec,
-                       (x_start_rec-x_init)/(n_eta-1.0),
-                       Save_single_variable(state_type_Temp, x_var));
+                       (x_start_rec-x_init)/(n_eta-1.0), printstuf);
+                       //Save_single_variable(state_type_Temp, x_var));
     timer = clock() - timer;
     cout << "tot time " << float(timer)/CLOCKS_PER_SEC << endl;
     cout << "Number of datapoints for tight coupling: " << EBTC_step << endl;
