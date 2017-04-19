@@ -94,6 +94,12 @@ boost::tuple<double, double, double, double> Get_omegas(double x0){
     return boost::make_tuple(Omega_m_z, Omega_b_z, Omega_r_z, Omega_lambda_z);
 }
 
+int KroneckerDelta_2l(int l){
+    // Kronecker Delta. Returns 1 if l=2.
+    if (l == 2){return 1;}
+    else{return 0;}
+}
+
 void Diff_eq_eta(const state_type &eta, state_type &detadt, double x0){
     // Right hand side of the diff. equation for conformal time
     detadt[0] = c/Get_Hubble_prime(x0);}
@@ -163,7 +169,7 @@ struct Diff_eq_tau{
     spline1dinterpolant m_spline;
     real_1d_array m_XInterp, m_NeInterp;
 
-    Diff_eq_tau(vector<double>&n_eVec, vector<double>&x_values) : m_Ne(n_eVec), m_x(x_values) {
+    Diff_eq_tau(vector<double> n_eVec, vector<double> x_values) : m_Ne(n_eVec), m_x(x_values) {
         m_XInterp.setcontent(m_x.size(), &(m_x[0]));
         m_NeInterp.setcontent(m_Ne.size(), &(m_Ne[0]));
         spline1dbuildcubic(m_XInterp, m_NeInterp, m_spline);}
@@ -193,24 +199,29 @@ struct Get_TC_end{
     */
     vector<double> m_Taus;
     vector<double> m_x_values;
-    spline1dinterpolant m_spline;
+    spline1dinterpolant m_splineTCend;
     real_1d_array m_XInterp, m_TauInterp;
 
-    Get_TC_end(vector<double>&TauVec, vector<double>&x_values) : m_Taus(TauVec), m_x_values(x_values) {
+    Get_TC_end(vector<double> TauVec, vector<double> x_values) : m_Taus(TauVec), m_x_values(x_values) {
         m_XInterp.setcontent(m_x_values.size(), &(m_x_values[0]));
         m_TauInterp.setcontent(m_Taus.size(), &(m_Taus[0]));
-        spline1dbuildcubic(m_XInterp, m_TauInterp, m_spline);}
+        spline1dbuildcubic(m_XInterp, m_TauInterp, m_splineTCend);}
 
     double Get_xTCEnd(double k_value){
-        spline1dbuildcubic(m_XInterp, m_TauInterp, m_spline);
+        vector<double> ckHTaus(m_Taus.size()+1);
+        double s_temp, d2s_temp, TauDer;
         for (int i=0; i<m_Taus.size(); i++){
-            double ckHtau = c*k_value/(Get_Hubble_prime(m_x_values[i])*spline1dcalc(m_spline, m_x_values[i]));
-            if (fabs(ckHtau) > double(0.1)){
-                return m_x_values[i];
+            spline1ddiff(m_splineTCend, m_x_values[i], s_temp, TauDer, d2s_temp);
+            ckHTaus[i] = c*k_value/(Get_Hubble_prime(m_x_values[i])*TauDer);
+        }
+        for (int j=0; j<m_Taus.size(); j++){
+            if (fabs(ckHTaus[j]) < double(0.1)){
+                return m_x_values[j];
             }
         }
     }
 };
+
 struct Solve_TightCoupling{
     // Class that sets up interpolation for tight coupling regime calculation
     vector<double> m_TauTC;
@@ -283,6 +294,72 @@ struct Solve_TightCoupling{
              << '\t' << exp(x0) << '\t' << Omega_b << '\t' << Var[3] << '\t' << Omega_r << '\t' << Var[0] << endl;
         exit(1);
         */
+    }
+};
+struct Solve_BoltzmannEq{
+    // Class that sets up interpolation for tight coupling regime calculation
+    vector<double> m_Tau;
+    vector<double> m_Eta;
+    vector<double> m_xTau;
+    vector<double> m_xEta;
+    vector<double> m_l;
+    double m_k;
+    spline1dinterpolant m_TauSpline;
+    spline1dinterpolant m_EtaSpline;
+    real_1d_array m_XTauInterp, m_XEtaInterp, m_TauInterp, m_EtaInterp;
+    Solve_BoltzmannEq(vector<double>TauVec, vector<double>x_Tau, vector<double> x_eta, vector<double> eta_values,
+                      vector<double> l_Vector, double k_values)
+        : m_Tau(TauVec), m_xTau(x_Tau), m_xEta(x_eta), m_Eta(eta_values), m_l(l_Vector), m_k(k_values) {
+        m_XTauInterp.setcontent(m_xTau.size(), &(m_xTau[0]));
+        m_XEtaInterp.setcontent(m_xEta.size(), &(m_xEta[0]));
+        m_TauInterp.setcontent(m_Tau.size(), &(m_Tau[0]));
+        m_EtaInterp.setcontent(m_Eta.size(), &(m_Eta[0]));
+        spline1dbuildcubic(m_XTauInterp, m_TauInterp, m_TauSpline);
+        spline1dbuildcubic(m_XEtaInterp, m_EtaInterp, m_EtaSpline);}
+    void operator()(const state_type &Var, state_type &dVardx, double x0){
+        // Solves Boltzmann equations for tight coupling
+        double Theta_0 = Var[0];
+        double Theta_1 = Var[1];
+        double Theta_2 = Var[2];
+        double Theta_3 = Var[3];
+        double Theta_4 = Var[4];
+        double Theta_5 = Var[5];
+        double Theta_6 = Var[6];
+        double delta = Var[7];
+        double delta_b = Var[8];
+        double v = Var[9];
+        double v_b = Var[10];
+        double Phi = Var[11];
+        vector<double> Thetas(6);
+        Thetas[0] = Theta_0, Thetas[1] = Theta_1, Thetas[2] = Theta_2, Thetas[3] = Theta_3;
+        Thetas[4] = Theta_4, Thetas[5] = Theta_5, Thetas[6] = Theta_6;
+
+        double Hprimed = Get_Hubble_prime(x0);
+        double HprimedDer = Get_Hubble_prime_derivative(x0);
+        double Hprime_HPrimedDer = HprimedDer/Hprimed;
+        double ck_Hprimed = (c*m_k)/Hprimed;
+        double Tau, TauDer, TauDoubleDer;
+        spline1ddiff(m_TauSpline, x0, Tau, TauDer, TauDoubleDer);
+        double EtaInterp = spline1dcalc(m_EtaSpline, x0);
+
+        double R = 4.0*Omega_r/(3.0*Omega_m*exp(x0));
+        double Psi = -Phi - PsiPrefactor*Omega_r*Theta_2/(m_k*m_k*exp(2.0*x0));
+        double ck_HPsi = ck_Hprimed*Psi;
+        dVardx[11] = Psi - ck_Hprimed*ck_Hprimed*Phi/3.0
+            + (H_0Squared/(2.0*Hprimed*Hprimed))*(Omega_m*delta*exp(-x0) + Omega_b*delta_b*exp(-x0)
+            + 4.0*Omega_r*exp(-2.0*x0)*Theta_0);
+
+        dVardx[0] = -ck_Hprimed*Theta_1 - dVardx[11];
+        dVardx[1] = ck_Hprimed*Theta_0/3.0 - 2.0*ck_Hprimed*Theta_2/3.0 + ck_HPsi/3.0 + TauDer*(Theta_1 + v_b/3.0);
+        for (int l=2; l<6; l++){
+            dVardx[l] = m_l[l]*ck_Hprimed*Thetas[l-1]/(2.0*m_l[l] + 1) - (m_l[l]+1)*ck_Hprimed/(2.0*m_l[l] + 1)
+                    + TauDer*(Thetas[l] - 0.1*Thetas[l]*KroneckerDelta_2l(l));
+        }
+        dVardx[6] = ck_Hprimed*Theta_5 - 7.0*c*Theta_6/(Hprimed*EtaInterp) + TauDer*Theta_6;
+        dVardx[7] = ck_Hprimed*v - 3.0*dVardx[11];
+        dVardx[8] = ck_Hprimed*v_b - 3.0*dVardx[11];
+        dVardx[9] = -v - ck_HPsi;
+        dVardx[10] = -v_b - ck_HPsi + TauDer*R*(3.0*Theta_1 + v_b);
     }
 };
 
@@ -362,7 +439,6 @@ void printstuf(const state_type &Var, double x0){
 
 int main(int argc, char *argv[])
 {
-
     // Initializing some arrays
     clock_t timer;
     int n1 = 200;
@@ -380,6 +456,10 @@ int main(int argc, char *argv[])
     double x_init = log(a_init);
     vector<double> Full_x_grid(n_eta);
     linspace(x_init, 0.0, n_eta, Full_x_grid);
+
+    vector<double> l_values(6);
+    l_values[0] = 0.0; l_values[1] = 1.0; l_values[2] = 2.0; l_values[3] = 3.0;
+    l_values[4] = 4.0; l_values[5] = 5.0; l_values[6] = 6.0;
 
     vector<double> k(100);
     double k_min = 0.1*H_0/c;
@@ -448,22 +528,20 @@ int main(int argc, char *argv[])
     for (int i=0; i<n_eta; i++){
         spline1ddiff(splineGs, x_tau[i], s_temp, gDer[i], gDoubleDer[i]);}
 
-    Get_TC_end ObtainXInstance(Taus, Full_x_grid);
+    Get_TC_end ObtainXInstance(Taus, x_tau);
 
     double x_TC_end = ObtainXInstance.Get_xTCEnd(k[0]);
-    cout << x_TC_end << endl;
 
     vector<state_type> state_type_Temp;
     vector<double> x_TC;
-    state_type state_type_InitTC(6);
-    TightCoupling_InitialCondition(x_init, k[0], state_type_InitTC);
+    state_type Boltzmann_TC_Init(6);
+    TightCoupling_InitialCondition(x_init, k[0], Boltzmann_TC_Init);
     Solve_TightCoupling TCInstance(Taus, x_tau, k[0]);
     timer = clock();
 
-    size_t EBTC_step = integrate_adaptive(bulst_step(), TCInstance, state_type_InitTC, x_init, x_TC_end,
+    size_t EBTC_step = integrate_adaptive(bulst_step(), TCInstance, Boltzmann_TC_Init, x_init, x_TC_end,
                        (x_TC_end-x_init)/(n_eta-1.0), // printstuf);
                        Save_single_variable(state_type_Temp, x_TC));
-
     MergeAndFinalize MergerInstance(Taus, Full_x_grid, k[0]);
     vector<double> Theta0(EBTC_step);
     vector<double> Theta1(EBTC_step);
@@ -477,13 +555,18 @@ int main(int argc, char *argv[])
     vector<double> v(EBTC_step);
     vector<double> vb(EBTC_step);
     vector<double> Phi(EBTC_step);
+    vector<state_type> States_Final;
+    vector<double> x_final;
     state_type Init_afterTC(12);
-    cout << "instance ok" << endl;
-    cout << x_TC.size() << endl;
-    cout << state_type_Temp.size() << endl;
+
     MergerInstance.MergeTC(state_type_Temp, Theta0, Theta1, Theta2, Theta3, Theta4, Theta5, Theta6,
                            delta, deltab, v, vb, Phi, x_TC, Init_afterTC);
+    cout << "Merger ok" << endl;
+    Solve_BoltzmannEq BoltzmannEQInstance(Taus, x_tau, x_etas, Etas, l_values, k[0]);
     cout << "instance ok" << endl;
+    integrate_adaptive(bulst_step(), BoltzmannEQInstance, Init_afterTC, x_TC_end, x_0,
+                       (x_0 - x_TC_end)/(n_eta-1), Save_single_variable(States_Final, x_final));
+    cout << "Solve OK" << endl;
     timer = clock() - timer;
     cout << "tot time " << float(timer)/CLOCKS_PER_SEC << endl;
     cout << "Number of datapoints for tight coupling: " << EBTC_step << endl;
