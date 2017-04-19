@@ -57,18 +57,18 @@ c_Squared = c*c
 PsiPrefactor = 12.0*H_0*H_0/(c*c)
 
 class time_mod():
-	def __init__(self, savefig, l_max):
-		self.savefig = savefig		# If savefig = 0, plots the data. If savefig = 1, saves the plots into a pdf
+	def __init__(self, savefile, l_max):
+		self.savefile = savefile		# If savefig = 0, plots the data. If savefig = 1, saves the plots into a pdf
 
-		if savefig != 0 and savefig != 1:
-			print 'Current value of savefig = ', savefig
-			raise ValueError('Argument savefig not properly set. Try savefig = 1 (saves as pdf) or savefig = 0 (do not save as pdf)')
+		if savefile != 0 and savefile != 1:
+			print 'Current value of savefile = ', savefile
+			raise ValueError('Argument savefig not properly set. Try savefile = 1 (saves as pdf) or savefile = 0 (do not save as pdf)')
 
 		self.time_start = time.clock()
 		#self.n1 = 200
 		#self.n2 = 300
-		self.n1 = 1000
-		self.n2 = 2000
+		self.n1 = 100
+		self.n2 = 200
 		self.n_t = self.n1 + self.n2
 		
 		self.z_start_rec = 1630.4
@@ -81,19 +81,19 @@ class time_mod():
 		self.a_end_rec = 1.0/(1.0 + self.z_end_rec)
 
 		# Used for the x-values for the conformal time
-		self.n_eta = 5000
+		self.n_eta = 3000
 		self.a_init = 1e-8
 		self.x_eta_init = np.log(self.a_init)
 		self.x_eta_end = 0
 
 		# Set up grid, these are currently unused
+		"""
 		x_tc_end = -6.5
 		self.x_t_rec = np.linspace(self.x_eta_init, x_tc_end, self.n1)
 		self.x_t_today = np.linspace(x_tc_end, self.x_0, self.n2)
-		#self.x_t_rec = np.linspace(self.x_start_rec, self.x_end_rec, self.n1)
-		#self.x_t_today = np.linspace(self.x_end_rec, self.x_0, self.n2)
-		# Merging the arrays into one
-		self.x_t = np.concatenate([self.x_t_rec, self.x_t_today])
+		"""
+		self.x_t = np.linspace(self.x_eta_init, self.x_0, self.n_t)#np.concatenate([self.x_t_rec, self.x_t_today])
+		
 		# Set up grid of x-values for the integrated eta
 		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
 		self.x_tau = np.linspace(self.x_eta_end, self.x_eta_init, self.n_eta)	# Reversed array, used to calculate tau
@@ -104,37 +104,25 @@ class time_mod():
 		k_min = 0.1*H_0/c
 		k_max = 1000*H_0/c
 		self.k_N = 100
-		#self.k1 = np.linspace(k_min, k_max, self.k_N)
 		self.k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(self.k_N)])
-		#print self.k-self.k1
 		self.k_squared = self.k*self.k
 		self.ck = c*self.k
 
-		self.hmin = (self.x_t_today[-1]-self.x_t_today[0])/float(self.n2)
+		# Arrays/lists that contains the variables for all values of k
+		self.Theta0 = []
+		self.Theta1 = []
+		self.Theta2 = []
+		self.Theta3 = []
+		self.Theta4 = []
+		self.Theta5 = []
+		self.Theta6 = []
+		self.delta = []
+		self.deltab = []
+		self.v = []
+		self.vb = []
+		self.Phi = []
 
-		Ks = np.array([1,2])
-		Ls = np.array([0,1,2,3,4])
-		B = np.array([1,2,3,4,5])
-		A = np.array([0,0,0,0,0])
-		AA = np.array([[1,2],[2,3]])
-		#print Ls[1:-1]
-		#A[1:-1] = Ls[1:-1]*B[2:] + B[0:-2]
-		
-		# LL = (l*k)
-		LL = np.array([1*np.array([1.0,2.0,3.0,4.0]), 2*np.array([1.0,2.0,3.0,4.0]), 3*np.array([1.0,2.0,3.0, 4.0])])
-		LLdiv = np.array([1.0,2.0,3.0])
-		THET = np.array([10,20,30])
-		THET0 = np.zeros((3,4))
-		print THET0
-		THET0[1:-1] = LL[1:-1]/(2.0*LLdiv[1:-1]+1)*THET[0]
-		print THET0
-		print 'k = ', self.k_N
-		"""
-		Premake l*k array, so it is a (6x100) array
-		Calculate thetas as above, index every array possible
-		first element array corresponds to the l values, each l value multiplied with thetas applies for all k 
-		"""
-		self.CHECK = 0
+		self.CHECKER =0
 
 	def Get_Hubble_param(self, x):
 		""" Function returns the Hubble parameter for a given x """
@@ -374,23 +362,23 @@ class time_mod():
 		Also sets up initial conditions of the different parameters, that is to be calculated for time after recombination
 		"""
 		Transposed = np.transpose(self.EBTightCoupling)
-		Hprimed = self.Get_Hubble_prime(self.x_t_rec)
-		TauDer = self.Spline_Derivative(self.x_eta, self.Taus, self.n1, derivative=1, x_start=self.x_t_rec[0], x_end=self.x_t_rec[-1])
-		self.Theta0 = Transposed[0]
-		self.Theta1 = Transposed[1]
-		self.Theta2 = -20.0*c*k*Theta1/(45.0*Hprimed*TauDer)
-		self.Theta3 = -3.0*c*k*Theta2/(7.0*Hprimed*TauDer)
-		self.Theta4 = -4.0*c*k*Theta3/(9.0*Hprimed*TauDer)
-		self.Theta5 = -5.0*c*k*Theta4/(11.0*Hprimed*TauDer)
-		self.Theta6 = -6.0*c*k*Theta5/(13.0*Hprimed*TauDer)
-		self.delta = Transposed[2]
-		self.deltab = Transposed[3]
-		self.v = Transposed[4]
-		self.vb = Transposed[5]
-		self.Phi = Transposed[6]
+		Hprimed = self.Get_Hubble_prime(self.x_TC_grid)
+		TauDer = self.Spline_Derivative(self.x_eta, self.Taus, len(Transposed[0]), derivative=1, x_start=self.x_TC_grid[0], x_end=self.x_TC_grid[-1])
+		self.Theta0TC = Transposed[0]
+		self.Theta1TC = Transposed[1]
+		self.Theta2TC = -20.0*c*k*self.Theta1TC/(45.0*Hprimed*TauDer)
+		self.Theta3TC = -3.0*c*k*self.Theta2TC/(7.0*Hprimed*TauDer)
+		self.Theta4TC = -4.0*c*k*self.Theta3TC/(9.0*Hprimed*TauDer)
+		self.Theta5TC = -5.0*c*k*self.Theta4TC/(11.0*Hprimed*TauDer)
+		self.Theta6TC = -6.0*c*k*self.Theta5TC/(13.0*Hprimed*TauDer)
+		self.deltaTC = Transposed[2]
+		self.deltabTC = Transposed[3]
+		self.vTC = Transposed[4]
+		self.vbTC = Transposed[5]
+		self.PhiTC = Transposed[6]
 
-		self.BoltzmannVariablesAFTERTC = np.array([self.Theta0[-1], self.Theta1[-1], self.Theta2[-1], self.Theta3[-1], self.Theta4[-1], self.Theta5[-1],
-							self.Theta6[-1], self.delta[-1], self.deltab[-1], self.v[-1], self.vb[-1], self.Phi[-1]])
+		self.BoltzmannVariablesAFTERTC_INIT = np.array([self.Theta0TC[-1], self.Theta1TC[-1], self.Theta2TC[-1], self.Theta3TC[-1], self.Theta4TC[-1],
+		 	self.Theta5TC[-1], self.Theta6TC[-1], self.deltaTC[-1], self.deltabTC[-1], self.vTC[-1], self.vbTC[-1], self.PhiTC[-1]])
 		
 
 	def BoltzmannEinstein_Equations(self, variables, x_0):
@@ -452,30 +440,26 @@ class time_mod():
 
 		R = 4.0*Omega_r/(3.0*Omega_b*np.exp(x_0))
 		Psi = -Phi - PsiPrefactor*(np.exp(-2.0*x_0)/(k*k))*Omega_r*Theta_2
+		ck_HprimedPsi = ck_Hprimed*Psi
 
 		dPhidx = Psi - (ck_Hprimed**2/3.0)*Phi\
 				+ (H_0Squared/(2.0*Hprimed_Squared))*(Omega_m*np.exp(-x_0)*delta + Omega_b*np.exp(-x_0)*delta_b + 4.0*Omega_r*np.exp(-2.0*x_0)*Theta_0)
-		ThetaDerivatives = np.zeros(self.l_max)
 		
+		ThetaDerivatives = np.zeros(self.l_max+1)
 		Thetas = np.array([Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6])
 		ThetaDerivatives[0] = -ck_Hprimed*Theta_1 - dPhidx
 		ThetaDerivatives[1] = (ck_Hprimed/3.0)*Theta_0 - ((2.0*ck_Hprimed)/3.0)*Theta_2 \
-					+ (ck_Hprimed/3.0)*Psi + InterTauDerivative*(Theta_1 + 1.0/(3.0*v_b))
-
-
+					+ (ck_HprimedPsi/3.0) + InterTauDerivative*(Theta_1 + v_b/3.0)
 		for l in range(2, self.l_max):
-			dThetaldx = l*ck_Hprimed/(2.0*l+1.0)*Thetas[l-1] - ck_Hprimed*((l+1.0)/(2.0*l+1.0))*Thetas[l+1] \
+			ThetaDerivatives[l] = l*ck_Hprimed/(2.0*l+1.0)*Thetas[l-1] - ck_Hprimed*((l+1.0)/(2.0*l+1.0))*Thetas[l+1] \
 						+ InterTauDerivative*(Thetas[l] - 0.1*Thetas[l]*self.Kronecker_Delta_2(l))
-			ThetaDerivatives.append(dThetaldx)
-		
-		dThetalmaxdx = ck_Hprimed*Thetas[self.l_max-1] - c*((self.l_max + 1)/(Hprimed*InterEta))*Thetas[self.l_max]\
+		ThetaDerivatives[self.l_max] = ck_Hprimed*Thetas[self.l_max-1] - c*((self.l_max + 1)/(Hprimed*InterEta))*Thetas[self.l_max]\
 						+ InterTauDerivative*Thetas[self.l_max]
 
-		ThetaDerivatives.append(dThetalmaxdx)
 		dDeltadx = ck_Hprimed*v - 3.0*dPhidx
 		dDeltabdx = ck_Hprimed*v_b - 3.0*dPhidx
-		dvdx = -v - ck_Hprimed*Psi
-		dvbdx = -v_b - ck_Hprimed*Psi + InterTauDerivative*R*(3.0*Theta_1 + v_b)
+		dvdx = -v - ck_HprimedPsi
+		dvbdx = -v_b - ck_HprimedPsi + InterTauDerivative*R*(3.0*Theta_1 + v_b)
 
 		derivatives = np.array([ThetaDerivatives[0], ThetaDerivatives[1], ThetaDerivatives[2], ThetaDerivatives[3], ThetaDerivatives[4] ,ThetaDerivatives[5]\
 					, ThetaDerivatives[6], dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
@@ -544,8 +528,45 @@ class time_mod():
 		dvbdx = (-v_b - ck_Hprimed*Psi + R*(q + ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*Psi))/(1.0+R)
 		dTheta1dx = (q-dvbdx)/3.0
 		derivatives = np.array([dTheta0dx, dTheta1dx, dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
+		if self.CHECKER == 0:
+			self.CHECKER += 1
+			print Psi
+			print np.exp(x_0)
+			print c*k/Hprimed
+			print delta
+			print delta_b
+			print Theta_0
+			print dPhidx
 		return np.reshape(derivatives, len(derivatives))
-		
+	
+	def MergeAndFinalize(self):
+		""" Merges computed values of the variables in and after tight coupling. Saves them to their respective arrays defined in the initializer """
+		Transposed_AFTERTC = np.transpose(self.EBAfterTC)
+		Theta0Merge = np.concatenate([self.Theta0TC, Transposed_AFTERTC[0]])
+		Theta1Merge = np.concatenate([self.Theta1TC, Transposed_AFTERTC[1]])
+		Theta2Merge = np.concatenate([self.Theta2TC, Transposed_AFTERTC[2]])
+		Theta3Merge = np.concatenate([self.Theta3TC, Transposed_AFTERTC[3]])
+		Theta4Merge = np.concatenate([self.Theta4TC, Transposed_AFTERTC[4]])
+		Theta5Merge = np.concatenate([self.Theta5TC, Transposed_AFTERTC[5]])
+		Theta6Merge = np.concatenate([self.Theta6TC, Transposed_AFTERTC[6]])
+		deltaMerge = np.concatenate([self.deltaTC, Transposed_AFTERTC[7]])
+		deltabMerge = np.concatenate([self.deltabTC, Transposed_AFTERTC[8]])
+		vMerge = np.concatenate([self.vTC, Transposed_AFTERTC[9]])
+		vbMerge = np.concatenate([self.vbTC, Transposed_AFTERTC[10]])
+		PhiMerge = np.concatenate([self.PhiTC, Transposed_AFTERTC[11]])
+
+		self.Theta0.append(Theta0Merge)
+		self.Theta1.append(Theta1Merge)
+		self.Theta2.append(Theta2Merge)
+		self.Theta3.append(Theta3Merge)
+		self.Theta4.append(Theta4Merge)
+		self.Theta5.append(Theta5Merge)
+		self.Theta6.append(Theta6Merge)
+		self.delta.append(deltaMerge)
+		self.deltab.append(deltabMerge)
+		self.v.append(vMerge)
+		self.vb.append(vbMerge)
+		self.Phi.append(PhiMerge)
 
 	def Get_TC_end(self, k):
 		""" 
@@ -585,60 +606,118 @@ class time_mod():
 		self.g_tildeDerivative = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=1)
 		self.g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=2)
 
-		"""
+		time_start = time.clock()
+		counter = 0
 		for ks in self.k:
+			print counter
+			counter += 1
+			self.BoltzmannEinstein_InitConditions(ks)
 			x_tc_end = self.Get_TC_end(ks)
-			x_TC = np.linspace(self.x_eta_init)
-			self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, np.reshape(self.BoltzmannTightCoupling, self.NumVarTightCoupling*self.k_N),
-					self.x_TC, mxstep=10000, rtol=1e-11)
-			self.BoltzmannEinstein_InitConditions_AfterTC()
+			self.x_TC_grid = np.linspace(self.x_eta_init, x_tc_end, self.n1)
+			x_afterTC_grid = np.linspace(x_tc_end, self.x_eta_end, self.n2)
+			self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, self.BoltzmannTightCoupling,
+					self.x_TC_grid, args=(ks,))
+			self.BoltzmannEinstein_InitConditions_AfterTC2(ks)
+			self.EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations2, self.BoltzmannVariablesAFTERTC_INIT,
+					x_afterTC_grid, args=(ks,))
+			self.MergeAndFinalize()
+		print "time elapsed: ",  time.clock() - time_start, "s"
+		fig1 = plt.figure()
+		ax1 = plt.subplot(111)
+		plt.hold("on")
+		ax1.plot(self.x_t, self.Phi[0], label=r'$k = %.3e$' %self.k[0])
+		ax1.plot(self.x_t, self.Phi[4], label=r'$k = %.3e$' %self.k[4])
+		ax1.plot(self.x_t, self.Phi[50], label=r'$k = %.3e$' %self.k[50])
+		ax1.plot(self.x_t, self.Phi[70], label=r'$k = %.3e$' %self.k[70])
+		ax1.plot(self.x_t, self.Phi[-5], label=r'$k = %.3e$' %self.k[-5])
+		ax1.plot(self.x_t, self.Phi[-1], label=r'$k = %.3e$' %self.k[-1])
+		ax1.legend(loc='lower left', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
+		plt.xlabel('$x$')
+		plt.ylabel('$\Phi$')
+		plt.title('Plot of $\Phi$ as a function of $x$')
 		
-			EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, np.reshape(self.BoltzmannVariablesAFTERTC_INIT, self.NumVariables*self.k_N)\
-					,self.x_t_today, mxstep = 10000, rtol=1e-11)
-		"""
-		self.BoltzmannEinstein_InitConditions(0.1*H_0/c)
-		x_tc_end = self.Get_TC_end(0.1*H_0/c)
-		x_TC_grid = np.linspace(self.x_eta_init, x_tc_end, self.n1)
-		x_afterTC_grid = np.linspace(x_tc_end, self.x_eta_end, self.n2)
-		self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, self.BoltzmannTightCoupling,
-				x_TC_grid, args=(0.1*H_0/c,))
-		self.BoltzmannVariablesAFTERTC(0.1*H_0/c)
-		self.EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations2, self.BoltzmannVariablesAFTERTC_INIT, x_afterTC_grid, args=(0.1*H_0/c,))
+		fig2 = plt.figure()
+		ax2 = plt.subplot(111)
+		plt.hold("on")
+		ax2.plot(self.x_t, self.Theta0[0], label='$k = %.3e$' %self.k[0])
+		ax2.plot(self.x_t, self.Theta0[4], label='$k = %.3e$' %self.k[4])
+		ax2.plot(self.x_t, self.Theta0[50], label='$k = %.3e$' %self.k[50])
+		ax2.plot(self.x_t, self.Theta0[70], label='$k = %.3e$' %self.k[70])
+		ax2.plot(self.x_t, self.Theta0[-5], label='$k = %.3e$' %self.k[-5])
+		ax2.plot(self.x_t, self.Theta0[-1], label='$k = %.3e$' %self.k[-1])
+		ax2.legend(loc = 'lower left', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
+		plt.xlabel('$x$')
+		plt.ylabel(r'$\Theta_0$')
+		plt.title(r'Plot of $\Theta_0$ as a function of $x$')
 
-		
-		plt.figure()
+		fig3 = plt.figure()
+		ax3 = plt.subplot(111)
 		plt.hold("on")
-		plt.semilogy(self.x_t, Transposed[-1])
-		#plt.semilogy(self.x_t, Transposed[1])
-		#plt.semilogy(self.x_t_rec, Transposed[2])
-		#plt.semilogy(self.x_t_rec, Transposed[3])
-		#plt.semilogy(self.x_t_rec, Transposed[4])
-		plt.legend(['k=0', 'k=1'])
+		ax3.plot(self.x_t, self.delta[0], label='$k = %.3e$' %self.k[0])
+		ax3.plot(self.x_t, self.delta[4], label='$k = %.3e$' %self.k[4])
+		ax3.plot(self.x_t, self.delta[50], label='$k = %.3e$' %self.k[50])
+		ax3.plot(self.x_t, self.delta[70], label='$k = %.3e$' %self.k[70])
+		ax3.plot(self.x_t, self.delta[-5], label='$k = %.3e$' %self.k[-5])
+		ax3.plot(self.x_t, self.delta[-1], label='$k = %.3e$' %self.k[-1])
+		ax3.legend(loc = 'lower left', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
 		plt.xlabel('$x$')
-		plt.ylabel('$\Theta_0$')
-		plt.show()
+		plt.ylabel(r'$\delta$')
+		plt.title(r'Plot of $\delta$ as a function of $x$')
 		
-		"""
-		plt.figure()
+		fig4 = plt.figure()
+		ax4 = plt.subplot(111)
 		plt.hold("on")
-		plt.plot(self.x_t_rec, Transposed[0])
-		plt.plot(self.x_t_rec, Transposed[1])
-		plt.plot(self.x_t_rec, Transposed[2])
-		plt.plot(self.x_t_rec, Transposed[3])
-		plt.plot(self.x_t_rec, Transposed[4])
-		plt.legend(['k=0', 'k=1'])
+		ax4.plot(self.x_t, self.deltab[0], label='$k = %.3e$' %self.k[0])
+		ax4.plot(self.x_t, self.deltab[4], label='$k = %.3e$' %self.k[4])
+		ax4.plot(self.x_t, self.deltab[50], label='$k = %.3e$' %self.k[50])
+		ax4.plot(self.x_t, self.deltab[70], label='$k = %.3e$' %self.k[70])
+		ax4.plot(self.x_t, self.deltab[-5], label='$k = %.3e$' %self.k[-5])
+		ax4.plot(self.x_t, self.deltab[-1], label='$k = %.3e$' %self.k[-1])
+		ax4.legend(loc = 'lower left', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
 		plt.xlabel('$x$')
-		plt.ylabel('$Theta_0$')
-		plt.show()
-		"""
-		"""
-		if self.savefig == 1:
-			a=1
+		plt.ylabel(r'$\delta_b$')
+		plt.title(r'Plot of $\delta_b$ as a function of $x$')
+		
+		fig5 = plt.figure()
+		ax5 = plt.subplot(111)
+		plt.hold("on")
+		ax5.plot(self.x_t, self.v[0], label='$k = %.3e$' %self.k[0])
+		ax5.plot(self.x_t, self.v[4], label='$k = %.3e$' %self.k[4])
+		ax5.plot(self.x_t, self.v[50], label='$k = %.3e$' %self.k[50])
+		ax5.plot(self.x_t, self.v[70], label='$k = %.3e$' %self.k[70])
+		ax5.plot(self.x_t, self.v[-5], label='$k = %.3e$' %self.k[-5])
+		ax5.plot(self.x_t, self.v[-1], label='$k = %.3e$' %self.k[-1])
+		ax5.legend(loc = 'lower left', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
+		plt.xlabel('$x$')
+		plt.ylabel(r'$v$')
+		plt.title(r'Plot of $v$ as a function of $x$')
+		
+
+		fig6 = plt.figure()
+		ax6 = plt.subplot(111)
+		plt.hold("on")
+		ax6.plot(self.x_t, self.vb[0], label='$k = %.3e$' %self.k[0])
+		ax6.plot(self.x_t, self.vb[4], label='$k = %.3e$' %self.k[4])
+		ax6.plot(self.x_t, self.vb[50], label='$k = %.3e$' %self.k[50])
+		ax6.plot(self.x_t, self.vb[70], label='$k = %.3e$' %self.k[70])
+		ax6.plot(self.x_t, self.vb[-5], label='$k = %.3e$' %self.k[-5])
+		ax6.plot(self.x_t, self.vb[-1], label='$k = %.3e$' %self.k[-1])
+		ax6.legend(loc = 'lower left', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
+		plt.xlabel('$x$')
+		plt.ylabel(r'$v_b$')
+		plt.title(r'Plot of $v_b$ as a function of $x$')
+		
+		if self.savefile == 1:
+			fig1.savefig('../Plots/Phi.png')
+			fig2.savefig('../Plots/Theta0.png')
+			fig3.savefig('../Plots/delta.png')
+			fig4.savefig('../Plots/deltaBaryon.png')
+			fig5.savefig('../Plots/velocity.png')
+			fig6.savefig('../Plots/velocityBaryon.png')
 		else:
 			plt.show()
-		"""
-
-solver = time_mod(savefig=0, l_max=6)
+		
+solver = time_mod(savefile=0, l_max=6)
 solver.Plot_results(100)
 #cProfile.run('solver.Plot_results(100)')
 """
