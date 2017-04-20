@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import os
 # Change directory based based on work place, i.e home or at UiO computer.
-file_directory = 'C:/Users/Alex/Documents/AST5220/AST5220_Projects/Project3/Project3_cpp/build-Project3-Desktop_Qt_5_7_0_MinGW_32bit-Debug'
-
+#file_directory = 'C:/Users/Alex/Documents/AST5220/AST5220_Projects/Project3/Project3_cpp/build-Project3-Desktop_Qt_5_7_0_MinGW_32bit-Debug'
+file_directory = '/uio/hume/student-u70/aleh/V2017/AST5220/AST5220_Projects/Project3/Project3_cpp/build-Project3-Desktop_Qt_5_7_0_GCC_64bit-Debug'
 class Plotter():
 	def __init__(self, savefile):
 		self.savefile = savefile	# If 1, saves to png file. Shows the plot otherwise

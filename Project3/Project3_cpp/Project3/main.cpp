@@ -143,7 +143,7 @@ void Compute_Xe(int n, double x_init, double x_0, vector<double> &ComputedX_e){
     vector<state_type> X_e_temp;
     linspace(x_init, x_0, n, x_values);
     double X_e_INIT = 1.0;
-    double XeLimit = 0.97;
+    double XeLimit = 0.965;
     ComputedX_e.push_back(X_e_INIT);
     int EndI;
     for (int i=0; i<n; i++){
@@ -214,9 +214,10 @@ struct Get_TC_end{
             spline1ddiff(m_splineTCend, m_x_values[i], s_temp, TauDer, d2s_temp);
             ckHTaus[i] = c*k_value/(Get_Hubble_prime(m_x_values[i])*TauDer);
         }
-        for (int j=0; j<m_Taus.size(); j++){
-            if (fabs(ckHTaus[j]) < double(0.1)){
-                return m_x_values[j];
+        cout << "yolaaaeaa" << endl;
+        for (int i=0; i<m_Taus.size(); i++){
+            if ( fabs(ckHTaus[m_Taus.size()-1-i]) > 0.1){
+                return m_x_values[m_Taus.size()-1-i];
             }
         }
     }
@@ -307,7 +308,7 @@ struct Solve_BoltzmannEq{
     spline1dinterpolant m_TauSpline;
     spline1dinterpolant m_EtaSpline;
     real_1d_array m_XTauInterp, m_XEtaInterp, m_TauInterp, m_EtaInterp;
-    Solve_BoltzmannEq(vector<double>TauVec, vector<double>x_Tau, vector<double> x_eta, vector<double> eta_values,
+    Solve_BoltzmannEq(vector<double> TauVec, vector<double> x_Tau, vector<double> x_eta, vector<double> eta_values,
                       vector<double> l_Vector, double k_values)
         : m_Tau(TauVec), m_xTau(x_Tau), m_xEta(x_eta), m_Eta(eta_values), m_l(l_Vector), m_k(k_values) {
         m_XTauInterp.setcontent(m_xTau.size(), &(m_xTau[0]));
@@ -330,13 +331,11 @@ struct Solve_BoltzmannEq{
         double v = Var[9];
         double v_b = Var[10];
         double Phi = Var[11];
-        vector<double> Thetas(6);
+        vector<double> Thetas(7);
         Thetas[0] = Theta_0, Thetas[1] = Theta_1, Thetas[2] = Theta_2, Thetas[3] = Theta_3;
         Thetas[4] = Theta_4, Thetas[5] = Theta_5, Thetas[6] = Theta_6;
 
         double Hprimed = Get_Hubble_prime(x0);
-        double HprimedDer = Get_Hubble_prime_derivative(x0);
-        double Hprime_HPrimedDer = HprimedDer/Hprimed;
         double ck_Hprimed = (c*m_k)/Hprimed;
         double Tau, TauDer, TauDoubleDer;
         spline1ddiff(m_TauSpline, x0, Tau, TauDer, TauDoubleDer);
@@ -351,10 +350,17 @@ struct Solve_BoltzmannEq{
 
         dVardx[0] = -ck_Hprimed*Theta_1 - dVardx[11];
         dVardx[1] = ck_Hprimed*Theta_0/3.0 - 2.0*ck_Hprimed*Theta_2/3.0 + ck_HPsi/3.0 + TauDer*(Theta_1 + v_b/3.0);
+        /*
         for (int l=2; l<6; l++){
             dVardx[l] = m_l[l]*ck_Hprimed*Thetas[l-1]/(2.0*m_l[l] + 1) - (m_l[l]+1)*ck_Hprimed/(2.0*m_l[l] + 1)
                     + TauDer*(Thetas[l] - 0.1*Thetas[l]*KroneckerDelta_2l(l));
         }
+        */
+        dVardx[2] = 2.0*ck_Hprimed*Theta_1/5.0 - 3.0*ck_Hprimed*Theta_3/5.0 + TauDer*(Theta_2 - 0.1*Theta_2);
+        dVardx[3] = 3.0*ck_Hprimed*Theta_2/7.0 - 4.0*ck_Hprimed*Theta_4/7.0 + TauDer*(Theta_3);
+        dVardx[4] = 4.0*ck_Hprimed*Theta_3/9.0 - 5.0*ck_Hprimed*Theta_5/9.0 + TauDer*(Theta_4);
+        dVardx[5] = 5.0*ck_Hprimed*Theta_4/11.0 - 6.0*ck_Hprimed*Theta_6/11.0 + TauDer*(Theta_5);
+
         dVardx[6] = ck_Hprimed*Theta_5 - 7.0*c*Theta_6/(Hprimed*EtaInterp) + TauDer*Theta_6;
         dVardx[7] = ck_Hprimed*v - 3.0*dVardx[11];
         dVardx[8] = ck_Hprimed*v_b - 3.0*dVardx[11];
@@ -625,9 +631,10 @@ int main(int argc, char *argv[])
     for (int i=0; i<x_final.size(); i++){
         Full_x_grid.push_back(x_final[i]);
     }
+    /*
     for (int i=0; i<Full_x_grid.size(); i++){
         cout << Full_x_grid[i] << endl;
-    }
+    }*/
     Write_Boltzmann_Variables("TEST.txt", Full_x_grid, Theta0, Theta1, Theta2, Theta3, Theta4,
                               Theta5, Theta6, delta, deltab, v, vb, Phi, k[0]);
     timer = clock() - timer;
