@@ -143,7 +143,7 @@ void Compute_Xe(int n, double x_init, double x_0, vector<double> &ComputedX_e){
     vector<state_type> X_e_temp;
     linspace(x_init, x_0, n, x_values);
     double X_e_INIT = 1.0;
-    double XeLimit = 0.965;
+    double XeLimit = 0.97;
     ComputedX_e.push_back(X_e_INIT);
     int EndI;
     for (int i=0; i<n; i++){
@@ -522,7 +522,9 @@ int main(int argc, char *argv[])
     vector<double> X_e;
     vector<double> x_eta2(n_eta);
     linspace(x_init, x_0, n_eta, x_eta2);
+    cout << "linspace?" << endl;
     Compute_Xe(n_eta, x_init, x_0, X_e);
+    cout << "XE problem?" << endl;
     cout << "Xe ok" << endl;
     // Stores n_e (logarithmic scale) to an array. Used to interpolate for taus
     vector<double> LOGn_e(X_e.size());
@@ -561,9 +563,7 @@ int main(int argc, char *argv[])
     vector<double> gDer(n_eta);
     vector<double> gDoubleDer(n_eta);
     for (int i=0; i<n_eta; i++){
-        g[i] = -TauDerivative[i]*exp(-Taus[i]);
-        cout << Taus[i] << endl;
-        cout << TauDerivative[i] << endl;}
+        g[i] = -TauDerivative[i]*exp(-Taus[i]);}
     cout << "Compute g ok?" << endl;
     spline1dinterpolant splineGs;
     real_1d_array G_Interp, X_Interp2;
