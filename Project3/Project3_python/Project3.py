@@ -4,6 +4,8 @@ from scipy import interpolate
 from scipy import integrate
 import time
 import cProfile
+import multiprocessing as mp
+import sys
 
 # Global constants
 # Units
@@ -57,8 +59,9 @@ c_Squared = c*c
 PsiPrefactor = 12.0*H_0*H_0/(c*c)
 
 class time_mod():
-	def __init__(self, savefile, l_max):
+	def __init__(self, savefile, l_max, kVAL):
 		self.savefile = savefile		# If savefig = 0, plots the data. If savefig = 1, saves the plots into a pdf
+		self.kVAL = kVAL
 
 		if savefile != 0 and savefile != 1:
 			print 'Current value of savefile = ', savefile
@@ -466,11 +469,14 @@ class time_mod():
 					, ThetaDerivatives[6], dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
 		return derivatives
 
-	def TightCouplingRegime(self, variables, x_0, k):
+	def TightCouplingRegimeVectorized(self, variables, x_0):
 		""" Boltzmann equation in the tight coupling regime """
 		Theta_0, Theta_1, delta, delta_b, v, v_b, Phi = np.reshape(variables, (self.NumVarTightCoupling, self.k_N))
+		x_0 = np.reshape(self.x_TC_grid, (self.n1, self.k_N))
 		# Calculating some prefactors
 		Hprimed = self.Get_Hubble_prime(x_0)
+		print Hprimed
+		print aaa
 		HprimedDer = self.Get_Hubble_prime_derivative(x_0)
 		#Hprime_HprimeDer = Hprimed/HprimedDer
 		Hprime_HprimeDer = HprimedDer/Hprimed
@@ -624,12 +630,28 @@ class time_mod():
 
 		time_start = time.clock()
 		counter = 0
+		"""
 		self.Get_TC_end_vectorized()	
 		self.BoltzmannEinstein_InitConditions()
-
+		
+		self.EBTightCoupling = integrate.odeint(self.TightCouplingRegimeVectorized, np.reshape(self.BoltzmannTightCoupling, self.NumVarTightCoupling*self.k_N),
+					self.x_TC_grid)
+		"""
 		"""
 		#SELF NOTE: TRY TO VECORY X RANGE BY USING THEM AS A TUPLE, LIKE VARIABLES
 		I.E, X0 = [X0, X0, ....]
+		"""
+
+		self.BoltzmannEinstein_InitConditions(self.kVal)
+		x_tc_end = self.Get_TC_end(self.kVal)
+		self.x_TC_grid = np.linspace(self.x_eta_init, x_tc_end, self.n1)
+		x_afterTC_grid = np.linspace(x_tc_end, self.x_eta_end, self.n2)
+		self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, np.transpose(self.BoltzmannTightCoupling),
+				self.x_TC_grid[i], args=(self.kVal,))
+		self.BoltzmannEinstein_InitConditions_AfterTC2(ks, i)
+		self.EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations2, self.BoltzmannVariablesAFTERTC_INIT,
+				self.x_afterTC_grid[i], args=(self.kVal,))
+		self.MergeAndFinalize()
 		"""
 		for i in range(self.k_N):
 			print counter
@@ -742,9 +764,10 @@ class time_mod():
 			fig6.savefig('../Plots/velocityBaryon.png')
 		else:
 			plt.show()
-		
-solver = time_mod(savefile=1, l_max=6)
-solver.Plot_results(100)
+		"""
+
+#solver = time_mod(savefile=1, l_max=6)
+#solver.Plot_results(100)
 #cProfile.run('solver.Plot_results(100)')
 """
 x = np.arange(10)
@@ -754,3 +777,16 @@ choicelist = [x]
 al= np.select(condlist, choicelist)
 print np.where(x>3)[0][0]
 """
+
+def SolveTC(k):
+	solver = time_mod(savefile=1, l_max=6)
+
+if __name__ == '__main__':
+	k_min = 0.1*H_0/c
+	k_max = 1000*H_0/c
+	k_N = 100
+	k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(k_N)])
+	num_processes = 2
+	p = mp.Pool(num_processes)
+	TC_sol = p.map(SolveTC, k)
+	#solver.Plot_results(100)
