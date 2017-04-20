@@ -743,7 +743,7 @@ class time_mod():
 		else:
 			plt.show()
 		
-solver = time_mod(savefile=0, l_max=6)
+solver = time_mod(savefile=1, l_max=6)
 solver.Plot_results(100)
 #cProfile.run('solver.Plot_results(100)')
 """
