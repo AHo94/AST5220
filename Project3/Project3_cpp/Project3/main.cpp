@@ -342,7 +342,7 @@ struct Solve_BoltzmannEq{
         spline1ddiff(m_TauSpline, x0, Tau, TauDer, TauDoubleDer);
         double EtaInterp = spline1dcalc(m_EtaSpline, x0);
 
-        double R = 4.0*Omega_r/(3.0*Omega_m*exp(x0));
+        double R = 4.0*Omega_r/(3.0*Omega_b*exp(x0));
         double Psi = -Phi - PsiPrefactor*Omega_r*Theta_2/(m_k*m_k*exp(2.0*x0));
         double ck_HPsi = ck_Hprimed*Psi;
         dVardx[11] = Psi - ck_Hprimed*ck_Hprimed*Phi/3.0
@@ -359,6 +359,14 @@ struct Solve_BoltzmannEq{
         dVardx[7] = ck_Hprimed*v - 3.0*dVardx[11];
         dVardx[8] = ck_Hprimed*v_b - 3.0*dVardx[11];
         dVardx[9] = -v - ck_HPsi;
+        cout << "dvar10 check " << endl;
+        cout << v_b << endl;
+        cout << ck_HPsi << endl;
+        cout << TauDer << endl;
+        cout << Theta_1 << endl;
+        cout << EtaInterp << endl;
+        cout << x0 << endl;
+        cout << R << endl;
         dVardx[10] = -v_b - ck_HPsi + TauDer*R*(3.0*Theta_1 + v_b);
     }
 };
@@ -379,24 +387,38 @@ struct MergeAndFinalize{
                  vector<double> &Theta6, vector<double> &delta, vector<double> &deltab, vector<double> &v,
                  vector<double> &vb, vector<double> &Phi, vector<double> x_TC, state_type &InitCond){
         double TauHolder, TauDer, TauDDerHolder;
-        for (int i=0; i< ComputedVar.size()-1; i++){
+        int size = ComputedVar.size();
+        for (int i=0; i<size-1; i++){
             double Hprime = Get_Hubble_prime(x_TC[i]);
             spline1ddiff(m_spline, x_TC[i], TauHolder, TauDer, TauDDerHolder);
             Theta0[i] = ComputedVar[i][0];
             Theta1[i] = ComputedVar[i][1];
-            Theta2[i] = -20.0*c*m_k/(45.0*Hprime*TauDer);
-            Theta3[i] = -3.0*c*m_k/(7.0*Hprime*TauDer);
-            Theta4[i] = -4.0*c*m_k/(9.0*Hprime*TauDer);
-            Theta5[i] = -5.0*c*m_k/(11.0*Hprime*TauDer);
-            Theta6[i] = -6.0*c*m_k/(12.0*Hprime*TauDer);
+            Theta2[i] = -20.0*c*m_k*Theta1[i]/(45.0*Hprime*TauDer);
+            Theta3[i] = -3.0*c*m_k*Theta2[i]/(7.0*Hprime*TauDer);
+            Theta4[i] = -4.0*c*m_k*Theta3[i]/(9.0*Hprime*TauDer);
+            Theta5[i] = -5.0*c*m_k*Theta4[i]/(11.0*Hprime*TauDer);
+            Theta6[i] = -6.0*c*m_k*Theta5[i]/(12.0*Hprime*TauDer);
             delta[i] = ComputedVar[i][2];
             deltab[i] = ComputedVar[i][3];
             v[i] = ComputedVar[i][4];
             vb[i] = ComputedVar[i][5];
             Phi[i] = ComputedVar[i][6];
         }
-        InitCond = {Theta0[-1], Theta1[-1], Theta2[-1], Theta3[-1], Theta4[-1], Theta5[-1], Theta6[-1],
-                   delta[-1], deltab[-1], v[-1], vb[-1], Phi[-1]};
+        cout << "Init cond" << endl;
+        cout << Theta0.back() << endl;
+        cout << Theta1.back() << endl;
+        cout << Theta2.back() << endl;
+        cout << Theta3.back() << endl;
+        cout << Theta4.back() << endl;
+        cout << Theta5.back() << endl;
+        cout << Theta6.back() << endl;
+        cout << delta.back() << endl;
+        cout << deltab.back() << endl;
+        cout << v.back() << endl;
+        cout << vb.back() << endl;
+        cout << Phi.back() << endl;
+        InitCond = {Theta0[size-1], Theta1[size-1], Theta2[size-1], Theta3[size-1], Theta4[size-1], Theta5[size-1]
+                    , Theta6[size-1], delta[size-1], deltab[size-1], v[size-1], vb[size-1], Phi[size-1]};
     }
     void Finalize(vector<state_type> ComputedVar, vector<double> &Theta0, vector<double> &Theta1,
                   vector<double> &Theta2, vector<double> &Theta3, vector<double> &Theta4, vector<double> &Theta5,
@@ -542,6 +564,14 @@ int main(int argc, char *argv[])
     size_t EBTC_step = integrate_adaptive(bulst_step(), TCInstance, Boltzmann_TC_Init, x_init, x_TC_end,
                        (x_TC_end-x_init)/(n_eta-1.0), // printstuf);
                        Save_single_variable(state_type_Temp, x_TC));
+
+    for (int i=0; i<EBTC_step; i++){
+        cout << state_type_Temp[i][0] << '\t' << state_type_Temp[i][1] << '\t'
+             << state_type_Temp[i][2] << '\t' << state_type_Temp[i][3] << '\t'
+             << state_type_Temp[i][4] << '\t' << state_type_Temp[i][5] << '\t'
+             << state_type_Temp[i][6] << '\t' <<  endl;
+    }
+    return 0;
     MergeAndFinalize MergerInstance(Taus, Full_x_grid, k[0]);
     vector<double> Theta0(EBTC_step);
     vector<double> Theta1(EBTC_step);
@@ -561,7 +591,6 @@ int main(int argc, char *argv[])
 
     MergerInstance.MergeTC(state_type_Temp, Theta0, Theta1, Theta2, Theta3, Theta4, Theta5, Theta6,
                            delta, deltab, v, vb, Phi, x_TC, Init_afterTC);
-    cout << "Merger ok" << endl;
     Solve_BoltzmannEq BoltzmannEQInstance(Taus, x_tau, x_etas, Etas, l_values, k[0]);
     cout << "instance ok" << endl;
     integrate_adaptive(bulst_step(), BoltzmannEQInstance, Init_afterTC, x_TC_end, x_0,
