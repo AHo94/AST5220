@@ -272,16 +272,16 @@ class time_mod():
 		else:
 			return 0
 
-	def BoltzmannEinstein_InitConditions(self, k):
+	def BoltzmannEinstein_InitConditions(self):
 		""" Initial conditions for the Boltzmann equations """
-		Phi = 1.0#*np.ones(self.k_N)
+		Phi = 1.0*np.ones(self.k_N)
 		delta_b = 3.0*Phi/2.0
 		HPrime_0 = self.Get_Hubble_param(self.x_eta_init)
 		InterpolateTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative = 1, x_start = self.x_eta_init, x_end =self.x_eta_init)
-		v_b = c*k*Phi/(2.0*HPrime_0)
+		v_b = c*self.k*Phi/(2.0*HPrime_0)
 		Theta_0 = 0.5*Phi
-		Theta_1 = -c*k*Phi/(6.0*HPrime_0)
-		Theta_2 = -8.0*c*k*Theta_1/(15*InterpolateTauDerivative*HPrime_0)
+		Theta_1 = -c*self.k*Phi/(6.0*HPrime_0)
+		Theta_2 = -8.0*c*self.k*Theta_1/(15*InterpolateTauDerivative*HPrime_0)
 		"""
 		self.BoltzmannVariables = []
 		self.BoltzmannVariables.append(Theta_0)
@@ -356,14 +356,15 @@ class time_mod():
 		for i in range(self.NumVariables*self.k_N):
 			self.BoltzmannVariablesAFTERTC_INIT.append(self.BoltzmannVariablesAFTERTC[i][-1])
 
-	def BoltzmannEinstein_InitConditions_AfterTC2(self, k):
+	def BoltzmannEinstein_InitConditions_AfterTC2(self, k, index):
 		""" 
 		Properly set up all variables into a parameter in the tight coupling regime
 		Also sets up initial conditions of the different parameters, that is to be calculated for time after recombination
 		"""
 		Transposed = np.transpose(self.EBTightCoupling)
-		Hprimed = self.Get_Hubble_prime(self.x_TC_grid)
-		TauDer = self.Spline_Derivative(self.x_eta, self.Taus, len(Transposed[0]), derivative=1, x_start=self.x_TC_grid[0], x_end=self.x_TC_grid[-1])
+		Hprimed = self.Get_Hubble_prime(self.x_TC_grid[index])
+		TauDer = self.Spline_Derivative(self.x_eta, self.Taus, len(Transposed[0]), derivative=1,
+				 x_start=self.x_TC_grid[index][0], x_end=self.x_TC_grid[index][-1])
 		self.Theta0TC = Transposed[0]
 		self.Theta1TC = Transposed[1]
 		self.Theta2TC = -20.0*c*k*self.Theta1TC/(45.0*Hprimed*TauDer)
@@ -578,6 +579,21 @@ class time_mod():
 		index = np.where(np.fabs(kHprimedTau)>0.1)[0][0]
 		return self.x_eta[index]
 
+	def Get_TC_end_vectorized(self):
+		""" 
+		Computes the time when tight coupling ends. Tight coupling when k/(Hprimed*Tau') << 1
+		Assumes that tight coupling ends when k/(Hprimed*Tau') > 0.1
+		"""
+		self.x_TC_grid = []#np.linspace(self.x_eta_init, x_tc_end, self.n1)
+		self.x_afterTC_grid = []#np.linspace(x_tc_end, self.x_eta_end, self.n2)
+		TauDeriv = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=1, x_start=self.x_eta[0], x_end=self.x_eta[-1])
+		for i in range(self.k_N):
+			kHprimedTau = c*self.k[i]/(self.Get_Hubble_prime(self.x_eta)*TauDeriv)
+			index = np.where(np.fabs(kHprimedTau)>0.1)[0][0]
+			x_tc_end = self.x_eta[index]
+			self.x_TC_grid.append(np.linspace(self.x_eta_init, x_tc_end, self.n1))
+			self.x_afterTC_grid.append(np.linspace(x_tc_end, self.x_eta_end, self.n2))
+
 	def Write_Outfile(self, filename, variables, k):
 		""" Saves data to a text file """
 		Transposed = variables
@@ -608,30 +624,40 @@ class time_mod():
 
 		time_start = time.clock()
 		counter = 0
-		for ks in self.k:
+		self.Get_TC_end_vectorized()	
+		self.BoltzmannEinstein_InitConditions()
+
+		"""
+		#SELF NOTE: TRY TO VECORY X RANGE BY USING THEM AS A TUPLE, LIKE VARIABLES
+		I.E, X0 = [X0, X0, ....]
+		"""
+		for i in range(self.k_N):
 			print counter
 			counter += 1
-			self.BoltzmannEinstein_InitConditions(ks)
-			x_tc_end = self.Get_TC_end(ks)
-			self.x_TC_grid = np.linspace(self.x_eta_init, x_tc_end, self.n1)
-			x_afterTC_grid = np.linspace(x_tc_end, self.x_eta_end, self.n2)
-			self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, self.BoltzmannTightCoupling,
-					self.x_TC_grid, args=(ks,))
-			self.BoltzmannEinstein_InitConditions_AfterTC2(ks)
+			ks = self.k[i]
+			#self.BoltzmannEinstein_InitConditions(ks)
+			#x_tc_end = self.Get_TC_end(ks)
+			#self.x_TC_grid = np.linspace(self.x_eta_init, x_tc_end, self.n1)
+			#x_afterTC_grid = np.linspace(x_tc_end, self.x_eta_end, self.n2)
+			self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, np.transpose(self.BoltzmannTightCoupling)[i],
+					self.x_TC_grid[i], args=(ks,))
+			self.BoltzmannEinstein_InitConditions_AfterTC2(ks, i)
 			self.EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations2, self.BoltzmannVariablesAFTERTC_INIT,
-					x_afterTC_grid, args=(ks,))
+					self.x_afterTC_grid[i], args=(ks,))
 			self.MergeAndFinalize()
 		print "time elapsed: ",  time.clock() - time_start, "s"
+
+
 		fig1 = plt.figure()
 		ax1 = plt.subplot(111)
 		plt.hold("on")
-		ax1.plot(self.x_t, self.Phi[0], label=r'$k = %.3e$' %self.k[0])
-		ax1.plot(self.x_t, self.Phi[4], label=r'$k = %.3e$' %self.k[4])
-		ax1.plot(self.x_t, self.Phi[50], label=r'$k = %.3e$' %self.k[50])
-		ax1.plot(self.x_t, self.Phi[70], label=r'$k = %.3e$' %self.k[70])
-		ax1.plot(self.x_t, self.Phi[-5], label=r'$k = %.3e$' %self.k[-5])
-		ax1.plot(self.x_t, self.Phi[-1], label=r'$k = %.3e$' %self.k[-1])
-		ax1.legend(loc='lower left', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
+		ax1.plot(self.x_t, self.Phi[0], label=r'$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[4], label=r'$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[50], label=r'$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[70], label=r'$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[-5], label=r'$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[-1], label=r'$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
+		ax1.legend(loc='lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
 		plt.xlabel('$x$')
 		plt.ylabel('$\Phi$')
 		plt.title('Plot of $\Phi$ as a function of $x$')
@@ -639,13 +665,13 @@ class time_mod():
 		fig2 = plt.figure()
 		ax2 = plt.subplot(111)
 		plt.hold("on")
-		ax2.plot(self.x_t, self.Theta0[0], label='$k = %.3e$' %self.k[0])
-		ax2.plot(self.x_t, self.Theta0[4], label='$k = %.3e$' %self.k[4])
-		ax2.plot(self.x_t, self.Theta0[50], label='$k = %.3e$' %self.k[50])
-		ax2.plot(self.x_t, self.Theta0[70], label='$k = %.3e$' %self.k[70])
-		ax2.plot(self.x_t, self.Theta0[-5], label='$k = %.3e$' %self.k[-5])
-		ax2.plot(self.x_t, self.Theta0[-1], label='$k = %.3e$' %self.k[-1])
-		ax2.legend(loc = 'lower left', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
+		ax2.plot(self.x_t, self.Theta0[0], label='$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
+		ax2.plot(self.x_t, self.Theta0[4], label='$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
+		ax2.plot(self.x_t, self.Theta0[50], label='$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
+		ax2.plot(self.x_t, self.Theta0[70], label='$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
+		ax2.plot(self.x_t, self.Theta0[-5], label='$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
+		ax2.plot(self.x_t, self.Theta0[-1], label='$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
+		ax2.legend(loc = 'lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
 		plt.xlabel('$x$')
 		plt.ylabel(r'$\Theta_0$')
 		plt.title(r'Plot of $\Theta_0$ as a function of $x$')
@@ -653,13 +679,13 @@ class time_mod():
 		fig3 = plt.figure()
 		ax3 = plt.subplot(111)
 		plt.hold("on")
-		ax3.plot(self.x_t, self.delta[0], label='$k = %.3e$' %self.k[0])
-		ax3.plot(self.x_t, self.delta[4], label='$k = %.3e$' %self.k[4])
-		ax3.plot(self.x_t, self.delta[50], label='$k = %.3e$' %self.k[50])
-		ax3.plot(self.x_t, self.delta[70], label='$k = %.3e$' %self.k[70])
-		ax3.plot(self.x_t, self.delta[-5], label='$k = %.3e$' %self.k[-5])
-		ax3.plot(self.x_t, self.delta[-1], label='$k = %.3e$' %self.k[-1])
-		ax3.legend(loc = 'lower left', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
+		ax3.plot(self.x_t, self.delta[0], label='$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
+		ax3.plot(self.x_t, self.delta[4], label='$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
+		ax3.plot(self.x_t, self.delta[50], label='$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
+		ax3.plot(self.x_t, self.delta[70], label='$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
+		ax3.plot(self.x_t, self.delta[-5], label='$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
+		ax3.plot(self.x_t, self.delta[-1], label='$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
+		ax3.legend(loc = 'lower left', bbox_to_anchor=(0,0.5), ncol=1, fancybox=True)
 		plt.xlabel('$x$')
 		plt.ylabel(r'$\delta$')
 		plt.title(r'Plot of $\delta$ as a function of $x$')
@@ -667,13 +693,13 @@ class time_mod():
 		fig4 = plt.figure()
 		ax4 = plt.subplot(111)
 		plt.hold("on")
-		ax4.plot(self.x_t, self.deltab[0], label='$k = %.3e$' %self.k[0])
-		ax4.plot(self.x_t, self.deltab[4], label='$k = %.3e$' %self.k[4])
-		ax4.plot(self.x_t, self.deltab[50], label='$k = %.3e$' %self.k[50])
-		ax4.plot(self.x_t, self.deltab[70], label='$k = %.3e$' %self.k[70])
-		ax4.plot(self.x_t, self.deltab[-5], label='$k = %.3e$' %self.k[-5])
-		ax4.plot(self.x_t, self.deltab[-1], label='$k = %.3e$' %self.k[-1])
-		ax4.legend(loc = 'lower left', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
+		ax4.plot(self.x_t, self.deltab[0], label='$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
+		ax4.plot(self.x_t, self.deltab[4], label='$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
+		ax4.plot(self.x_t, self.deltab[50], label='$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
+		ax4.plot(self.x_t, self.deltab[70], label='$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
+		ax4.plot(self.x_t, self.deltab[-5], label='$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
+		ax4.plot(self.x_t, self.deltab[-1], label='$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
+		ax4.legend(loc = 'lower left', bbox_to_anchor=(0,0.5), ncol=1, fancybox=True)
 		plt.xlabel('$x$')
 		plt.ylabel(r'$\delta_b$')
 		plt.title(r'Plot of $\delta_b$ as a function of $x$')
@@ -681,13 +707,13 @@ class time_mod():
 		fig5 = plt.figure()
 		ax5 = plt.subplot(111)
 		plt.hold("on")
-		ax5.plot(self.x_t, self.v[0], label='$k = %.3e$' %self.k[0])
-		ax5.plot(self.x_t, self.v[4], label='$k = %.3e$' %self.k[4])
-		ax5.plot(self.x_t, self.v[50], label='$k = %.3e$' %self.k[50])
-		ax5.plot(self.x_t, self.v[70], label='$k = %.3e$' %self.k[70])
-		ax5.plot(self.x_t, self.v[-5], label='$k = %.3e$' %self.k[-5])
-		ax5.plot(self.x_t, self.v[-1], label='$k = %.3e$' %self.k[-1])
-		ax5.legend(loc = 'lower left', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
+		ax5.plot(self.x_t, self.v[0], label='$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
+		ax5.plot(self.x_t, self.v[4], label='$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
+		ax5.plot(self.x_t, self.v[50], label='$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
+		ax5.plot(self.x_t, self.v[70], label='$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
+		ax5.plot(self.x_t, self.v[-5], label='$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
+		ax5.plot(self.x_t, self.v[-1], label='$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
+		ax5.legend(loc = 'lower left', bbox_to_anchor=(0,0.5), ncol=1, fancybox=True)
 		plt.xlabel('$x$')
 		plt.ylabel(r'$v$')
 		plt.title(r'Plot of $v$ as a function of $x$')
@@ -696,13 +722,13 @@ class time_mod():
 		fig6 = plt.figure()
 		ax6 = plt.subplot(111)
 		plt.hold("on")
-		ax6.plot(self.x_t, self.vb[0], label='$k = %.3e$' %self.k[0])
-		ax6.plot(self.x_t, self.vb[4], label='$k = %.3e$' %self.k[4])
-		ax6.plot(self.x_t, self.vb[50], label='$k = %.3e$' %self.k[50])
-		ax6.plot(self.x_t, self.vb[70], label='$k = %.3e$' %self.k[70])
-		ax6.plot(self.x_t, self.vb[-5], label='$k = %.3e$' %self.k[-5])
-		ax6.plot(self.x_t, self.vb[-1], label='$k = %.3e$' %self.k[-1])
-		ax6.legend(loc = 'lower left', bbox_to_anchor=(1,1), ncol=1, fancybox=True)
+		ax6.plot(self.x_t, self.vb[0], label='$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
+		ax6.plot(self.x_t, self.vb[4], label='$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
+		ax6.plot(self.x_t, self.vb[50], label='$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
+		ax6.plot(self.x_t, self.vb[70], label='$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
+		ax6.plot(self.x_t, self.vb[-5], label='$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
+		ax6.plot(self.x_t, self.vb[-1], label='$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
+		ax6.legend(loc = 'lower left', bbox_to_anchor=(0,0.5), ncol=1, fancybox=True)
 		plt.xlabel('$x$')
 		plt.ylabel(r'$v_b$')
 		plt.title(r'Plot of $v_b$ as a function of $x$')
