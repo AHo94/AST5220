@@ -143,7 +143,7 @@ void Compute_Xe(int n, double x_init, double x_0, vector<double> &ComputedX_e){
     vector<state_type> X_e_temp;
     linspace(x_init, x_0, n, x_values);
     double X_e_INIT = 1.0;
-    double XeLimit = 0.97;
+    double XeLimit = 0.965;
     ComputedX_e.push_back(X_e_INIT);
     int EndI;
     for (int i=0; i<n; i++){
@@ -187,7 +187,7 @@ void TightCoupling_InitialCondition(double x0,  double k, state_type &InitialCon
     double Hprime0 = Get_Hubble_prime(x0);
     double Phi = 1.0;
     double delta_b = 3.0*Phi/2.0;
-    double v_b = k*Phi/(2.0*Hprime0);
+    double v_b = c*k*Phi/(2.0*Hprime0);
     double Theta_0 = 0.5*Phi;
     double Theta_1 = -c*k*Phi/(6.0*Hprime0);
     InitialCond = {Theta_0, Theta_1, delta_b, delta_b, v_b, v_b, Phi};
@@ -251,7 +251,7 @@ struct Solve_TightCoupling{
         double Tau, TauDer, TauDoubleDer;
         spline1ddiff(m_splineTC, x0, Tau, TauDer, TauDoubleDer);
 
-        double R = 4.0*Omega_r/(3.0*Omega_m*exp(x0));
+        double R = 4.0*Omega_r/(3.0*Omega_b*exp(x0));
         double Theta_2 = -20.0*ck_Hprimed*Theta_1/(45.0*TauDer);
         double Psi = -Phi - PsiPrefactor*Omega_r*Theta_2/(m_kTC*m_kTC*exp(2.0*x0));
         double ck_HPsi = ck_Hprimed*Psi;
@@ -259,7 +259,7 @@ struct Solve_TightCoupling{
             + (H_0Squared/(2.0*Hprimed*Hprimed))*(Omega_m*delta*exp(-x0) + Omega_b*delta_b*exp(-x0)
             + 4.0*Omega_r*exp(-2.0*x0)*Theta_0);
         dVardx[0] = -ck_Hprimed*Theta_1 - dVardx[6];
-        double q = -(( (1.0-2.0*R)*TauDer + (1.0+R)*TauDoubleDer)*(3.0*Theta_1 + v_b) - ck_HPsi
+        double q = -(((1.0-2.0*R)*TauDer + (1.0+R)*TauDoubleDer)*(3.0*Theta_1 + v_b) - ck_HPsi
                 + (1.0-Hprime_HPrimedDer)*ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*dVardx[0])
                 /((1.0+R)*TauDer + Hprime_HPrimedDer - 1);
         dVardx[2] = ck_Hprimed*v - 3.0*dVardx[6];
@@ -359,6 +359,7 @@ struct Solve_BoltzmannEq{
         dVardx[7] = ck_Hprimed*v - 3.0*dVardx[11];
         dVardx[8] = ck_Hprimed*v_b - 3.0*dVardx[11];
         dVardx[9] = -v - ck_HPsi;
+        /*
         cout << "dvar10 check " << endl;
         cout << v_b << endl;
         cout << ck_HPsi << endl;
@@ -367,6 +368,7 @@ struct Solve_BoltzmannEq{
         cout << EtaInterp << endl;
         cout << x0 << endl;
         cout << R << endl;
+        */
         dVardx[10] = -v_b - ck_HPsi + TauDer*R*(3.0*Theta_1 + v_b);
     }
 };
@@ -405,20 +407,20 @@ struct MergeAndFinalize{
             Phi[i] = ComputedVar[i][6];
         }
         cout << "Init cond" << endl;
-        cout << Theta0.back() << endl;
-        cout << Theta1.back() << endl;
-        cout << Theta2.back() << endl;
-        cout << Theta3.back() << endl;
-        cout << Theta4.back() << endl;
-        cout << Theta5.back() << endl;
-        cout << Theta6.back() << endl;
-        cout << delta.back() << endl;
-        cout << deltab.back() << endl;
-        cout << v.back() << endl;
-        cout << vb.back() << endl;
-        cout << Phi.back() << endl;
-        InitCond = {Theta0[size-1], Theta1[size-1], Theta2[size-1], Theta3[size-1], Theta4[size-1], Theta5[size-1]
-                    , Theta6[size-1], delta[size-1], deltab[size-1], v[size-1], vb[size-1], Phi[size-1]};
+        cout << "Theta0" << '\t' << Theta0[0] << endl;
+        cout << "Theta1" << '\t' << Theta1[0] << endl;
+        cout << "Theta2" << '\t' << Theta2[0] << endl;
+        cout << "Theta3" << '\t' << Theta3[0] << endl;
+        cout << "Theta4" << '\t' << Theta4[0] << endl;
+        cout << "Theta5" << '\t' << Theta5[0] << endl;
+        cout << "Theta6" << '\t' << Theta6[0] << endl;
+        cout << "delta" << '\t' << delta[0] << endl;
+        cout << "deltab" << '\t' << deltab[0] << endl;
+        cout << "v" << '\t' << v[0] << endl;
+        cout << "vb" << '\t' << vb[0] << endl;
+        cout << "Phi" << '\t' << Phi[0] << endl;
+        InitCond = {Theta0.back(), Theta1.back(), Theta2.back(), Theta3.back(), Theta4.back(), Theta5.back()
+                    , Theta6.back(), delta.back(), deltab.back(), v.back(), vb.back(), Phi.back()};
     }
     void Finalize(vector<state_type> ComputedVar, vector<double> &Theta0, vector<double> &Theta1,
                   vector<double> &Theta2, vector<double> &Theta3, vector<double> &Theta4, vector<double> &Theta5,
@@ -442,7 +444,7 @@ struct MergeAndFinalize{
 };
 
 void write_outfile(vector<double> x, vector<double> Value, string Value_name, string filename){
-    // Saves data to text file.
+    // Saves on variable (as well as their corresponding x-values) to a text file.
     ofstream datafile;
     datafile.open(filename);
     datafile << "x" << setw(15) << Value_name << "\n";
@@ -451,6 +453,25 @@ void write_outfile(vector<double> x, vector<double> Value, string Value_name, st
     }
     datafile.close();
 }
+
+void Write_Boltzmann_Variables(string filename, vector<double> x , vector<double> Theta0, vector<double> Theta1, vector<double> Theta2,
+                          vector<double> Theta3, vector<double> Theta4, vector<double> Theta5, vector<double> Theta6,
+                          vector<double> delta, vector<double> deltab, vector<double> v, vector<double> vb,
+                          vector<double> Phi, double k_value){
+    // Saves all boltzmann variables to one file
+    ofstream datafile;
+    datafile.open(filename);
+    datafile << "x" << '\t' << "Theta0" << '\t' << "Theta1" << '\t' << "Theta2" << '\t' << "Theta3" << '\t'
+             << "Theta4" << '\t' << "Theta5" << '\t' << "Theta6" << '\t' << "delta" << '\t'
+             << "deltab" << '\t' << "v" << '\t'<< "vb" << '\t' << "Phi" << '\t' << "k=" << k_value << '\n';
+    for (int i=0; i<x.size(); i++){
+        datafile << x[i] << '\t' << Theta0[i] << '\t' << Theta1[i] << '\t' << Theta2[i] << '\t' << Theta3[i] << '\t'
+                 << Theta4[i] << '\t' << Theta5[i] << '\t' << Theta6[i] << '\t' << delta[i] << '\t' << deltab[i] << '\t'
+                 << v[i] << '\t' << vb[i] << '\t' << Phi[i] << '\n';
+    }
+    datafile.close();
+}
+
 
 void printstuf(const state_type &Var, double x0){
     cout << fixed;
@@ -476,8 +497,6 @@ int main(int argc, char *argv[])
     int n_eta = 3000;
     double a_init = 1e-8;
     double x_init = log(a_init);
-    vector<double> Full_x_grid(n_eta);
-    linspace(x_init, 0.0, n_eta, Full_x_grid);
 
     vector<double> l_values(6);
     l_values[0] = 0.0; l_values[1] = 1.0; l_values[2] = 2.0; l_values[3] = 3.0;
@@ -571,8 +590,8 @@ int main(int argc, char *argv[])
              << state_type_Temp[i][4] << '\t' << state_type_Temp[i][5] << '\t'
              << state_type_Temp[i][6] << '\t' <<  endl;
     }
-    return 0;
-    MergeAndFinalize MergerInstance(Taus, Full_x_grid, k[0]);
+
+    MergeAndFinalize MergerInstance(Taus, x_tau, k[0]);
     vector<double> Theta0(EBTC_step);
     vector<double> Theta1(EBTC_step);
     vector<double> Theta2(EBTC_step);
@@ -592,10 +611,22 @@ int main(int argc, char *argv[])
     MergerInstance.MergeTC(state_type_Temp, Theta0, Theta1, Theta2, Theta3, Theta4, Theta5, Theta6,
                            delta, deltab, v, vb, Phi, x_TC, Init_afterTC);
     Solve_BoltzmannEq BoltzmannEQInstance(Taus, x_tau, x_etas, Etas, l_values, k[0]);
-    cout << "instance ok" << endl;
     integrate_adaptive(bulst_step(), BoltzmannEQInstance, Init_afterTC, x_TC_end, x_0,
                        (x_0 - x_TC_end)/(n_eta-1), Save_single_variable(States_Final, x_final));
-    cout << "Solve OK" << endl;
+    MergerInstance.Finalize(States_Final, Theta0, Theta1, Theta2, Theta3, Theta4, Theta5, Theta6,
+                            delta, deltab, v, vb, Phi);
+    vector<double> Full_x_grid;
+    for (int i=0; i<x_TC.size(); i++){
+        Full_x_grid.push_back(x_TC[i]);
+    }
+    for (int i=0; i<x_final.size(); i++){
+        Full_x_grid.push_back(x_final[i]);
+    }
+    for (int i=0; i<Full_x_grid.size(); i++){
+        cout << Full_x_grid[i] << endl;
+    }
+    Write_Boltzmann_Variables("TEST.txt", Full_x_grid, Theta0, Theta1, Theta2, Theta3, Theta4,
+                              Theta5, Theta6, delta, deltab, v, vb, Phi, k[0]);
     timer = clock() - timer;
     cout << "tot time " << float(timer)/CLOCKS_PER_SEC << endl;
     cout << "Number of datapoints for tight coupling: " << EBTC_step << endl;
