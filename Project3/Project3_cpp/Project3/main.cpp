@@ -517,18 +517,18 @@ int main(int argc, char *argv[])
                   x_0, (x_0 - x_init)/(n_eta-1.0), Save_single_variable(Etas_temp, x_etas));
     vector<double> Etas(eta_size+1);
     Sort_variable_to_vector_SingleVar(Etas_temp, Etas, eta_size); // Sorting Etas_temp to Etas
-
+    cout << "Eta ok" << endl;
     // Computing X_e
     vector<double> X_e;
     vector<double> x_eta2(n_eta);
     linspace(x_init, x_0, n_eta, x_eta2);
     Compute_Xe(n_eta, x_init, x_0, X_e);
-
+    cout << "Xe ok" << endl;
     // Stores n_e (logarithmic scale) to an array. Used to interpolate for taus
     vector<double> LOGn_e(X_e.size());
     for (int i=0; i<X_e.size(); i++){
         LOGn_e[i] = log(X_e[i]*Get_n_b(x_eta2[i]));}
-
+    cout << "ne ok" << endl;
     // Calculate tau
     vector<state_type> Taus_temp;
     vector<double> Taus(n_eta);
@@ -555,20 +555,23 @@ int main(int argc, char *argv[])
         spline1ddiff(splineTaus, x_tau[i], s_temp, TauDerivative[i], d2s_temp);}
     for (int j=0; j<n_doublederPtS; j++){
         spline1ddiff(splineTaus, x_TauDoubleDer[j], s_temp, d2s_temp, TauDoubleDer[j]);}
-
+    cout << "Tau ok" << endl;
     // Compute visibility function and its derivatives (interpolated)
     vector<double> g(n_eta);
     vector<double> gDer(n_eta);
     vector<double> gDoubleDer(n_eta);
     for (int i=0; i<n_eta; i++){
-        g[i] = -TauDerivative[i]*exp(-Taus[i]);}
+        g[i] = -TauDerivative[i]*exp(-Taus[i]);
+        cout << Taus[i] << endl;
+        cout << TauDerivative[i] << endl;}
+    cout << "Compute g ok?" << endl;
     spline1dinterpolant splineGs;
     real_1d_array G_Interp, X_Interp2;
     G_Interp.setcontent(g.size(), &(g[0]));
     spline1dbuildcubic(X_Interp, G_Interp, splineGs);
     for (int i=0; i<n_eta; i++){
         spline1ddiff(splineGs, x_tau[i], s_temp, gDer[i], gDoubleDer[i]);}
-
+    cout << "g ok" << endl;
     Get_TC_end ObtainXInstance(Taus, x_tau);
 
     double x_TC_end = ObtainXInstance.Get_xTCEnd(k[0]);
@@ -579,7 +582,7 @@ int main(int argc, char *argv[])
     TightCoupling_InitialCondition(x_init, k[0], Boltzmann_TC_Init);
     Solve_TightCoupling TCInstance(Taus, x_tau, k[0]);
     timer = clock();
-
+    cout << "instance TC OK" << endl;
     size_t EBTC_step = integrate_adaptive(bulst_step(), TCInstance, Boltzmann_TC_Init, x_init, x_TC_end,
                        (x_TC_end-x_init)/(n_eta-1.0), // printstuf);
                        Save_single_variable(state_type_Temp, x_TC));
