@@ -61,7 +61,7 @@ PsiPrefactor = 12.0*H_0*H_0/(c*c)
 class time_mod():
 	def __init__(self, savefile, l_max, kVAL):
 		self.savefile = savefile		# If savefig = 0, plots the data. If savefig = 1, saves the plots into a pdf
-		self.kVAL = kVAL
+		self.kVal = kVAL
 
 		if savefile != 0 and savefile != 1:
 			print 'Current value of savefile = ', savefile
@@ -275,16 +275,16 @@ class time_mod():
 		else:
 			return 0
 
-	def BoltzmannEinstein_InitConditions(self):
+	def BoltzmannEinstein_InitConditions(self, k):
 		""" Initial conditions for the Boltzmann equations """
-		Phi = 1.0*np.ones(self.k_N)
+		Phi = 1.0#*np.ones(self.k_N)
 		delta_b = 3.0*Phi/2.0
 		HPrime_0 = self.Get_Hubble_param(self.x_eta_init)
 		InterpolateTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative = 1, x_start = self.x_eta_init, x_end =self.x_eta_init)
-		v_b = c*self.k*Phi/(2.0*HPrime_0)
+		v_b = c*k*Phi/(2.0*HPrime_0)
 		Theta_0 = 0.5*Phi
-		Theta_1 = -c*self.k*Phi/(6.0*HPrime_0)
-		Theta_2 = -8.0*c*self.k*Theta_1/(15*InterpolateTauDerivative*HPrime_0)
+		Theta_1 = -c*k*Phi/(6.0*HPrime_0)
+		#Theta_2 = -8.0*c*k*Theta_1/(15*InterpolateTauDerivative*HPrime_0)
 		"""
 		self.BoltzmannVariables = []
 		self.BoltzmannVariables.append(Theta_0)
@@ -359,15 +359,14 @@ class time_mod():
 		for i in range(self.NumVariables*self.k_N):
 			self.BoltzmannVariablesAFTERTC_INIT.append(self.BoltzmannVariablesAFTERTC[i][-1])
 
-	def BoltzmannEinstein_InitConditions_AfterTC2(self, k, index):
+	def BoltzmannEinstein_InitConditions_AfterTC2(self, k):
 		""" 
 		Properly set up all variables into a parameter in the tight coupling regime
 		Also sets up initial conditions of the different parameters, that is to be calculated for time after recombination
 		"""
 		Transposed = np.transpose(self.EBTightCoupling)
-		Hprimed = self.Get_Hubble_prime(self.x_TC_grid[index])
-		TauDer = self.Spline_Derivative(self.x_eta, self.Taus, len(Transposed[0]), derivative=1,
-				 x_start=self.x_TC_grid[index][0], x_end=self.x_TC_grid[index][-1])
+		Hprimed = self.Get_Hubble_prime(self.x_TC_grid)
+		TauDer = self.Spline_Derivative(self.x_eta, self.Taus, len(Transposed[0]), derivative=1, x_start=self.x_TC_grid[0], x_end=self.x_TC_grid[-1])
 		self.Theta0TC = Transposed[0]
 		self.Theta1TC = Transposed[1]
 		self.Theta2TC = -20.0*c*k*self.Theta1TC/(45.0*Hprimed*TauDer)
@@ -475,8 +474,6 @@ class time_mod():
 		x_0 = np.reshape(self.x_TC_grid, (self.n1, self.k_N))
 		# Calculating some prefactors
 		Hprimed = self.Get_Hubble_prime(x_0)
-		print Hprimed
-		print aaa
 		HprimedDer = self.Get_Hubble_prime_derivative(x_0)
 		#Hprime_HprimeDer = Hprimed/HprimedDer
 		Hprime_HprimeDer = HprimedDer/Hprimed
@@ -535,15 +532,6 @@ class time_mod():
 		dvbdx = (-v_b - ck_Hprimed*Psi + R*(q + ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*Psi))/(1.0+R)
 		dTheta1dx = (q-dvbdx)/3.0
 		derivatives = np.array([dTheta0dx, dTheta1dx, dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
-		if self.CHECKER == 0:
-			self.CHECKER += 1
-			print Psi
-			print np.exp(x_0)
-			print c*k/Hprimed
-			print delta
-			print delta_b
-			print Theta_0
-			print dPhidx
 		return np.reshape(derivatives, len(derivatives))
 	
 	def MergeAndFinalize(self):
@@ -574,6 +562,9 @@ class time_mod():
 		self.v.append(vMerge)
 		self.vb.append(vbMerge)
 		self.Phi.append(PhiMerge)
+
+		self.AllVariables = np.array([self.Theta0, self.Theta1, self.Theta2, self.Theta3, self.Theta4, self.Theta5, self.Theta6,
+									self.delta, self.deltab, self.v, self.vb, self.Phi])
 
 	def Get_TC_end(self, k):
 		""" 
@@ -612,7 +603,7 @@ class time_mod():
 			 Transposed[k+self.k_N*8][i], Transposed[k+self.k_N*9][i], Transposed[k+self.k_N*10][i], Transposed[k+self.k_N*11][i]))
 		text_file.close()
 
-	def Plot_results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
+	def Compute_Results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Solves and plots the results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
 		# Calculate X_e, n_e and interpolates n_e as a test
@@ -647,11 +638,12 @@ class time_mod():
 		self.x_TC_grid = np.linspace(self.x_eta_init, x_tc_end, self.n1)
 		x_afterTC_grid = np.linspace(x_tc_end, self.x_eta_end, self.n2)
 		self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, np.transpose(self.BoltzmannTightCoupling),
-				self.x_TC_grid[i], args=(self.kVal,))
-		self.BoltzmannEinstein_InitConditions_AfterTC2(ks, i)
+				self.x_TC_grid, args=(self.kVal,))
+		self.BoltzmannEinstein_InitConditions_AfterTC2(self.kVal)
 		self.EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations2, self.BoltzmannVariablesAFTERTC_INIT,
-				self.x_afterTC_grid[i], args=(self.kVal,))
+				x_afterTC_grid, args=(self.kVal,))
 		self.MergeAndFinalize()
+		return self.AllVariables
 		"""
 		for i in range(self.k_N):
 			print counter
@@ -669,21 +661,80 @@ class time_mod():
 			self.MergeAndFinalize()
 		print "time elapsed: ",  time.clock() - time_start, "s"
 
+	"""
 
+class Plotter:
+	def __init__(self, savefile, k_array, variables):
+		self.savefile = savefile	# If savefile = 0, plots the data. If savefile = 1, saves the plots into a pdf
+		self.k = k_array
+		self.variables = variables
+		if savefile != 0 and savefile != 1:
+			print 'Current value of savefile = ', savefile
+			raise ValueError('Argument savefig not properly set. Try savefile = 1 (saves as pdf) or savefile = 0 (do not save as pdf)')	
+
+		self.n1 = 100
+		self.n2 = 200
+		self.n_t = self.n1 + self.n2
+		"""
+		self.z_start_rec = 1630.4
+		self.z_end_rec = 614.2
+		self.x_start_rec = -np.log(1.0 + self.z_start_rec)
+		self.x_end_rec = -np.log(1.0 + self.z_end_rec)
+		"""
+		self.a_init = 1e-8
+		self.x_init = np.log(self.a_init)
+		self.x_0 = 0.0
+		# Set up x grid
+		self.x_t = np.linspace(self.x_init, self.x_0, self.n_t)
+
+		# Arrays/lists that contains the variables for all values of k
+		self.Theta0 = []
+		self.Theta1 = []
+		self.Theta2 = []
+		self.Theta3 = []
+		self.Theta4 = []
+		self.Theta5 = []
+		self.Theta6 = []
+		self.delta = []
+		self.deltab = []
+		self.v = []
+		self.vb = []
+		self.Phi = []
+
+	def Sort_Arrays(self):
+		""" Sorts the variables to their respective arrays """
+		for i in range(len(self.k)):
+			self.Theta0.append(self.variables[i][0])
+			self.Theta1.append(self.variables[i][1])
+			self.Theta2.append(self.variables[i][2])
+			self.Theta3.append(self.variables[i][3])
+			self.Theta4.append(self.variables[i][4])
+			self.Theta5.append(self.variables[i][5])
+			self.Theta6.append(self.variables[i][6])
+			self.delta.append(self.variables[i][7])
+			self.deltab.append(self.variables[i][8])
+			self.v.append(self.variables[i][9])
+			self.vb.append(self.variables[i][10])
+			self.Phi.append(self.variables[i][11])
+
+	def Plot_results(self):
+		""" Plots the results """
+		self.Sort_Arrays()
+		
 		fig1 = plt.figure()
 		ax1 = plt.subplot(111)
 		plt.hold("on")
-		ax1.plot(self.x_t, self.Phi[0], label=r'$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
-		ax1.plot(self.x_t, self.Phi[4], label=r'$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
-		ax1.plot(self.x_t, self.Phi[50], label=r'$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
-		ax1.plot(self.x_t, self.Phi[70], label=r'$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
-		ax1.plot(self.x_t, self.Phi[-5], label=r'$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
-		ax1.plot(self.x_t, self.Phi[-1], label=r'$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[0][0], label=r'$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[1][0], label=r'$k = %.1f H_0/c$' %(self.k[1]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[2][0], label=r'$k = %.1f H_0/c$' %(self.k[2]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[3][0], label=r'$k = %.1f H_0/c$' %(self.k[3]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[4][0], label=r'$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
+		#ax1.plot(self.x_t, self.Phi[-1], label=r'$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
 		ax1.legend(loc='lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
 		plt.xlabel('$x$')
 		plt.ylabel('$\Phi$')
 		plt.title('Plot of $\Phi$ as a function of $x$')
-		
+		"""
 		fig2 = plt.figure()
 		ax2 = plt.subplot(111)
 		plt.hold("on")
@@ -754,7 +805,7 @@ class time_mod():
 		plt.xlabel('$x$')
 		plt.ylabel(r'$v_b$')
 		plt.title(r'Plot of $v_b$ as a function of $x$')
-		
+		"""
 		if self.savefile == 1:
 			fig1.savefig('../Plots/Phi.png')
 			fig2.savefig('../Plots/Theta0.png')
@@ -764,7 +815,7 @@ class time_mod():
 			fig6.savefig('../Plots/velocityBaryon.png')
 		else:
 			plt.show()
-		"""
+		
 
 #solver = time_mod(savefile=1, l_max=6)
 #solver.Plot_results(100)
@@ -778,15 +829,24 @@ al= np.select(condlist, choicelist)
 print np.where(x>3)[0][0]
 """
 
-def SolveTC(k):
-	solver = time_mod(savefile=1, l_max=6)
+def SolveEquations(k):
+	solver = time_mod(savefile=1, l_max=6, kVAL=k)
+	ComputedVariables = solver.Compute_Results(100)
+	return ComputedVariables
 
 if __name__ == '__main__':
+	# Defines the range of k
 	k_min = 0.1*H_0/c
 	k_max = 1000*H_0/c
-	k_N = 100
+	k_N = 5
 	k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(k_N)])
+	# Sets number of proceses and starts computing in parallell
 	num_processes = 2
+	print 'Computing ...'
+	time_start = time.clock()
 	p = mp.Pool(num_processes)
-	TC_sol = p.map(SolveTC, k)
-	#solver.Plot_results(100)
+	Solution = p.map(SolveEquations, k)
+	print "time elapsed: ",  time.clock() - time_start, "s"
+	PlotInstance = Plotter(savefile=0, k_array=k, variables=Solution)
+	PlotInstance.Plot_results()
+
