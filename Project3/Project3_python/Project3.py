@@ -726,7 +726,7 @@ class Plotter:
 		ax1.plot(self.x_t, self.Phi[50][0], label=r'$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
 		ax1.plot(self.x_t, self.Phi[70][0], label=r'$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
 		ax1.plot(self.x_t, self.Phi[-5][0], label=r'$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
-		ax1.plot(self.x_t, self.Phi[-1], label=r'$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[-1][0], label=r'$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
 		ax1.legend(loc='lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
 		plt.xlabel('$x$')
 		plt.ylabel('$\Phi$')
