@@ -68,10 +68,10 @@ class time_mod():
 			raise ValueError('Argument savefig not properly set. Try savefile = 1 (saves as pdf) or savefile = 0 (do not save as pdf)')
 
 		self.time_start = time.clock()
-		#self.n1 = 200
-		#self.n2 = 300
-		self.n1 = 100
-		self.n2 = 200
+		self.n1 = 200
+		self.n2 = 300
+		#self.n1 = 100
+		#self.n2 = 200
 		self.n_t = self.n1 + self.n2
 		
 		self.z_start_rec = 1630.4
@@ -95,7 +95,7 @@ class time_mod():
 		self.x_t_rec = np.linspace(self.x_eta_init, x_tc_end, self.n1)
 		self.x_t_today = np.linspace(x_tc_end, self.x_0, self.n2)
 		"""
-		self.x_t = np.linspace(self.x_eta_init, self.x_0, self.n_t)#np.concatenate([self.x_t_rec, self.x_t_today])
+		self.x_t = np.linspace(self.x_eta_init, self.x_0, self.n_t)
 		
 		# Set up grid of x-values for the integrated eta
 		self.x_eta = np.linspace(self.x_eta_init, self.x_eta_end, self.n_eta)	# X-values for the conformal time
@@ -604,7 +604,7 @@ class time_mod():
 		text_file.close()
 
 	def Compute_Results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
-		""" Solves and plots the results """
+		""" SComputes all the relevant results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
 		# Calculate X_e, n_e and interpolates n_e as a test
 		self.Calculate_Xe()
@@ -612,13 +612,14 @@ class time_mod():
 		x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), n_interp_points)
 		# Calculates tau and interpolates the first and second derivatives
 		self.Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
-		self.TauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=1)
-		self.TauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 200, derivative=2)
+		#self.TauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=1)
+		#self.TauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 200, derivative=2)
 		# Calculate g, and interpolates the first and second derivatives
+		"""
 		self.g_tilde = self.Visibility_func(self.x_eta, self.Taus, self.TauDerivative)
 		self.g_tildeDerivative = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=1)
 		self.g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=2)
-
+		"""
 		time_start = time.clock()
 		counter = 0
 		"""
@@ -627,10 +628,6 @@ class time_mod():
 		
 		self.EBTightCoupling = integrate.odeint(self.TightCouplingRegimeVectorized, np.reshape(self.BoltzmannTightCoupling, self.NumVarTightCoupling*self.k_N),
 					self.x_TC_grid)
-		"""
-		"""
-		#SELF NOTE: TRY TO VECORY X RANGE BY USING THEM AS A TUPLE, LIKE VARIABLES
-		I.E, X0 = [X0, X0, ....]
 		"""
 
 		self.BoltzmannEinstein_InitConditions(self.kVal)
@@ -672,8 +669,8 @@ class Plotter:
 			print 'Current value of savefile = ', savefile
 			raise ValueError('Argument savefig not properly set. Try savefile = 1 (saves as pdf) or savefile = 0 (do not save as pdf)')	
 
-		self.n1 = 100
-		self.n2 = 200
+		self.n1 = 200
+		self.n2 = 300
 		self.n_t = self.n1 + self.n2
 		"""
 		self.z_start_rec = 1630.4
@@ -725,16 +722,16 @@ class Plotter:
 		ax1 = plt.subplot(111)
 		plt.hold("on")
 		ax1.plot(self.x_t, self.Phi[0][0], label=r'$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
-		ax1.plot(self.x_t, self.Phi[1][0], label=r'$k = %.1f H_0/c$' %(self.k[1]*c/H_0))
-		ax1.plot(self.x_t, self.Phi[2][0], label=r'$k = %.1f H_0/c$' %(self.k[2]*c/H_0))
-		ax1.plot(self.x_t, self.Phi[3][0], label=r'$k = %.1f H_0/c$' %(self.k[3]*c/H_0))
 		ax1.plot(self.x_t, self.Phi[4][0], label=r'$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
-		#ax1.plot(self.x_t, self.Phi[-1], label=r'$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[50][0], label=r'$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[70][0], label=r'$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[-5][0], label=r'$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[-1], label=r'$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
 		ax1.legend(loc='lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
 		plt.xlabel('$x$')
 		plt.ylabel('$\Phi$')
 		plt.title('Plot of $\Phi$ as a function of $x$')
-		"""
+		
 		fig2 = plt.figure()
 		ax2 = plt.subplot(111)
 		plt.hold("on")
@@ -805,7 +802,7 @@ class Plotter:
 		plt.xlabel('$x$')
 		plt.ylabel(r'$v_b$')
 		plt.title(r'Plot of $v_b$ as a function of $x$')
-		"""
+		
 		if self.savefile == 1:
 			fig1.savefig('../Plots/Phi.png')
 			fig2.savefig('../Plots/Theta0.png')
