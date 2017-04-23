@@ -384,7 +384,7 @@ class time_mod():
 		 	self.Theta5TC[-1], self.Theta6TC[-1], self.deltaTC[-1], self.deltabTC[-1], self.vTC[-1], self.vbTC[-1], self.PhiTC[-1]])
 		
 
-	def BoltzmannEinstein_Equations(self, variables, x_0):
+	def BoltzmannEinstein_EquationsTEMP(self, variables, x_0):
 		""" Solves Boltzmann Einstein equations """
 		Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, delta, delta_b, v, v_b, Phi = np.reshape(variables, (self.NumVariables, self.k_N))
 		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x_0)
@@ -430,7 +430,7 @@ class time_mod():
 		#print x_0
 		return np.reshape(derivatives, self.NumVariables*self.k_N)
 
-	def BoltzmannEinstein_Equations2(self, variables, x_0, k):
+	def BoltzmannEinstein_Equations(self, variables, x_0, k):
 		""" Solves Boltzmann Einstein equations """
 		Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, delta, delta_b, v, v_b, Phi = variables
 		# Calculating some prefactors
@@ -502,7 +502,7 @@ class time_mod():
 		return np.reshape(derivatives, self.NumVarTightCoupling*self.k_N)		
 
 
-	def TightCouplingRegime2(self, variables, x_0, k):
+	def TightCouplingRegime(self, variables, x_0, k):
 		""" Boltzmann equation in the tight coupling regime """
 		Theta_0, Theta_1, delta, delta_b, v, v_b, Phi = variables
 		# Calculating some prefactors
@@ -634,10 +634,10 @@ class time_mod():
 		x_tc_end = self.Get_TC_end(self.kVal)
 		self.x_TC_grid = np.linspace(self.x_eta_init, x_tc_end, self.n1)
 		x_afterTC_grid = np.linspace(x_tc_end, self.x_eta_end, self.n2)
-		self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, np.transpose(self.BoltzmannTightCoupling),
+		self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime, np.transpose(self.BoltzmannTightCoupling),
 				self.x_TC_grid, args=(self.kVal,))
 		self.BoltzmannEinstein_InitConditions_AfterTC2(self.kVal)
-		self.EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations2, self.BoltzmannVariablesAFTERTC_INIT,
+		self.EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, self.BoltzmannVariablesAFTERTC_INIT,
 				x_afterTC_grid, args=(self.kVal,))
 		self.MergeAndFinalize()
 		return self.AllVariables
