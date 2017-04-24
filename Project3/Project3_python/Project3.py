@@ -70,8 +70,6 @@ class time_mod():
 		self.time_start = time.clock()
 		self.n1 = 200
 		self.n2 = 300
-		#self.n1 = 100
-		#self.n2 = 200
 		self.n_t = self.n1 + self.n2
 		
 		self.z_start_rec = 1630.4
@@ -89,12 +87,7 @@ class time_mod():
 		self.x_eta_init = np.log(self.a_init)
 		self.x_eta_end = 0
 
-		# Set up grid, these are currently unused
-		"""
-		x_tc_end = -6.5
-		self.x_t_rec = np.linspace(self.x_eta_init, x_tc_end, self.n1)
-		self.x_t_today = np.linspace(x_tc_end, self.x_0, self.n2)
-		"""
+		# Set up grid
 		self.x_t = np.linspace(self.x_eta_init, self.x_0, self.n_t)
 		
 		# Set up grid of x-values for the integrated eta
@@ -284,82 +277,10 @@ class time_mod():
 		v_b = c*k*Phi/(2.0*HPrime_0)
 		Theta_0 = 0.5*Phi
 		Theta_1 = -c*k*Phi/(6.0*HPrime_0)
-		#Theta_2 = -8.0*c*k*Theta_1/(15*InterpolateTauDerivative*HPrime_0)
-		"""
-		self.BoltzmannVariables = []
-		self.BoltzmannVariables.append(Theta_0)
-		self.BoltzmannVariables.append(Theta_1)
-		self.BoltzmannVariables.append(Theta_2)
-		if self.l_max > 2:
-			for l in range(3, self.l_max+1):
-				self.BoltzmannVariables.append(-(l/(2.0*l+1))*(c*self.k/(HPrime_0*InterpolateTauDerivative))*self.BoltzmannVariables[l-1])
-		else:
-			raise ValueError('Value of l_max is a little too small. Try to increase it to l_max=3 or larger')
-
-		self.BoltzmannVariables.append(delta_b)
-		self.BoltzmannVariables.append(delta_b)
-		self.BoltzmannVariables.append(v_b)
-		self.BoltzmannVariables.append(v_b)
-		self.BoltzmannVariables.append(Phi)
-		self.NumVariables = len(self.BoltzmannVariables)
-		"""
 		self.BoltzmannTightCoupling = np.array([Theta_0, Theta_1, delta_b, delta_b, v_b, v_b, Phi])
 		self.NumVarTightCoupling = len(self.BoltzmannTightCoupling)
 
-	def BoltzmannEinstein_InitConditions_AfterTC(self):
-		""" 
-		Properly set up all variables into a parameter in the tight coupling regime
-		Also sets up initial conditions of the different parameters, that is to be calculated for time after recombination
-		"""
-		Transposed = np.transpose(self.EBTightCoupling)
-		Hprimed = self.Get_Hubble_prime(self.x_t_rec)
-		TauDer = self.Spline_Derivative(self.x_eta, self.Taus, self.n1, derivative=1, x_start=self.x_t_rec[0], x_end=self.x_t_rec[-1])
-		Theta0 = []
-		Theta1 = []
-		Theta2 = []
-		Theta3 = []
-		Theta4 = []
-		Theta5 = []
-		Theta6 = []
-		delta = []
-		deltab = []
-		v = []
-		vb = []
-		Phi = []
-		for i in range(self.k_N):
-			Theta0.append(Transposed[i])
-			Theta1.append(Transposed[self.k_N+i])
-			delta.append(Transposed[2*self.k_N+i])
-			deltab.append(Transposed[3*self.k_N+i])
-			v.append(Transposed[4*self.k_N+i])
-			vb.append(Transposed[5*self.k_N+i])
-			Phi.append(Transposed[6*self.k_N+i])
-			Theta2.append(-20.0*c*self.k[i]*Theta1[i]/(45.0*Hprimed*TauDer))
-			Theta3.append(-3.0*c*self.k[i]*Theta2[i]/(7.0*Hprimed*TauDer))
-			Theta4.append(-4.0*c*self.k[i]*Theta3[i]/(9.0*Hprimed*TauDer))
-			Theta5.append(-5.0*c*self.k[i]*Theta4[i]/(11.0*Hprimed*TauDer))
-			Theta6.append(-6.0*c*self.k[i]*Theta5[i]/(13.0*Hprimed*TauDer))
-
-		self.BoltzmannVariablesAFTERTC = [0]*self.NumVariables*self.k_N
-		for j in range(self.k_N):
-			self.BoltzmannVariablesAFTERTC[j] = Theta0[j]
-			self.BoltzmannVariablesAFTERTC[j+self.k_N] = Theta1[j]
-			self.BoltzmannVariablesAFTERTC[j+self.k_N*2] = Theta2[j]
-			self.BoltzmannVariablesAFTERTC[j+self.k_N*3] = Theta3[j]
-			self.BoltzmannVariablesAFTERTC[j+self.k_N*4] = Theta4[j]
-			self.BoltzmannVariablesAFTERTC[j+self.k_N*5] = Theta5[j]
-			self.BoltzmannVariablesAFTERTC[j+self.k_N*6] = Theta6[j]
-			self.BoltzmannVariablesAFTERTC[j+self.k_N*7] = delta[j]
-			self.BoltzmannVariablesAFTERTC[j+self.k_N*8] = deltab[j]
-			self.BoltzmannVariablesAFTERTC[j+self.k_N*9] = v[j]
-			self.BoltzmannVariablesAFTERTC[j+self.k_N*10] = vb[j]
-			self.BoltzmannVariablesAFTERTC[j+self.k_N*11] = Phi[j]
-		
-		self.BoltzmannVariablesAFTERTC_INIT = []
-		for i in range(self.NumVariables*self.k_N):
-			self.BoltzmannVariablesAFTERTC_INIT.append(self.BoltzmannVariablesAFTERTC[i][-1])
-
-	def BoltzmannEinstein_InitConditions_AfterTC2(self, k):
+	def BoltzmannEinstein_InitConditions_AfterTC(self, k):
 		""" 
 		Properly set up all variables into a parameter in the tight coupling regime
 		Also sets up initial conditions of the different parameters, that is to be calculated for time after recombination
@@ -383,53 +304,6 @@ class time_mod():
 		self.BoltzmannVariablesAFTERTC_INIT = np.array([self.Theta0TC[-1], self.Theta1TC[-1], self.Theta2TC[-1], self.Theta3TC[-1], self.Theta4TC[-1],
 		 	self.Theta5TC[-1], self.Theta6TC[-1], self.deltaTC[-1], self.deltabTC[-1], self.vTC[-1], self.vbTC[-1], self.PhiTC[-1]])
 		
-
-	def BoltzmannEinstein_EquationsTEMP(self, variables, x_0):
-		""" Solves Boltzmann Einstein equations """
-		Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, delta, delta_b, v, v_b, Phi = np.reshape(variables, (self.NumVariables, self.k_N))
-		Om_m, Om_b, Om_r, Om_lamda = self.Get_Omegas(x_0)
-		
-		# Calculating some prefactors
-		Hprimed = self.Get_Hubble_prime(x_0)
-		Hprimed_Squared = Hprimed*Hprimed
-		ck_Hprimed = self.ck/Hprimed
-		# Interpolating Conformal time and Optical depth at the point x_0
-		InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
-		InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
-
-		R = 4.0*Om_r/(3.0*Omega_b*np.exp(x_0))
-		Psi = -Phi - PsiPrefactor*(np.exp(-2.0*x_0)/(self.k_squared))*Omega_r*Theta_2
-
-		dPhidx = Psi - (ck_Hprimed**2/3.0)*Phi\
-				+ (H_0Squared/(2.0*Hprimed_Squared))*(Omega_m*np.exp(-x_0)*delta + Omega_b*np.exp(-x_0)*delta_b + 4.0*Omega_r*np.exp(-2.0*x_0)*Theta_0)
-
-		ThetaDerivatives = []
-		Thetas = [Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6]
-		dTheta0dx = -ck_Hprimed*Theta_1 - dPhidx
-		dTheta1dx = (ck_Hprimed/3.0)*Theta_0 - ((2.0*ck_Hprimed)/3.0)*Theta_2 \
-					+ (ck_Hprimed/3.0)*Psi + InterTauDerivative*(Theta_1 + 1.0/(3.0*v_b))
-		ThetaDerivatives.append(dTheta0dx)
-		ThetaDerivatives.append(dTheta1dx)
-		for l in range(2, self.l_max):
-			dThetaldx = l*ck_Hprimed/(2.0*l+1.0)*Thetas[l-1] - ck_Hprimed*((l+1.0)/(2.0*l+1.0))*Thetas[l+1] \
-						+ InterTauDerivative*(Thetas[l] - 0.1*Thetas[l]*self.Kronecker_Delta_2(l))
-			ThetaDerivatives.append(dThetaldx)
-		
-		dThetalmaxdx = ck_Hprimed*Thetas[self.l_max-1] - c*((self.l_max + 1)/(Hprimed*InterEta))*Thetas[self.l_max]\
-						+ InterTauDerivative*Thetas[self.l_max]
-
-		ThetaDerivatives.append(dThetalmaxdx)
-		dDeltadx = ck_Hprimed*v - 3.0*dPhidx
-		dDeltabdx = ck_Hprimed*v_b - 3.0*dPhidx
-		dvdx = -v - ck_Hprimed*Psi
-		dvbdx = -v_b - ck_Hprimed*Psi + InterTauDerivative*R*(3.0*Theta_1 + v_b)
-
-		derivatives = np.array([ThetaDerivatives[0], ThetaDerivatives[1], ThetaDerivatives[2], ThetaDerivatives[3], ThetaDerivatives[4] ,ThetaDerivatives[5]\
-					, ThetaDerivatives[6], dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
-		#print derivatives
-		#print x_0
-		return np.reshape(derivatives, self.NumVariables*self.k_N)
-
 	def BoltzmannEinstein_Equations(self, variables, x_0, k):
 		""" Solves Boltzmann Einstein equations """
 		Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, delta, delta_b, v, v_b, Phi = variables
@@ -467,40 +341,6 @@ class time_mod():
 		derivatives = np.array([ThetaDerivatives[0], ThetaDerivatives[1], ThetaDerivatives[2], ThetaDerivatives[3], ThetaDerivatives[4] ,ThetaDerivatives[5]\
 					, ThetaDerivatives[6], dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
 		return derivatives
-
-	def TightCouplingRegimeVectorized(self, variables, x_0):
-		""" Boltzmann equation in the tight coupling regime """
-		Theta_0, Theta_1, delta, delta_b, v, v_b, Phi = np.reshape(variables, (self.NumVarTightCoupling, self.k_N))
-		x_0 = np.reshape(self.x_TC_grid, (self.n1, self.k_N))
-		# Calculating some prefactors
-		Hprimed = self.Get_Hubble_prime(x_0)
-		HprimedDer = self.Get_Hubble_prime_derivative(x_0)
-		#Hprime_HprimeDer = Hprimed/HprimedDer
-		Hprime_HprimeDer = HprimedDer/Hprimed
-		Hprimed_Squared = Hprimed*Hprimed
-		ck_Hprimed = self.ck/Hprimed
-		# Interpolating Conformal time and Optical depth (its derivatives) at the point x_0
-		InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
-		InterTauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=2, x_start=x_0, x_end=x_0)
-		InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
-
-		Theta_2 = -20.0*ck_Hprimed*Theta_1/(45.0*InterTauDerivative)
-		R = 4.0*Omega_r/(3.0*Omega_b*np.exp(x_0))
-		Psi = -Phi - PsiPrefactor*Omega_r*Theta_2/(self.k_squared*np.exp(2.0*x_0))
-		dPhidx = Psi - (ck_Hprimed**2/3.0)*Phi\
-				+ (H_0Squared/(2.0*Hprimed_Squared))*(Omega_m*np.exp(-x_0)*delta + Omega_b*np.exp(-x_0)*delta_b + 4.0*Omega_r*np.exp(-2.0*x_0)*Theta_0)
-		dTheta0dx = -ck_Hprimed*Theta_1 - dPhidx
-		q = -(((1.0 - 2.0*R)*InterTauDerivative + (1.0 + R)*InterTauDoubleDer)*(3.0*Theta_1 + v_b) - ck_Hprimed*Psi +
-			 (1.0-Hprime_HprimeDer)*ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*dTheta0dx)/((1.0+R)*InterTauDerivative + Hprime_HprimeDer - 1.0)
-
-		dDeltadx = ck_Hprimed*v - 3.0*dPhidx
-		dDeltabdx = ck_Hprimed*v_b - 3.0*dPhidx
-		dvdx = -v - ck_Hprimed*Psi
-		dvbdx = (-v_b - ck_Hprimed*Psi + R*(q + ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*Psi))/(1.0+R)
-		dTheta1dx = (q-dvbdx)/3.0
-		derivatives = np.array([dTheta0dx, dTheta1dx, dDeltadx, dDeltabdx, dvdx, dvbdx, dPhidx])
-		return np.reshape(derivatives, self.NumVarTightCoupling*self.k_N)		
-
 
 	def TightCouplingRegime(self, variables, x_0, k):
 		""" Boltzmann equation in the tight coupling regime """
@@ -576,21 +416,6 @@ class time_mod():
 		index = np.where(np.fabs(kHprimedTau)>0.1)[0][0]
 		return self.x_eta[index]
 
-	def Get_TC_end_vectorized(self):
-		""" 
-		Computes the time when tight coupling ends. Tight coupling when k/(Hprimed*Tau') << 1
-		Assumes that tight coupling ends when k/(Hprimed*Tau') > 0.1
-		"""
-		self.x_TC_grid = []#np.linspace(self.x_eta_init, x_tc_end, self.n1)
-		self.x_afterTC_grid = []#np.linspace(x_tc_end, self.x_eta_end, self.n2)
-		TauDeriv = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=1, x_start=self.x_eta[0], x_end=self.x_eta[-1])
-		for i in range(self.k_N):
-			kHprimedTau = c*self.k[i]/(self.Get_Hubble_prime(self.x_eta)*TauDeriv)
-			index = np.where(np.fabs(kHprimedTau)>0.1)[0][0]
-			x_tc_end = self.x_eta[index]
-			self.x_TC_grid.append(np.linspace(self.x_eta_init, x_tc_end, self.n1))
-			self.x_afterTC_grid.append(np.linspace(x_tc_end, self.x_eta_end, self.n2))
-
 	def Write_Outfile(self, filename, variables, k):
 		""" Saves data to a text file """
 		Transposed = variables
@@ -610,25 +435,10 @@ class time_mod():
 		self.Calculate_Xe()
 		self.n_e = self.X_e_array*self.Get_n_b(self.x_eta)
 		x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), n_interp_points)
-		# Calculates tau and interpolates the first and second derivatives
+		# Calculates tau
 		self.Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
-		#self.TauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=1)
-		#self.TauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 200, derivative=2)
-		# Calculate g, and interpolates the first and second derivatives
-		"""
-		self.g_tilde = self.Visibility_func(self.x_eta, self.Taus, self.TauDerivative)
-		self.g_tildeDerivative = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=1)
-		self.g_tildeDoubleDer = self.Spline_Derivative(self.x_eta, self.g_tilde, self.n_eta, derivative=2)
-		"""
 		time_start = time.clock()
 		counter = 0
-		"""
-		self.Get_TC_end_vectorized()	
-		self.BoltzmannEinstein_InitConditions()
-		
-		self.EBTightCoupling = integrate.odeint(self.TightCouplingRegimeVectorized, np.reshape(self.BoltzmannTightCoupling, self.NumVarTightCoupling*self.k_N),
-					self.x_TC_grid)
-		"""
 
 		self.BoltzmannEinstein_InitConditions(self.kVal)
 		x_tc_end = self.Get_TC_end(self.kVal)
@@ -636,29 +446,12 @@ class time_mod():
 		x_afterTC_grid = np.linspace(x_tc_end, self.x_eta_end, self.n2)
 		self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime, np.transpose(self.BoltzmannTightCoupling),
 				self.x_TC_grid, args=(self.kVal,))
-		self.BoltzmannEinstein_InitConditions_AfterTC2(self.kVal)
+		self.BoltzmannEinstein_InitConditions_AfterTC(self.kVal)
 		self.EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations, self.BoltzmannVariablesAFTERTC_INIT,
 				x_afterTC_grid, args=(self.kVal,))
 		self.MergeAndFinalize()
 		return self.AllVariables
-		"""
-		for i in range(self.k_N):
-			print counter
-			counter += 1
-			ks = self.k[i]
-			#self.BoltzmannEinstein_InitConditions(ks)
-			#x_tc_end = self.Get_TC_end(ks)
-			#self.x_TC_grid = np.linspace(self.x_eta_init, x_tc_end, self.n1)
-			#x_afterTC_grid = np.linspace(x_tc_end, self.x_eta_end, self.n2)
-			self.EBTightCoupling = integrate.odeint(self.TightCouplingRegime2, np.transpose(self.BoltzmannTightCoupling)[i],
-					self.x_TC_grid[i], args=(ks,))
-			self.BoltzmannEinstein_InitConditions_AfterTC2(ks, i)
-			self.EBAfterTC = integrate.odeint(self.BoltzmannEinstein_Equations2, self.BoltzmannVariablesAFTERTC_INIT,
-					self.x_afterTC_grid[i], args=(ks,))
-			self.MergeAndFinalize()
-		print "time elapsed: ",  time.clock() - time_start, "s"
-
-	"""
+		
 
 class Plotter:
 	def __init__(self, savefile, k_array, variables):
@@ -672,12 +465,6 @@ class Plotter:
 		self.n1 = 200
 		self.n2 = 300
 		self.n_t = self.n1 + self.n2
-		"""
-		self.z_start_rec = 1630.4
-		self.z_end_rec = 614.2
-		self.x_start_rec = -np.log(1.0 + self.z_start_rec)
-		self.x_end_rec = -np.log(1.0 + self.z_end_rec)
-		"""
 		self.a_init = 1e-8
 		self.x_init = np.log(self.a_init)
 		self.x_0 = 0.0
@@ -813,18 +600,6 @@ class Plotter:
 		else:
 			plt.show()
 		
-
-#solver = time_mod(savefile=1, l_max=6)
-#solver.Plot_results(100)
-#cProfile.run('solver.Plot_results(100)')
-"""
-x = np.arange(10)
-print x
-condlist = [x>3]
-choicelist = [x]
-al= np.select(condlist, choicelist)
-print np.where(x>3)[0][0]
-"""
 
 def SolveEquations(k):
 	solver = time_mod(savefile=1, l_max=6, kVAL=k)
