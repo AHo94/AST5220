@@ -412,9 +412,14 @@ class time_mod():
 		Assumes that tight coupling ends when k/(Hprimed*Tau') > 0.1
 		"""
 		TauDeriv = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=1, x_start=self.x_eta[0], x_end=self.x_eta[-1])
+		TauDoubleDeriv = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=2, x_start=self.x_eta[0], x_end=self.x_eta[-1])
 		kHprimedTau = c*k/(self.Get_Hubble_prime(self.x_eta)*TauDeriv)
-		index = np.where(np.fabs(kHprimedTau)>0.1)[0][0]
-		return self.x_eta[index]
+		index = np.where(np.logical_and(np.greater(np.fabs(kHprimedTau), 0.1), np.greater(np.fabs(TauDoubleDeriv), 10)))
+		#index = np.where(np.fabs(kHprimedTau)>0.1)[0][0]
+		if self.x_eta[index] > self.x_start_rec:
+			return self.x_start_rec
+		else:
+			return self.x_eta[index]
 
 	def Write_Outfile(self, filename, variables, k):
 		""" Saves data to a text file """
@@ -621,4 +626,3 @@ if __name__ == '__main__':
 	print "time elapsed: ",  time.clock() - time_start, "s"
 	PlotInstance = Plotter(savefile=1, k_array=k, variables=Solution)
 	PlotInstance.Plot_results()
-
