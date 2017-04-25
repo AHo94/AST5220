@@ -620,7 +620,7 @@ if __name__ == '__main__':
 	# Defines the range of k
 	k_min = 0.1*H_0/c
 	k_max = 1000*H_0/c
-	k_N = 100
+	k_N = 4
 	k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(k_N)])
 	# Sets number of proceses and starts computing in parallell
 	num_processes = 4
@@ -629,5 +629,5 @@ if __name__ == '__main__':
 	p = mp.Pool(num_processes)
 	Solution = p.map(SolveEquations, k)
 	print "time elapsed: ",  time.clock() - time_start, "s"
-	PlotInstance = Plotter(savefile=0, k_array=k, variables=Solution)
+	PlotInstance = Plotter(savefile=1, k_array=k, variables=Solution)
 	PlotInstance.Plot_results()
