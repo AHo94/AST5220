@@ -414,8 +414,13 @@ class time_mod():
 		TauDeriv = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=1, x_start=self.x_eta[0], x_end=self.x_eta[-1])
 		TauDoubleDeriv = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=2, x_start=self.x_eta[0], x_end=self.x_eta[-1])
 		kHprimedTau = c*k/(self.Get_Hubble_prime(self.x_eta)*TauDeriv)
-		index = np.where(np.logical_and(np.greater(np.fabs(kHprimedTau), 0.1), np.greater(np.fabs(TauDoubleDeriv), 10)))
-		#index = np.where(np.fabs(kHprimedTau)>0.1)[0][0]
+		
+		Condition1 = np.where(np.fabs(kHprimedTau)>0.1)[0]
+		Condition2 = np.where(np.fabs(TauDoubleDeriv) > 10.0)[0]
+		index = np.intersect1d(Condition1, Condition2)
+		if len(index) == 0:
+			index = Condition2[-1]
+		
 		if self.x_eta[index] > self.x_start_rec:
 			return self.x_start_rec
 		else:
@@ -624,5 +629,5 @@ if __name__ == '__main__':
 	p = mp.Pool(num_processes)
 	Solution = p.map(SolveEquations, k)
 	print "time elapsed: ",  time.clock() - time_start, "s"
-	PlotInstance = Plotter(savefile=1, k_array=k, variables=Solution)
+	PlotInstance = Plotter(savefile=0, k_array=k, variables=Solution)
 	PlotInstance.Plot_results()
