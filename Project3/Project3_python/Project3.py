@@ -412,11 +412,11 @@ class time_mod():
 		Assumes that tight coupling ends when k/(Hprimed*Tau') > 0.1
 		"""
 		TauDeriv = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=1, x_start=self.x_eta[0], x_end=self.x_eta[-1])
-		TauDoubleDeriv = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=2, x_start=self.x_eta[0], x_end=self.x_eta[-1])
+		#TauDoubleDeriv = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=2, x_start=self.x_eta[0], x_end=self.x_eta[-1])
 		kHprimedTau = c*k/(self.Get_Hubble_prime(self.x_eta)*TauDeriv)
 		
 		Condition1 = np.where(np.fabs(kHprimedTau)>0.1)[0]
-		Condition2 = np.where(np.fabs(TauDoubleDeriv) > 10.0)[0]
+		Condition2 = np.where(np.fabs(TauDeriv) > 10.0)[0]
 		indexList = np.intersect1d(Condition1, Condition2)
 		if len(indexList) == 0:
 			index = Condition2[-1]
