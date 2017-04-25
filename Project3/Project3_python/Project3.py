@@ -417,10 +417,12 @@ class time_mod():
 		
 		Condition1 = np.where(np.fabs(kHprimedTau)>0.1)[0]
 		Condition2 = np.where(np.fabs(TauDoubleDeriv) > 10.0)[0]
-		index = np.intersect1d(Condition1, Condition2)
-		if len(index) == 0:
+		indexList = np.intersect1d(Condition1, Condition2)
+		if len(indexList) == 0:
 			index = Condition2[-1]
-		
+		else:
+			index = indexList[0]
+
 		if self.x_eta[index] > self.x_start_rec:
 			return self.x_start_rec
 		else:
@@ -620,7 +622,7 @@ if __name__ == '__main__':
 	# Defines the range of k
 	k_min = 0.1*H_0/c
 	k_max = 1000*H_0/c
-	k_N = 4
+	k_N = 100
 	k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(k_N)])
 	# Sets number of proceses and starts computing in parallell
 	num_processes = 4
