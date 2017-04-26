@@ -606,6 +606,7 @@ class Plotter:
 		
 
 def SolveEquations(k):
+	""" Function used to call the solver class for different values of k """
 	solver = time_mod(savefile=1, l_max=6, kVAL=k)
 	ComputedVariables = solver.Compute_Results(100)
 	return ComputedVariables
@@ -613,7 +614,7 @@ def SolveEquations(k):
 if __name__ == '__main__':
 	# Defines the range of k
 	k_min = 0.1*H_0/c
-	k_max = 1000*H_0/c
+	k_max = 1000.0*H_0/c
 	k_N = 100
 	k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(k_N)])
 	# Sets number of proceses and starts computing in parallell
