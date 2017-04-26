@@ -67,8 +67,8 @@ class time_mod():
 			raise ValueError('Argument savefig not properly set. Try savefile = 1 (saves as pdf) or savefile = 0 (do not save as pdf)')
 
 		self.time_start = time.clock()
-		self.n1 = 200
-		self.n2 = 300
+		self.n1 = 400
+		self.n2 = 600
 		self.n_t = self.n1 + self.n2
 		
 		self.z_start_rec = 1630.4
@@ -466,8 +466,8 @@ class Plotter:
 			print 'Current value of savefile = ', savefile
 			raise ValueError('Argument savefig not properly set. Try savefile = 1 (saves as pdf) or savefile = 0 (do not save as pdf)')	
 
-		self.n1 = 200
-		self.n2 = 300
+		self.n1 = 400
+		self.n2 = 600
 		self.n_t = self.n1 + self.n2
 		self.a_init = 1e-8
 		self.x_init = np.log(self.a_init)
