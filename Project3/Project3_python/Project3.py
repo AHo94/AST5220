@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 from scipy import interpolate
 from scipy import integrate
 import time
-import cProfile
 import multiprocessing as mp
 import sys
 
@@ -270,7 +269,7 @@ class time_mod():
 
 	def BoltzmannEinstein_InitConditions(self, k):
 		""" Initial conditions for the Boltzmann equations """
-		Phi = 1.0#*np.ones(self.k_N)
+		Phi = 1.0
 		delta_b = 3.0*Phi/2.0
 		HPrime_0 = self.Get_Hubble_param(self.x_eta_init)
 		InterpolateTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative = 1, x_start = self.x_eta_init, x_end =self.x_eta_init)
@@ -348,8 +347,7 @@ class time_mod():
 		# Calculating some prefactors
 		Hprimed = self.Get_Hubble_prime(x_0)
 		HprimedDer = self.Get_Hubble_prime_derivative(x_0)
-		#Hprime_HprimeDer = Hprimed/HprimedDer
-		Hprime_HprimeDer = HprimedDer/Hprimed
+		HprimeDer_Hprime = HprimedDer/Hprimed
 		Hprimed_Squared = Hprimed*Hprimed
 		ck_Hprimed = c*k/Hprimed
 		# Interpolating Conformal time and Optical depth (its derivatives) at the point x_0
@@ -364,7 +362,7 @@ class time_mod():
 				+ (H_0Squared/(2.0*Hprimed_Squared))*(Omega_m*np.exp(-x_0)*delta + Omega_b*np.exp(-x_0)*delta_b + 4.0*Omega_r*np.exp(-2.0*x_0)*Theta_0)
 		dTheta0dx = -ck_Hprimed*Theta_1 - dPhidx
 		q = -(((1.0 - 2.0*R)*InterTauDerivative + (1.0 + R)*InterTauDoubleDer)*(3.0*Theta_1 + v_b) - ck_Hprimed*Psi +
-			 (1.0-Hprime_HprimeDer)*ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*dTheta0dx)/((1.0+R)*InterTauDerivative + Hprime_HprimeDer - 1.0)
+			 (1.0-HprimeDer_Hprime)*ck_Hprimed*(-Theta_0 + 2.0*Theta_2) - ck_Hprimed*dTheta0dx)/((1.0+R)*InterTauDerivative + HprimeDer_Hprime - 1.0)
 
 		dDeltadx = ck_Hprimed*v - 3.0*dPhidx
 		dDeltabdx = ck_Hprimed*v_b - 3.0*dPhidx
@@ -407,12 +405,8 @@ class time_mod():
 									self.delta, self.deltab, self.v, self.vb, self.Phi])
 
 	def Get_TC_end(self, k):
-		""" 
-		Computes the time when tight coupling ends. Tight coupling when k/(Hprimed*Tau') << 1
-		Assumes that tight coupling ends when k/(Hprimed*Tau') > 0.1
-		"""
+		""" Computes the time when tight coupling ends. See report. """
 		TauDeriv = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=1, x_start=self.x_eta[0], x_end=self.x_eta[-1])
-		#TauDoubleDeriv = self.Spline_Derivative(self.x_eta, self.Taus, self.n_eta, derivative=2, x_start=self.x_eta[0], x_end=self.x_eta[-1])
 		kHprimedTau = c*k/(self.Get_Hubble_prime(self.x_eta)*TauDeriv)
 		
 		Condition1 = np.where(np.fabs(kHprimedTau)>0.1)[0]
@@ -441,7 +435,7 @@ class time_mod():
 		text_file.close()
 
 	def Compute_Results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
-		""" SComputes all the relevant results """
+		""" Computes all the relevant results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
 		# Calculate X_e, n_e and interpolates n_e as a test
 		self.Calculate_Xe()
@@ -449,9 +443,7 @@ class time_mod():
 		x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), n_interp_points)
 		# Calculates tau
 		self.Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
-		time_start = time.clock()
-		counter = 0
-
+		
 		self.BoltzmannEinstein_InitConditions(self.kVal)
 		x_tc_end = self.Get_TC_end(self.kVal)
 		self.x_TC_grid = np.linspace(self.x_eta_init, x_tc_end, self.n1)
