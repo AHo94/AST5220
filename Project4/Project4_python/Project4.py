@@ -5,6 +5,7 @@ from scipy import integrate
 import time
 import multiprocessing as mp
 import sys
+import os
 
 # Global constants
 # Units
@@ -496,28 +497,195 @@ class Plotter:
 
 	def Write_Outfile(self, filename, k, k_index):
 		""" Saves data to a text file """
-		Transposed = variables
 		text_file = open(filename, "w")
 		text_file.write(("Theta0, Theta1, Theta2, Theta3, Theta4, Theta5, Theta6, delta, delta_b, v, v_b, phi, k=%.8e \n") %self.k[k])
 		for i in range(self.n_t):
 			text_file.write(("%.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e \n") \
-				%(self.Theta0[k_index][0][i], self.Theta1[k_index][0][i], self.Theta2[k_index][0][i], self.Theta3[k_index][0][i], 
+				% (self.Theta0[k_index][0][i], self.Theta1[k_index][0][i], self.Theta2[k_index][0][i], self.Theta3[k_index][0][i], 
 				self.Theta4[k_index][0][i], self.Theta5[k_index][0][i], self.Theta6[k_index][0][i], self.delta[k_index][0][i],
-				self.deltab[k_index][0][i], self.v[k_index][0][i], self.vb[k_index][0][i]), self.Phi[k_index][0][i])
+				self.deltab[k_index][0][i], self.v[k_index][0][i], self.vb[k_index][0][i], self.Phi[k_index][0][i]))
 		text_file.close()
 
 	def Plot_results(self):
 		""" Plots the results """
 		self.Sort_Arrays()
 		for i in range(len(self.k)):
-			filname = "BoltzmannVariables_k" + str(i) + ".txt"
-			Write_Outfile(filname, self.k[i], i)
+			filname = "../VariableData/BoltzmannVariables_k" + str(i) + ".txt"
+			self.Write_Outfile(filname, self.k[i], i)
 
 		if self.savefile == 1:
 			a=1
 		else:
 			plt.show()
+
+class Power_Spectrum():
+	def __init__(self, k_array, file_directory):
+		self.x_maxgrid = 5000
+		self.k_maxgrid = 5000
+
+		self.k = k_array
+		self.fildir = file_directory
+
+		self.n1 = 400
+		self.n2 = 600
+		self.n_t = self.n1 + self.n2
+		self.a_init = 1e-8
+		self.x_init = np.log(self.a_init)
+		self.x_0 = 0.0
+		# Set up x grid
+		self.x_t = np.linspace(self.x_init, self.x_0, self.n_t)
+
+		self.Theta0 = []
+		self.Theta1 = []
+		self.Theta2 = []
+		self.Theta3 = []
+		self.Theta4 = []
+		self.Theta5 = []
+		self.Theta6 = []
+		self.delta = []
+		self.deltab = []
+		self.v = []
+		self.vb = []
+		self.Phi = []
+
+
+	def read_file(self, filename):	
+		datafile = open(os.path.join(self.fildir, filename), 'r')
+		SkipFirstLine = 0
+		Theta0_temp = []
+		Theta1_temp = []
+		Theta2_temp = []
+		Theta3_temp = []
+		Theta4_temp = []
+		Theta5_temp = []
+		Theta6_temp = []
+		delta_temp = []
+		deltab_temp = []
+		v_temp = []
+		vb_temp = []
+		Phi_temp = []
+		for line in datafile:
+			data_set = line.split()
+			if SkipFirstLine == 0:
+				SkipFirstLine = 1
+			else:
+				Theta0_temp.append(float(data_set[0]))
+				Theta1_temp.append(float(data_set[1]))
+				Theta2_temp.append(float(data_set[2]))
+				Theta3_temp.append(float(data_set[3]))
+				Theta4_temp.append(float(data_set[4]))
+				Theta5_temp.append(float(data_set[5]))
+				Theta6_temp.append(float(data_set[6]))
+				delta_temp.append(float(data_set[7]))
+				deltab_temp.append(float(data_set[8]))
+				v_temp.append(float(data_set[9]))
+				vb_temp.append(float(data_set[10]))
+				Phi_temp.append(float(data_set[11]))
+
+		self.Theta0.append(Theta0_temp)
+		self.Theta1.append(Theta1_temp)
+		self.Theta2.append(Theta2_temp)
+		self.Theta3.append(Theta3_temp)
+		self.Theta4.append(Theta4_temp)
+		self.Theta5.append(Theta5_temp)
+		self.Theta6.append(Theta6_temp)
+		self.delta.append(delta_temp)
+		self.deltab.append(deltab_temp)
+		self.v.append(v_temp)
+		self.vb.append(vb_temp)
+		self.Phi.append(Phi_temp)
+
+	def Compute_P(self):
+		for i in range(len(k)):
+			filename = "../VariableData/BoltzmannVariables_k" + str(i) + ".txt"
+			self.read_file(filename)
+
+
+		fig1 = plt.figure()
+		ax1 = plt.subplot(111)
+		plt.hold("on")
+		ax1.plot(self.x_t, self.Phi[0], label=r'$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[4], label=r'$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[50], label=r'$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[70], label=r'$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[-5], label=r'$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
+		ax1.plot(self.x_t, self.Phi[-1], label=r'$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
+		ax1.legend(loc='lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
+		plt.xlabel('$x$')
+		plt.ylabel('$\Phi$')
+		plt.title('Plot of $\Phi$ as a function of $x$')
 		
+		fig2 = plt.figure()
+		ax2 = plt.subplot(111)
+		plt.hold("on")
+		ax2.plot(self.x_t, self.Theta0[0], label='$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
+		ax2.plot(self.x_t, self.Theta0[4], label='$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
+		ax2.plot(self.x_t, self.Theta0[50], label='$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
+		ax2.plot(self.x_t, self.Theta0[70], label='$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
+		ax2.plot(self.x_t, self.Theta0[-5], label='$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
+		ax2.plot(self.x_t, self.Theta0[-1], label='$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
+		ax2.legend(loc = 'lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
+		plt.xlabel('$x$')
+		plt.ylabel(r'$\Theta_0$')
+		plt.title(r'Plot of $\Theta_0$ as a function of $x$')
+
+		fig3 = plt.figure()
+		ax3 = plt.subplot(111)
+		plt.hold("on")
+		ax3.semilogy(self.x_t, self.delta[0], label='$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
+		ax3.semilogy(self.x_t, self.delta[4], label='$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
+		ax3.semilogy(self.x_t, self.delta[50], label='$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
+		ax3.semilogy(self.x_t, self.delta[70], label='$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
+		ax3.semilogy(self.x_t, self.delta[-5], label='$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
+		ax3.semilogy(self.x_t, self.delta[-1], label='$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
+		ax3.legend(loc = 'lower left', bbox_to_anchor=(0,0.5), ncol=1, fancybox=True)
+		plt.xlabel('$x$')
+		plt.ylabel(r'$\delta$')
+		plt.title(r'Plot of $\delta$ as a function of $x$')
+		
+		fig4 = plt.figure()
+		ax4 = plt.subplot(111)
+		plt.hold("on")
+		ax4.semilogy(self.x_t, self.deltab[0], label='$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
+		ax4.semilogy(self.x_t, self.deltab[4], label='$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
+		ax4.semilogy(self.x_t, self.deltab[50], label='$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
+		ax4.semilogy(self.x_t, self.deltab[70], label='$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
+		ax4.semilogy(self.x_t, self.deltab[-5], label='$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
+		ax4.semilogy(self.x_t, self.deltab[-1], label='$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
+		ax4.legend(loc = 'lower left', bbox_to_anchor=(0,0.5), ncol=1, fancybox=True)
+		plt.xlabel('$x$')
+		plt.ylabel(r'$\delta_b$')
+		plt.title(r'Plot of $\delta_b$ as a function of $x$')
+		
+		fig5 = plt.figure()
+		ax5 = plt.subplot(111)
+		plt.hold("on")
+		ax5.plot(self.x_t, self.v[0], label='$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
+		ax5.plot(self.x_t, self.v[4], label='$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
+		ax5.plot(self.x_t, self.v[50], label='$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
+		ax5.plot(self.x_t, self.v[70], label='$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
+		ax5.plot(self.x_t, self.v[-5], label='$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
+		ax5.plot(self.x_t, self.v[-1], label='$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
+		ax5.legend(loc = 'lower left', bbox_to_anchor=(0,0.5), ncol=1, fancybox=True)
+		plt.xlabel('$x$')
+		plt.ylabel(r'$v$')
+		plt.title(r'Plot of $v$ as a function of $x$')
+		
+
+		fig6 = plt.figure()
+		ax6 = plt.subplot(111)
+		plt.hold("on")
+		ax6.plot(self.x_t, self.vb[0], label='$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
+		ax6.plot(self.x_t, self.vb[4], label='$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
+		ax6.plot(self.x_t, self.vb[50], label='$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
+		ax6.plot(self.x_t, self.vb[70], label='$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
+		ax6.plot(self.x_t, self.vb[-5], label='$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
+		ax6.plot(self.x_t, self.vb[-1], label='$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
+		ax6.legend(loc = 'lower left', bbox_to_anchor=(0,0.5), ncol=1, fancybox=True)
+		plt.xlabel('$x$')
+		plt.ylabel(r'$v_b$')
+		plt.title(r'Plot of $v_b$ as a function of $x$')
+		plt.show()
 
 def SolveEquations(k):
 	""" Function used to call the solver class for different values of k """
@@ -527,11 +695,17 @@ def SolveEquations(k):
 
 if __name__ == '__main__':
 	# Defines the range of k
+	
 	k_min = 0.1*H_0/c
 	k_max = 1000.0*H_0/c
-	k_N = 4
+	k_N = 100
 	k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(k_N)])
+
+	file_directory = '../VariableData'
+	PS_solver = Power_Spectrum(k, file_directory)
+	PS_solver.Compute_P()
 	# Sets number of proceses and starts computing in parallell
+	"""
 	num_processes = 4
 	print 'Computing ...'
 	time_start = time.clock()
@@ -540,3 +714,4 @@ if __name__ == '__main__':
 	print "time elapsed: ",  time.clock() - time_start, "s"
 	PlotInstance = Plotter(savefile=1, k_array=k, variables=Solution)
 	PlotInstance.Plot_results()
+	"""
