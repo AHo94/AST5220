@@ -59,15 +59,9 @@ c_Squared = c*c
 PsiPrefactor = 12.0*H_0*H_0/(c*c)
 
 class time_mod():
-	def __init__(self, savefile, l_max, kVAL):
-		self.savefile = savefile		# If savefig = 0, plots the data. If savefig = 1, saves the plots into a pdf
+	def __init__(self, l_max, kVAL):
 		self.kVal = kVAL
 
-		if savefile != 0 and savefile != 1:
-			print 'Current value of savefile = ', savefile
-			raise ValueError('Argument savefig not properly set. Try savefile = 1 (saves as pdf) or savefile = 0 (do not save as pdf)')
-
-		self.time_start = time.clock()
 		self.n1 = 400
 		self.n2 = 600
 		self.n_t = self.n1 + self.n2
@@ -444,6 +438,23 @@ class time_mod():
 				x_afterTC_grid, args=(self.kVal,))
 		self.MergeAndFinalize()
 		return self.AllVariables
+
+	def Compute_tau_and_g(self):
+		#self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
+		# Calculate X_e, n_e and interpolates n_e as a test
+		self.Calculate_Xe()
+		self.n_e = self.X_e_array*self.Get_n_b(self.x_eta)
+		x_eta_new, n_e_NewLogarithmic = self.Cubic_Spline(self.x_eta, np.log(self.n_e), self.n_eta)
+		# Calculates tau and interpolates the first and second derivatives
+		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]
+		TauDerivative = self.Spline_Derivative(self.x_eta, Taus, self.n_eta, derivative=1)
+		# Calculate g, and interpolates the first and second derivatives
+		g_tilde = self.Visibility_func(self.x_eta, Taus, TauDerivative)
+		
+		new_x_grid, Taus_smallerGrid = self.Cubic_Spline(self.x_eta, Taus, self.n_t)
+		new_x_grid, g_tilde_smallerGrid = self.Cubic_Spline(self.x_eta, Taus, self.n_t)
+
+		return np.array(Taus_smallerGrid), np.array(g_tilde_smallerGrid)
 		
 
 class Plotter:
@@ -520,9 +531,6 @@ class Plotter:
 
 class Power_Spectrum():
 	def __init__(self, k_array, file_directory):
-		self.x_maxgrid = 5000
-		self.k_maxgrid = 5000
-
 		self.k = k_array
 		self.fildir = file_directory
 
@@ -534,6 +542,10 @@ class Power_Spectrum():
 		self.x_0 = 0.0
 		# Set up x grid
 		self.x_t = np.linspace(self.x_init, self.x_0, self.n_t)
+
+		# Set up larger grid
+		self.x_LargeGrid = np.linspace(self.x_init, self.x_0, 5000)
+		self.k_LargeGrid = np.linspace(self.k[0], self.k[-1], 5000)
 
 		self.Theta0 = []
 		self.Theta1 = []
@@ -548,6 +560,9 @@ class Power_Spectrum():
 		self.vb = []
 		self.Phi = []
 
+		# Get optical depth and visibility function from time_mod class
+		self.timemod_instance = time_mod(l_max=6, kVAL=self.k)
+		self.Tau, self.g_tilde = self.timemod_instance.Compute_tau_and_g()
 
 	def read_file(self, filename):	
 		datafile = open(os.path.join(self.fildir, filename), 'r')
@@ -582,114 +597,79 @@ class Power_Spectrum():
 				vb_temp.append(float(data_set[10]))
 				Phi_temp.append(float(data_set[11]))
 
-		self.Theta0.append(Theta0_temp)
-		self.Theta1.append(Theta1_temp)
-		self.Theta2.append(Theta2_temp)
-		self.Theta3.append(Theta3_temp)
-		self.Theta4.append(Theta4_temp)
-		self.Theta5.append(Theta5_temp)
-		self.Theta6.append(Theta6_temp)
-		self.delta.append(delta_temp)
-		self.deltab.append(deltab_temp)
-		self.v.append(v_temp)
-		self.vb.append(vb_temp)
-		self.Phi.append(Phi_temp)
+		self.Theta0.append(np.array(Theta0_temp))
+		self.Theta1.append(np.array(Theta1_temp))
+		self.Theta2.append(np.array(Theta2_temp))
+		self.Theta3.append(np.array(Theta3_temp))
+		self.Theta4.append(np.array(Theta4_temp))
+		self.Theta5.append(np.array(Theta5_temp))
+		self.Theta6.append(np.array(Theta6_temp))
+		self.delta.append(np.array(delta_temp))
+		self.deltab.append(np.array(deltab_temp))
+		self.v.append(np.array(v_temp))
+		self.vb.append(np.array(vb_temp))
+		self.Phi.append(np.array(Phi_temp))
+
+	def Get_SourceFunction(self, k, k_index):
+		Hprimed = self.timemod_instance.Get_Hubble_prime(self.x_t)
+		Pi = self.Theta2[k_index]
+		Psi = -self.Phi[k_index] - PsiPrefactor*np.exp(-self.x_t)*Omega_r*self.Theta2[k_index]
+		PsiDer = np.gradient(Psi)
+		PhiDer = np.gradient(self.Phi[k_index])
+		S_tilde = self.g_tilde*(self.Theta0[k_index] + Psi + Pi/4.0) + np.exp(-self.Tau)*(PsiDer - PhiDer) \
+				- np.gradient(Hprimed*self.g_tilde*self.vb[k_index])/k \
+				+ 3.0*np.gradient(Hprimed*np.gradient(Hprimed*self.g_tilde*Pi))/(4.0*k*k)
+		return S_tilde
+
+	def Interpolate_LargerGrid(self, SourceFunctions):
+		""" Interpolates the k grid of the computed source functions.  """
+		# Interpolate k grid
+		Interpolated_SourceFunc_unsorted = []
+		for i in range(self.n_t):
+			for j in range(len(k)):
+				S_x_grid = [Sfunc_values[i] for Sfunc_values in SourceFunctions]
+			Temp_interp = interpolate.splrep(self.k, S_x_grid)
+			SourceFunc_k_new = interpolate.splev(self.k_LargeGrid, Temp_interp, der=0)
+			Interpolated_SourceFunc_unsorted.append(SourceFunc_k_new)
+
+		# Sort interpolated k grid
+		Interpolated_k_grid = []
+		for j in range(len(self.k_LargeGrid)):
+			Sgrid = []
+			for i in range(self.n_t):
+				Sgrid.append(Interpolated_SourceFunc_unsorted[i][j])
+			Interpolated_k_grid.append(np.array(Sgrid))
+		
+		# Interpolate x grid
+		Interpolated_SourceFunc = []
+		for i in range(len(Interpolated_k_grid)):
+			Temp_interp = interpolate.splrep(self.x_t, Interpolated_k_grid[i])
+			SourceFunc_x_new = interpolate.splev(self.x_LargeGrid, Temp_interp, der=0)
+			Interpolated_SourceFunc.append(np.array(SourceFunc_x_new))
+		return Interpolated_SourceFunc
+
 
 	def Compute_P(self):
+		""" Computes the power spectrum """
 		for i in range(len(k)):
 			filename = "../VariableData/BoltzmannVariables_k" + str(i) + ".txt"
 			self.read_file(filename)
 
+		Source_functions_smallgrid = []
+		for j in range(len(k)):
+			S_tilde = self.Get_SourceFunction(self.k[j], j)
+			Source_functions_smallgrid.append(S_tilde)
 
-		fig1 = plt.figure()
-		ax1 = plt.subplot(111)
-		plt.hold("on")
-		ax1.plot(self.x_t, self.Phi[0], label=r'$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
-		ax1.plot(self.x_t, self.Phi[4], label=r'$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
-		ax1.plot(self.x_t, self.Phi[50], label=r'$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
-		ax1.plot(self.x_t, self.Phi[70], label=r'$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
-		ax1.plot(self.x_t, self.Phi[-5], label=r'$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
-		ax1.plot(self.x_t, self.Phi[-1], label=r'$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
-		ax1.legend(loc='lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
-		plt.xlabel('$x$')
-		plt.ylabel('$\Phi$')
-		plt.title('Plot of $\Phi$ as a function of $x$')
-		
-		fig2 = plt.figure()
-		ax2 = plt.subplot(111)
-		plt.hold("on")
-		ax2.plot(self.x_t, self.Theta0[0], label='$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
-		ax2.plot(self.x_t, self.Theta0[4], label='$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
-		ax2.plot(self.x_t, self.Theta0[50], label='$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
-		ax2.plot(self.x_t, self.Theta0[70], label='$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
-		ax2.plot(self.x_t, self.Theta0[-5], label='$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
-		ax2.plot(self.x_t, self.Theta0[-1], label='$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
-		ax2.legend(loc = 'lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
-		plt.xlabel('$x$')
-		plt.ylabel(r'$\Theta_0$')
-		plt.title(r'Plot of $\Theta_0$ as a function of $x$')
+		Interpolated_SourceFunction = self.Interpolate_LargerGrid(Source_functions_smallgrid)
 
-		fig3 = plt.figure()
-		ax3 = plt.subplot(111)
-		plt.hold("on")
-		ax3.semilogy(self.x_t, self.delta[0], label='$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
-		ax3.semilogy(self.x_t, self.delta[4], label='$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
-		ax3.semilogy(self.x_t, self.delta[50], label='$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
-		ax3.semilogy(self.x_t, self.delta[70], label='$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
-		ax3.semilogy(self.x_t, self.delta[-5], label='$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
-		ax3.semilogy(self.x_t, self.delta[-1], label='$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
-		ax3.legend(loc = 'lower left', bbox_to_anchor=(0,0.5), ncol=1, fancybox=True)
-		plt.xlabel('$x$')
-		plt.ylabel(r'$\delta$')
-		plt.title(r'Plot of $\delta$ as a function of $x$')
+		print len(Interpolated_SourceFunction)
+		print len(Interpolated_SourceFunction[0])
 		
-		fig4 = plt.figure()
-		ax4 = plt.subplot(111)
-		plt.hold("on")
-		ax4.semilogy(self.x_t, self.deltab[0], label='$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
-		ax4.semilogy(self.x_t, self.deltab[4], label='$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
-		ax4.semilogy(self.x_t, self.deltab[50], label='$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
-		ax4.semilogy(self.x_t, self.deltab[70], label='$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
-		ax4.semilogy(self.x_t, self.deltab[-5], label='$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
-		ax4.semilogy(self.x_t, self.deltab[-1], label='$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
-		ax4.legend(loc = 'lower left', bbox_to_anchor=(0,0.5), ncol=1, fancybox=True)
-		plt.xlabel('$x$')
-		plt.ylabel(r'$\delta_b$')
-		plt.title(r'Plot of $\delta_b$ as a function of $x$')
-		
-		fig5 = plt.figure()
-		ax5 = plt.subplot(111)
-		plt.hold("on")
-		ax5.plot(self.x_t, self.v[0], label='$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
-		ax5.plot(self.x_t, self.v[4], label='$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
-		ax5.plot(self.x_t, self.v[50], label='$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
-		ax5.plot(self.x_t, self.v[70], label='$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
-		ax5.plot(self.x_t, self.v[-5], label='$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
-		ax5.plot(self.x_t, self.v[-1], label='$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
-		ax5.legend(loc = 'lower left', bbox_to_anchor=(0,0.5), ncol=1, fancybox=True)
-		plt.xlabel('$x$')
-		plt.ylabel(r'$v$')
-		plt.title(r'Plot of $v$ as a function of $x$')
-		
-
-		fig6 = plt.figure()
-		ax6 = plt.subplot(111)
-		plt.hold("on")
-		ax6.plot(self.x_t, self.vb[0], label='$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
-		ax6.plot(self.x_t, self.vb[4], label='$k = %.1f H_0/c$' %(self.k[4]*c/H_0))
-		ax6.plot(self.x_t, self.vb[50], label='$k = %.1f H_0/c$' %(self.k[50]*c/H_0))
-		ax6.plot(self.x_t, self.vb[70], label='$k = %.1f H_0/c$' %(self.k[70]*c/H_0))
-		ax6.plot(self.x_t, self.vb[-5], label='$k = %.1f H_0/c$' %(self.k[-5]*c/H_0))
-		ax6.plot(self.x_t, self.vb[-1], label='$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
-		ax6.legend(loc = 'lower left', bbox_to_anchor=(0,0.5), ncol=1, fancybox=True)
-		plt.xlabel('$x$')
-		plt.ylabel(r'$v_b$')
-		plt.title(r'Plot of $v_b$ as a function of $x$')
-		plt.show()
-
+		#plt.plot(self.x_t, Source_functions[60])
+		#plt.show()
 def SolveEquations(k):
 	""" Function used to call the solver class for different values of k """
-	solver = time_mod(savefile=1, l_max=6, kVAL=k)
+	solver = time_mod(l_max=6, kVAL=k)
 	ComputedVariables = solver.Compute_Results(100)
 	return ComputedVariables
 
@@ -704,6 +684,7 @@ if __name__ == '__main__':
 	file_directory = '../VariableData'
 	PS_solver = Power_Spectrum(k, file_directory)
 	PS_solver.Compute_P()
+	
 	# Sets number of proceses and starts computing in parallell
 	"""
 	num_processes = 4
