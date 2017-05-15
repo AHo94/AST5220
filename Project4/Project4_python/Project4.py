@@ -114,6 +114,7 @@ class time_mod():
 		self.Phi = []
 
 		self.Theta1Der = np.zeros(self.n_t)
+		self.Theta2Der = np.zeros(self.n_t)
 		self.Theta3Der = np.zeros(self.n_t)
 		self.PhiDer = np.zeros(self.n_t)
 		self.vbDer = np.zeros(self.n_t)
@@ -448,6 +449,7 @@ class time_mod():
 		dTheta1dx = (q-dvbdx)/3.0
 		
 		self.Theta1Der[0:len(x_0)] = dTheta1dx
+		self.Theta2Der[0:len(x_0)] = dTheta1dx
 		self.Theta3Der[0:len(x_0)] = dTheta1dx
 		self.PhiDer[0:len(x_0)] = dPhidx
 		self.vbDer[0:len(x_0)] = dvbdx
@@ -482,6 +484,7 @@ class time_mod():
 		dvbdx = -np.array(self.vb[0][self.n1:]) - ck_HprimedPsi + InterTauDerivative*R*(3.0*np.array(self.Theta1[0][self.n1:]) + np.array(self.vb[0][self.n1:]))
 
 		self.Theta1Der[self.n1:] = ThetaDerivatives[1]
+		self.Theta2Der[self.n1:] = ThetaDerivatives[2]
 		self.Theta3Der[self.n1:] = ThetaDerivatives[3]
 		self.PhiDer[self.n1:] = dPhidx
 		self.vbDer[self.n1:] = dvbdx
@@ -510,7 +513,7 @@ class time_mod():
 		self.MergeAndFinalize()
 		self.Compute_derivatives_AFTERTC(x_afterTC_grid, self.kVal)
 
-		return self.AllVariables, [self.Theta1Der, self.Theta3Der, self.PhiDer, self.vbDer]
+		return self.AllVariables, [self.Theta1Der, self.Theta2Der, self.Theta3Der, self.PhiDer, self.vbDer]
 
 	def Compute_tau_and_g(self):
 		ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
@@ -525,7 +528,7 @@ class time_mod():
 		new_x_grid, Taus_smallerGrid = self.Cubic_Spline(self.x_eta, Taus, self.n_t)
 		new_x_grid, g_tilde_smallerGrid = self.Cubic_Spline(self.x_eta, g_tilde, self.n_t)
 		new_x_grid, Eta_smallerGrid = self.Cubic_Spline(self.x_eta, ScipyEta, self.n_t)
-	
+
 		return Taus_smallerGrid, g_tilde_smallerGrid, Eta_smallerGrid
 		
 
@@ -561,6 +564,7 @@ class Plotter:
 		self.vb = []
 		self.Phi = []
 		self.Theta1Deriv = []
+		self.Theta2Deriv = []
 		self.Theta3Deriv = []
 		self.PhiDeriv = []
 		self.vbDeriv = []
@@ -582,21 +586,22 @@ class Plotter:
 			self.Phi.append(self.variables[i][0][11])
 
 			self.Theta1Deriv.append(self.variables[i][1][0])
-			self.Theta3Deriv.append(self.variables[i][1][1])
-			self.PhiDeriv.append(self.variables[i][1][2])
-			self.vbDeriv.append(self.variables[i][1][3])
+			self.Theta2Deriv.append(self.variables[i][1][1])
+			self.Theta3Deriv.append(self.variables[i][1][2])
+			self.PhiDeriv.append(self.variables[i][1][3])
+			self.vbDeriv.append(self.variables[i][1][4])
 
 	def Write_Outfile(self, filename, k, k_index):
 		""" Saves data to a text file """
 		text_file = open(filename, "w")
-		text_file.write(("Theta0, Theta1, Theta2, Theta3, Theta4, Theta5, Theta6, delta, delta_b, v, v_b, phi, Theta1Der, Theta3Der, vbDer, PhiDer, k=%.8e H_0/c\n")\
+		text_file.write(("Theta0, Theta1, Theta2, Theta3, Theta4, Theta5, Theta6, delta, delta_b, v, v_b, phi, Theta1Der. Theta2Der, Theta3Der, vbDer, PhiDer, k=%.4e H_0/c\n")\
 					 %(self.k[k_index]*c/H_0))
 		for i in range(self.n_t):
-			text_file.write(("%.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e\n") \
+			text_file.write(("%.7e %.7e %.7e %.7e %.7e %.7e %.7e %.7e %.7e %.7e %.7e %.7e %.7e %.7e %.7e %.7e %.7e\n") \
 				% (self.Theta0[k_index][0][i], self.Theta1[k_index][0][i], self.Theta2[k_index][0][i], self.Theta3[k_index][0][i], 
 				self.Theta4[k_index][0][i], self.Theta5[k_index][0][i], self.Theta6[k_index][0][i], self.delta[k_index][0][i],
 				self.deltab[k_index][0][i], self.v[k_index][0][i], self.vb[k_index][0][i], self.Phi[k_index][0][i],
-				self.Theta1Deriv[0][i], self.Theta3Deriv[0][i], self.vbDeriv[0][i], self.PhiDeriv[0][i]))
+				self.Theta1Deriv[k_index][i], self.Theta2Deriv[k_index][i], self.Theta3Deriv[k_index][i], self.vbDeriv[k_index][i], self.PhiDeriv[k_index][i]))
 		text_file.close()
 
 	def Plot_results(self):
@@ -605,18 +610,18 @@ class Plotter:
 		for i in range(len(self.k)):
 			filname = "../VariableData/BoltzmannVariables_k" + str(i) + ".txt"
 			self.Write_Outfile(filname, self.k[i], i)
-
+		"""
 		fig1 = plt.figure()
 		ax1 = plt.subplot(111)
 		plt.hold("on")
-		ax1.plot(self.x_t, self.Phi[0][0], label=r'$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
-		ax1.plot(self.x_t, self.Phi[5][0], label=r'$k = %.1f H_0/c$' %(self.k[5]*c/H_0))
-		ax1.plot(self.x_t, self.Phi[19][0], label=r'$k = %.1f H_0/c$' %(self.k[19]*c/H_0))
+		ax1.plot(self.x_t, self.PhiDeriv[0], label=r'$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
+		#ax1.plot(self.x_t, self.PhiDeriv[5][0], label=r'$k = %.1f H_0/c$' %(self.k[5]*c/H_0))
+		ax1.plot(self.x_t, self.PhiDeriv[-1], label=r'$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
 		ax1.legend(loc='lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
 		plt.xlabel('$x$')
 		plt.ylabel('$\Phi$')
 		plt.title('Plot of $\Phi$ as a function of $x$')
-
+		"""
 		if self.savefile == 1:
 			a=1
 		else:
@@ -627,6 +632,7 @@ class Power_Spectrum():
 		self.k = k_array
 		self.fildir = file_directory
 
+		self.l_max = 5400
 		self.n1 = 400
 		self.n2 = 600
 		self.n_t = self.n1 + self.n2
@@ -658,6 +664,7 @@ class Power_Spectrum():
 		self.Phi = []
 
 		self.Theta1Deriv = []
+		self.Theta2Deriv = []
 		self.Theta3Deriv = []
 		self.vbDeriv = []
 		self.PhiDeriv = []
@@ -668,6 +675,7 @@ class Power_Spectrum():
 
 		Eta_Temp_interp = interpolate.splrep(self.x_t, self.Eta_smallgrid)
 		self.Eta = interpolate.splev(self.x_LargeGrid, Eta_Temp_interp, der=0)
+		
 
 	def read_file(self, filename):	
 		datafile = open(os.path.join(self.fildir, filename), 'r')
@@ -685,6 +693,7 @@ class Power_Spectrum():
 		vb_temp = []
 		Phi_temp = []
 		Theta1Der_temp = []
+		Theta2Der_temp = []
 		Theta3Der_temp = []
 		vbDer_temp = []
 		PhiDer_temp = []
@@ -707,9 +716,10 @@ class Power_Spectrum():
 				vb_temp.append(float(data_set[10]))
 				Phi_temp.append(float(data_set[11]))
 				Theta1Der_temp.append(float(data_set[12]))
-				Theta3Der_temp.append(float(data_set[13]))
-				vbDer_temp.append(float(data_set[14]))
-				PhiDer_temp.append(float(data_set[15]))
+				Theta2Der_temp.append(float(data_set[13]))
+				Theta3Der_temp.append(float(data_set[14]))
+				vbDer_temp.append(float(data_set[15]))
+				PhiDer_temp.append(float(data_set[16]))
 
 		self.Theta0.append(np.array(Theta0_temp))
 		self.Theta1.append(np.array(Theta1_temp))
@@ -724,6 +734,7 @@ class Power_Spectrum():
 		self.vb.append(np.array(vb_temp))
 		self.Phi.append(np.array(Phi_temp))
 		self.Theta1Deriv.append(np.array(Theta1Der_temp))
+		self.Theta2Deriv.append(np.array(Theta2Der_temp))
 		self.Theta3Deriv.append(np.array(Theta3Der_temp))
 		self.vbDeriv.append(np.array(vbDer_temp))
 		self.PhiDeriv.append(np.array(PhiDer_temp))
@@ -732,43 +743,89 @@ class Power_Spectrum():
 		""" Computes the source function for a given k value """
 		Hprimed = self.timemod_instance.Get_Hubble_prime(x)
 		Hprimed_Derivative = self.timemod_instance.Get_Hubble_prime_derivative(x)
-		InterTauDerivative = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, self.n_t, derivative=1, x_start=self.x_init, x_end=self.x_0)
-		InterTauDoubleDer = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, self.n_t, derivative=2, x_start=self.x_init, x_end=self.x_0)
+		#InterTauDerivative = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, self.n_t, derivative=1, x_start=self.x_init, x_end=self.x_0)
+		#InterTauDoubleDer = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, self.n_t, derivative=2, x_start=self.x_init, x_end=self.x_0)
+		TAUU = self.Spline_Derivative(self.x_t, self.Tau, x, derivative=0)
+		InterTauDerivative = self.Spline_Derivative(self.x_t, self.Tau, x, derivative=1)
+		InterTauDoubleDer = self.Spline_Derivative(self.x_t, self.Tau, x, derivative=2)
 		ck_Hprimed = c*k/Hprimed
-
 		HprimeDer_Hprime = Hprimed_Derivative/Hprimed
-		R = 4.0*Omega_r/(3.0*Omega_b*np.exp(x))
-		Pi = self.Theta2[k_index]
-		Psi = -self.Phi[k_index] - PsiPrefactor*Omega_r*self.Theta2[k_index]/(np.exp(2.0*x)*k**2.0)
-		Theta2Der = 2.0*ck_Hprimed*self.Theta1[k_index]/5.0 - 3.0*ck_Hprimed*self.Theta3[k_index]/5.0 \
-				+ InterTauDerivative*(self.Theta2[k_index] - self.Theta2[k_index]/10.0)
-		PsiDer = -self.PhiDeriv[k_index] + 2.0*PsiPrefactor*Omega_r*self.Theta2[k_index]/(np.exp(2.0*x)*k**2.0) \
-			- PsiPrefactor*Omega_r*Theta2Der/(np.exp(2.0*x)*k**2)
-		# Interpolates the derivatives
-		#PsiDer = self.timemod_instance.Spline_Derivative(self.x_t, Psi, self.n_t, derivative=1)
-		#PhiDer = self.timemod_instance.Spline_Derivative(self.x_t, self.Phi[k_index], self.n_t, derivative=1)
+		k_squared = k*k
 
+		Pi = self.Theta2[k_index]
+		Psi = -self.Phi[k_index] - PsiPrefactor*Omega_r*self.Theta2[k_index]/(np.exp(2.0*x)*k_squared)
+
+		Theta2Der = self.Theta2Deriv[k_index]
+		PsiDer = -self.PhiDeriv[k_index] - PsiPrefactor*Omega_r*(-2.0*np.exp(-2.0*x)*self.Theta2[k_index] + self.Theta2Deriv[k_index]*np.exp(-2.0*x))/k_squared
+		"""
+		self.g_tilde1 = self.g_tilde
 		g_tilde_derivative = self.timemod_instance.Spline_Derivative(self.x_t, self.g_tilde, self.n_t, derivative=1)
 		g_tilde_doubleDer = self.timemod_instance.Spline_Derivative(self.x_t, self.g_tilde, self.n_t, derivative=2)
-		Pi_derivative = self.timemod_instance.Spline_Derivative(self.x_t, Pi, self.n_t, derivative=1)
-		#Pi_doubleDer = self.timemod_instance.Spline_Derivative(self.x_t, Pi, self.n_t, derivative=2)
-
-		Pi_doubleDer = (2.0*k*c/(5.0*Hprimed))*(-HprimeDer_Hprime*self.Theta1[k_index] + self.Theta1Deriv[k_index]) \
+		"""
+		self.g_tilde1 = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=0)
+		g_tilde_derivative = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=1)
+		g_tilde_doubleDer = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=1)
+		
+		Pi_derivative = self.Theta2Deriv[k_index]
+		
+		Pi_doubleDer = (2.0*ck_Hprimed/5.0)*(-HprimeDer_Hprime*self.Theta1[k_index] + self.Theta1Deriv[k_index]) \
 					+ 3.0*(InterTauDoubleDer*Pi + InterTauDerivative*Pi_derivative)/10.0\
-					- (3.0*k*c/(5.0*Hprimed))*(-HprimeDer_Hprime*self.Theta3[k_index] + self.Theta3Deriv[k_index])
-		dHpHpderdx = self.timemod_instance.Spline_Derivative(self.x_t, Hprimed*Hprimed_Derivative, self.n_t, derivative=1)
-		#vb_derivative = self.timemod_instance.Spline_Derivative(self.x_t, self.vb[k_index], self.n_t, derivative=1)
-		#vb_derivative = -self.vb[k_index] - ck_Hprimed*Psi + InterTauDerivative*R*(3.0*self.Theta1[k_index] + self.vb[k_index])
+					- (3.0*ck_Hprimed/5.0)*(-HprimeDer_Hprime*self.Theta3[k_index] + self.Theta3Deriv[k_index])
+		#Pi_doubleDer = (ck_Hprimed/5.0)*(2.0*self.Theta1Deriv[k_index] - 3.0*self.Theta3Deriv[k_index]) \
+		#			- (ck_Hprimed*Hprimed_Derivative/(5.0*Hprimed))*(2.0*self.Theta1[k_index] - 3.0*self.Theta3[k_index])\
+		#			+ 9.0*(InterTauDoubleDer*self.Theta2[k_index] + InterTauDerivative*self.Theta2Deriv[k_index])/10.0
 
-		#dHgvbdx = self.timemod_instance.Spline_Derivative(self.x_t, Hprimed*self.g_tilde*self.vb[k_index], self.n_t, derivative=1)
-		ThirdTermDerivative = Hprimed_Derivative*self.g_tilde*self.vb[k_index] + Hprimed*g_tilde_derivative*self.vb[k_index] \
-							+ Hprimed*self.g_tilde*self.vbDeriv[k_index]
-		LastTermDerivative = self.g_tilde*Pi*dHpHpderdx + 3.0*Hprimed*Hprimed_Derivative*(g_tilde_derivative*Pi + self.g_tilde*Pi_derivative) \
-							+ Hprimed**2*(g_tilde_doubleDer*Pi + 2.0*g_tilde_derivative*Pi_derivative + self.g_tilde*Pi_doubleDer)
+		#dHpHpderdx = self.timemod_instance.Spline_Derivative(self.x_t, Hprimed*Hprimed_Derivative, self.n_t, derivative=1)
+		#dHpHpderdx = self.Spline_Derivative(self.x_t, Hprimed*Hprimed_Derivative, x, derivative=1)
+		#HprimedDoubleDer = self.timemod_instance.Spline_Derivative(self.x_t, Hprimed, self.n_t, derivative=2)
+		HprimedDoubleDer = self.Spline_Derivative(self.x_t, Hprimed, x, derivative=2)
+		dHpHpderdx = (Hprimed_Derivative**2.0 + Hprimed*HprimedDoubleDer)
+		
+		ThirdTermDerivative = Hprimed_Derivative*self.g_tilde1*self.vb[k_index] + Hprimed*g_tilde_derivative*self.vb[k_index] \
+							+ Hprimed*self.g_tilde1*self.vbDeriv[k_index]
+		LastTermDerivative = self.g_tilde1*Pi*dHpHpderdx + 3.0*Hprimed*Hprimed_Derivative*(g_tilde_derivative*Pi + self.g_tilde1*Pi_derivative) \
+							+ (Hprimed**2.0)*(g_tilde_doubleDer*Pi + 2.0*g_tilde_derivative*Pi_derivative + self.g_tilde1*Pi_doubleDer)
 
-		S_tilde = self.g_tilde*(self.Theta0[k_index] + Psi + Pi/4.0) + np.exp(-self.Tau)*(PsiDer - self.PhiDeriv[k_index]) \
-					- ThirdTermDerivative/(k*c) + 3.0*LastTermDerivative/(4.0*(c*k)**2)
+		S_tilde = self.g_tilde1*(self.Theta0[k_index] + Psi + Pi/4.0) + np.exp(-TAUU)*(PsiDer - self.PhiDeriv[k_index]) \
+					- ThirdTermDerivative/(c*k) + 3.0*LastTermDerivative/(4.0*c_Squared*k_squared)
 		return S_tilde
+
+	def Get_SourceFunction2(self, x, xid, k, k_index):
+		""" Computes the source function for a given k value """
+		Hprimed = self.timemod_instance.Get_Hubble_prime(x)
+		Hprimed_Derivative = self.timemod_instance.Get_Hubble_prime_derivative(x)
+		Hprimed_DoubleDer = self.timemod_instance.Spline_Derivative(self.x_t, self.timemod_instance.Get_Hubble_prime(self.x_t),\
+								 1, derivative=2, x_start=x, x_end=x)
+		InterTauDerivative = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, 1, derivative=1, x_start=x, x_end=x)
+		InterTauDoubleDer = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, 1, derivative=2, x_start=x, x_end=x)
+		TauInterp = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, 1, derivative=0, x_start=x, x_end=x)
+		ck_Hprimed = c*k/Hprimed
+		k_squared = k*k
+
+		HprimeDer_Hprime = Hprimed_Derivative/Hprimed
+		Pi = self.Theta2[k_index][xid]
+		Psi = -self.Phi[k_index][xid] - PsiPrefactor*Omega_r*self.Theta2[k_index][xid]/(np.exp(2.0*x)*k_squared)
+		PsiDer = -self.PhiDeriv[k_index][xid] -PsiPrefactor*Omega_r*np.exp(-2.0*x)*(-2.0*self.Theta2[k_index][xid] + self.Theta2Deriv[k_index][xid])/k_squared
+
+		self.g_tilde1 = self.timemod_instance.Spline_Derivative(self.x_t, self.g_tilde, 1, derivative=0, x_start=x, x_end=x)
+		g_tilde_derivative = self.timemod_instance.Spline_Derivative(self.x_t, self.g_tilde, 1, derivative=1, x_start=x, x_end=x)
+		g_tilde_doubleDer = self.timemod_instance.Spline_Derivative(self.x_t, self.g_tilde, 1, derivative=2, x_start=x, x_end=x)
+		Pi_derivative = self.Theta2Deriv[k_index][xid]
+		Pi_doubleDer = (2.0*ck_Hprimed/5.0)*(-HprimeDer_Hprime*self.Theta1[k_index][xid] + self.Theta1Deriv[k_index][xid]) \
+					+ 9.0*(InterTauDoubleDer*Pi + InterTauDerivative*Pi_derivative)/10.0\
+					- (3.0*ck_Hprimed/5.0)*(-HprimeDer_Hprime*self.Theta3[k_index][xid] + self.Theta3Deriv[k_index][xid])
+		
+		dHpHpderdx = (Hprimed_Derivative**2.0 + Hprimed*Hprimed_DoubleDer)
+
+		ThirdTermDerivative = Hprimed_Derivative*self.g_tilde1*self.vb[k_index][xid] + Hprimed*g_tilde_derivative*self.vb[k_index][xid] \
+							+ Hprimed*self.g_tilde1*self.vbDeriv[k_index][xid]
+		LastTermDerivative = self.g_tilde1*Pi*dHpHpderdx + 3.0*Hprimed*Hprimed_Derivative*(g_tilde_derivative*Pi + self.g_tilde1*Pi_derivative) \
+							+ Hprimed**2.0*(g_tilde_doubleDer*Pi + 2.0*g_tilde_derivative*Pi_derivative + self.g_tilde1*Pi_doubleDer)
+
+		S_tilde = self.g_tilde1*(self.Theta0[k_index][xid] + Psi + Pi/4.0) + np.exp(-TauInterp)*(PsiDer - self.PhiDeriv[k_index][xid]) \
+					- ThirdTermDerivative/(c*k) + 3.0*LastTermDerivative/(4.0*c_Squared*k_squared)
+		
+		return S_tilde[0]
 
 	def Interpolate_LargerGrid(self, SourceFunctions):
 		""" Interpolates the k grid of the computed source functions.  """
@@ -797,7 +854,7 @@ class Power_Spectrum():
 			Interpolated_SourceFunc.append(np.array(SourceFunc_x_new))
 		return Interpolated_SourceFunc
 
-	def Get_x_grid_with_TC(self, k):
+	def Get_x_grid_with_TC(self, k, largeGrid=0):
 		TauDeriv = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, self.n_t, derivative=1, x_start=self.x_t[0], x_end=self.x_t[-1])
 		kHprimedTau = c*k/(self.timemod_instance.Get_Hubble_prime(self.x_t)*TauDeriv)
 		
@@ -813,11 +870,25 @@ class Power_Spectrum():
 			x_tc_end = self.timemod_instance.x_start_rec
 		else:
 			x_tc_end = self.x_t[index]
-		Xinit_TC = np.linspace(self.x_init, x_tc_end, self.n1)
-		Xend_TC = np.linspace(x_tc_end, self.x_0, self.n2)
-		X_grid_w_TC = np.concatenate([Xinit_TC, Xend_TC])
+
+		if largeGrid == 0:
+			Xinit_TC = np.linspace(self.x_init, x_tc_end, self.n1)
+			Xend_TC = np.linspace(x_tc_end, self.x_0, self.n2)
+			X_grid_w_TC = np.concatenate([Xinit_TC, Xend_TC])
+		else:
+			Xinit_TC = np.linspace(self.x_init, x_tc_end, 2000)
+			Xend_TC = np.linspace(x_tc_end, self.x_0, 3000)
+			X_grid_w_TC = np.concatenate([Xinit_TC, Xend_TC])
 		return X_grid_w_TC
 
+	def Spline_Derivative(self, x_values, y_values, xgrid, derivative):
+		""" Spline derivative for any functions. Using natural spline for the second derivative """
+		Temp_interp = interpolate.splrep(x_values, y_values)
+		yDerivative = interpolate.splev(xgrid, Temp_interp, der=derivative)
+		if derivative == 2:
+			yDerivative[0] = 0
+			yDerivative[-1] = 0
+		return yDerivative
 
 	def Compute_P(self):
 		""" Computes the power spectrum """
@@ -829,25 +900,42 @@ class Power_Spectrum():
 		Source_functions_smallgrid = []
 		start = time.clock()
 
+		# Compute source function
+		Stemp = []
 		for j in range(len(k)):
 			X_grid_w_TC = self.Get_x_grid_with_TC(self.k[j])
-			S_tilde = self.Get_SourceFunction(X_grid_w_TC, self.k[j], j)
+			S_tilde = self.Get_SourceFunction(self.x_t, self.k[j], j)
 			Source_functions_smallgrid.append(S_tilde)
 		print 'Computing source function time: ', time.clock() - start, 's'
 		
+		# Interpolate source function over larger grid
 		start2 = time.clock()
-		#Interpolated_SourceFunction = self.Interpolate_LargerGrid(Source_functions_smallgrid)
+		Interpolated_SourceFunction = self.Interpolate_LargerGrid(Source_functions_smallgrid)
 		print 'Interpolation time: ', time.clock() - start2, 's'
-		BesselFunc0 = special.spherical_jn(0,np.pi)
-		BesselFunc1 = special.spherical_jn(1,np.pi)
-
-		#TEST = Interpolated_SourceFunction[1733]*special.spherical_jn(100, self.k_LargeGrid[1733]*(self.Eta[-1]-self.Eta))/(1.0e-3)
-		#print Interpolated_SourceFunction
-		TEST2 = Source_functions_smallgrid[58]*special.spherical_jn(100, self.k[58]*(self.Eta_smallgrid[-1] - self.Eta_smallgrid))/1.0e-3
-
-		plt.plot(self.x_t, TEST2)
-		plt.show()
-
+		
+		# Interpolate Etas over larger K grid
+		BesselArgs = []
+		X_grids = []
+		for ks in self.k_LargeGrid:
+			X_TT = self.Get_x_grid_with_TC(ks, largeGrid=1)
+			ETA = self.Spline_Derivative(self.x_LargeGrid, self.Eta, X_TT, derivative=0)
+			X_grids.append(X_TT)
+			BesselArgs.append(ks*(ETA[-1] - ETA))
+		
+		# Compute transfer function
+		start3 = time.clock()
+		TransferFunc_array = []
+		for l in range(0, self.l_max):
+			Sourcefunc = Interpolated_SourceFunction*special.spherical_jn(l, BesselArgs)
+			TransferFunc = integrate.trapz(Sourcefunc, x=X_grids)
+			TransferFunc_array.append(TransferFunc)
+		print 'Computing transfer func time: ', time.clock() - start3, 's'
+		
+		#TEST = Interpolated_SourceFunction[1733]*special.spherical_jn(100, self.k_LargeGrid[1733]*(self.Eta[-1] - self.Eta))/(1.0e-3)
+		#plt.plot(self.x_LargeGrid, TEST)
+		plt.xlabel('x')
+		plt.ylabel(r'$\tilde{S(x,k)j_n[k(\eta_0 - \eta(x))]}/10^{-3}$')
+		#plt.show()
 
 def SolveEquations(k):
 	""" Function used to call the solver class for different values of k """
@@ -862,10 +950,11 @@ if __name__ == '__main__':
 	k_max = 1000.0*H_0/c
 	k_N = 100
 	k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(k_N)])
-	# Sets number of proceses and starts computing in parallell
 	"""
+	# Sets number of proceses and starts computing in parallell
 	num_processes = 4
 	print 'Computing ...'
+	#Solution = SolveEquations(k[0])
 	time_start = time.clock()
 	p = mp.Pool(num_processes)
 	Solution = p.map(SolveEquations, k)
@@ -873,9 +962,7 @@ if __name__ == '__main__':
 	PlotInstance = Plotter(savefile=1, k_array=k, variables=Solution)
 	PlotInstance.Plot_results()
 	"""
-		
 	
 	file_directory = '../VariableData'
 	PS_solver = Power_Spectrum(k, file_directory)
 	PS_solver.Compute_P()
-	
