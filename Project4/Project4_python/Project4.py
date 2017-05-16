@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy
 from scipy import interpolate
 from scipy import integrate
 from scipy import special
@@ -669,14 +670,6 @@ class Power_Spectrum():
 		self.vbDeriv = []
 		self.PhiDeriv = []
 
-		# Get optical depth and visibility function from time_mod class
-		self.timemod_instance = time_mod(l_max=6, kVAL=self.k)
-		self.Tau, self.g_tilde, self.Eta_smallgrid = self.timemod_instance.Compute_tau_and_g()
-
-		Eta_Temp_interp = interpolate.splrep(self.x_t, self.Eta_smallgrid)
-		self.Eta = interpolate.splev(self.x_LargeGrid, Eta_Temp_interp, der=0)
-		
-
 	def read_file(self, filename):	
 		datafile = open(os.path.join(self.fildir, filename), 'r')
 		SkipFirstLine = 0
@@ -892,6 +885,13 @@ class Power_Spectrum():
 
 	def Compute_P(self):
 		""" Computes the power spectrum """
+		# Get optical depth and visibility function from time_mod class
+		self.timemod_instance = time_mod(l_max=6, kVAL=self.k)
+		self.Tau, self.g_tilde, self.Eta_smallgrid = self.timemod_instance.Compute_tau_and_g()
+
+		Eta_Temp_interp = interpolate.splrep(self.x_t, self.Eta_smallgrid)
+		self.Eta = interpolate.splev(self.x_LargeGrid, Eta_Temp_interp, der=0)
+		
 		read_start = time.clock()
 		for i in range(len(k)):
 			filename = "../VariableData/BoltzmannVariables_k" + str(i) + ".txt"
@@ -910,19 +910,20 @@ class Power_Spectrum():
 		
 		# Interpolate source function over larger grid
 		start2 = time.clock()
-		Interpolated_SourceFunction = self.Interpolate_LargerGrid(Source_functions_smallgrid)
+		self.Interpolated_SourceFunction = self.Interpolate_LargerGrid(Source_functions_smallgrid)
 		
 		# Interpolate Etas over larger K grid
-		BesselArgs = []
-		X_grids = []
+		self.BesselArgs = []
+		self.X_grids = []
 		for ks in self.k_LargeGrid:
 			X_TT = self.Get_x_grid_with_TC(ks, largeGrid=1)
 			ETA = self.Spline_Derivative(self.x_LargeGrid, self.Eta, X_TT, derivative=0)
-			X_grids.append(X_TT)
-			BesselArgs.append(ks*(ETA[-1] - ETA))
+			self.X_grids.append(X_TT)
+			self.BesselArgs.append(ks*(ETA[-1] - ETA))
 		
 		print 'Interpolation time: ', time.clock() - start2, 's'
-		
+		#return BesselArgs
+		"""
 		# Compute transfer function
 		print 'Starting transferfunc calculation'
 
@@ -933,7 +934,18 @@ class Power_Spectrum():
 		for i in range(0, 100):
 			ls.append([i])
 
-		Sourcefunc = Interpolated_SourceFunction*special.spherical_jn(ls, BesselArgs)
+		#Tes = special.spherical_jn(3000, BesselArgs[5])
+		start11 = time.clock()
+		print " bessells!"
+		#Tes = special.spherical_jn(1200, BesselArgs)
+		for l in range(0, self.l_max):
+			Tes2 = special.spherical_jn(5400, BesselArgs)
+		#print Tes
+		print Tes2
+		print "time: ", time.clock() - start11, "s"
+		"""
+		"""
+		Sourcefunc = Interpolated_SourceFunction*special.spherical_jn(100, BesselArgs)
 		print 'Computing transfer func time: ', time.clock() - start3, 's'
 		
 		print 'ok 1'
@@ -943,18 +955,28 @@ class Power_Spectrum():
 		print 'Computing transfer func time: ', time.clock() - start3, 's'
 		plt.plot(self.k_LargeGrid*c/H_0, TransferFunc**2/(self.k_LargeGrid*c)/(1e-6/H_0))
 		plt.show()
-
+		"""
 		#TEST = Interpolated_SourceFunction[1733]*special.spherical_jn(100, self.k_LargeGrid[1733]*(self.Eta[-1] - self.Eta))/(1.0e-3)
 		#plt.plot(self.x_LargeGrid, TEST)
 		#plt.xlabel('x')
 		#plt.ylabel(r'$\tilde{S(x,k)j_n[k(\eta_0 - \eta(x))]}/10^{-3}$')
 		#plt.show()
 
+	def Compute_transfer_function(self, l):
+		BesselFunc = special.spherical_jn(l, self.BesselArgs)
+		Integrand = self.Interpolated_SourceFunction*BesselFunc
+		Transferfunc = integrate.trapz(Integrand, x=self.X_grids)
+		return Transferfunc
+
 def SolveEquations(k):
 	""" Function used to call the solver class for different values of k """
 	solver = time_mod(l_max=6, kVAL=k)
 	ComputedVariables = solver.Compute_Results(100)
 	return ComputedVariables
+
+def Solve_TransferFunction(l):
+	Computed_Theta_l = PS_solver.Compute_transfer_function(l)
+	return Computed_Theta_l
 
 if __name__ == '__main__':
 	# Defines the range of k
@@ -963,28 +985,31 @@ if __name__ == '__main__':
 	k_max = 1000.0*H_0/c
 	k_N = 100
 	k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(k_N)])
-	"""
-	# Sets number of proceses and starts computing in parallell
+
+	# Sets number of proceses to compute in parallell
 	num_processes = 4
+	"""
 	print 'Computing ...'
-	#Solution = SolveEquations(k[0])
-	time_start = time.clock()
 	p = mp.Pool(num_processes)
 	Solution = p.map(SolveEquations, k)
 	print "time elapsed: ",  time.clock() - time_start, "s"
 	PlotInstance = Plotter(savefile=1, k_array=k, variables=Solution)
 	PlotInstance.Plot_results()
 	"""
+	
 	file_directory = '../VariableData'
-	#PS_solver = Power_Spectrum(k, file_directory)
-	#PS_solver.Compute_P()
-	
-
-	Bessel = special.spherical_jn(1, np.array([1,2,3,4,5,6]))
-	Bessel2 = special.spherical_jn(2, np.array([1,2,3,4,5,6]))
-	Bessel3 = special.spherical_jn([[1],[2],[3]], np.array([1,2,3,4,5,6]))
-	print Bessel
-	print Bessel2
-	print ' '
-	print Bessel3
-	
+	PS_solver = Power_Spectrum(k, file_directory)
+	PS_solver.Compute_P()
+	l_values = [i for i in range(2)]
+	timer = time.clock()
+	p = mp.Pool(num_processes)
+	Transfer_function = p.map(Solve_TransferFunction, l_values)
+	print "TIMEE : ", time.clock() - timer, "s"
+	"""
+	print Transfer_function[0]
+	textfil = open("../ThetaData/file1.txt", "w")
+	for ks in range(len(Transfer_function[0])):
+		for i in l_values:
+			textfil.write(("%.8e ") %(Transfer_function[i][ks]))
+		textfil.write("\n")
+	"""
