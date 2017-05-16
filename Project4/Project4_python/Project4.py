@@ -1000,16 +1000,16 @@ if __name__ == '__main__':
 	file_directory = '../VariableData'
 	PS_solver = Power_Spectrum(k, file_directory)
 	PS_solver.Compute_P()
-	l_values = [i for i in range(2)]
+	l_values = [i for i in range(5401)]
 	timer = time.clock()
 	p = mp.Pool(num_processes)
 	Transfer_function = p.map(Solve_TransferFunction, l_values)
 	print "TIMEE : ", time.clock() - timer, "s"
-	"""
+	
 	print Transfer_function[0]
 	textfil = open("../ThetaData/file1.txt", "w")
 	for ks in range(len(Transfer_function[0])):
 		for i in l_values:
 			textfil.write(("%.8e ") %(Transfer_function[i][ks]))
 		textfil.write("\n")
-	"""
+	
