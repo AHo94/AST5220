@@ -911,7 +911,6 @@ class Power_Spectrum():
 		# Interpolate source function over larger grid
 		start2 = time.clock()
 		Interpolated_SourceFunction = self.Interpolate_LargerGrid(Source_functions_smallgrid)
-		print 'Interpolation time: ', time.clock() - start2, 's'
 		
 		# Interpolate Etas over larger K grid
 		BesselArgs = []
@@ -922,19 +921,33 @@ class Power_Spectrum():
 			X_grids.append(X_TT)
 			BesselArgs.append(ks*(ETA[-1] - ETA))
 		
+		print 'Interpolation time: ', time.clock() - start2, 's'
+		
 		# Compute transfer function
+		print 'Starting transferfunc calculation'
+
 		start3 = time.clock()
 		TransferFunc_array = []
-		for l in range(0, self.l_max):
-			Sourcefunc = Interpolated_SourceFunction*special.spherical_jn(l, BesselArgs)
-			TransferFunc = integrate.trapz(Sourcefunc, x=X_grids)
-			TransferFunc_array.append(TransferFunc)
+		#for l in range(0, 10):
+		ls = []
+		for i in range(0, 100):
+			ls.append([i])
+
+		Sourcefunc = Interpolated_SourceFunction*special.spherical_jn(ls, BesselArgs)
 		print 'Computing transfer func time: ', time.clock() - start3, 's'
 		
+		print 'ok 1'
+		TransferFunc = integrate.trapz(Sourcefunc, x=X_grids)
+		print 'ok 2'
+		TransferFunc_array.append(TransferFunc)
+		print 'Computing transfer func time: ', time.clock() - start3, 's'
+		plt.plot(self.k_LargeGrid*c/H_0, TransferFunc**2/(self.k_LargeGrid*c)/(1e-6/H_0))
+		plt.show()
+
 		#TEST = Interpolated_SourceFunction[1733]*special.spherical_jn(100, self.k_LargeGrid[1733]*(self.Eta[-1] - self.Eta))/(1.0e-3)
 		#plt.plot(self.x_LargeGrid, TEST)
-		plt.xlabel('x')
-		plt.ylabel(r'$\tilde{S(x,k)j_n[k(\eta_0 - \eta(x))]}/10^{-3}$')
+		#plt.xlabel('x')
+		#plt.ylabel(r'$\tilde{S(x,k)j_n[k(\eta_0 - \eta(x))]}/10^{-3}$')
 		#plt.show()
 
 def SolveEquations(k):
@@ -962,7 +975,16 @@ if __name__ == '__main__':
 	PlotInstance = Plotter(savefile=1, k_array=k, variables=Solution)
 	PlotInstance.Plot_results()
 	"""
-	
 	file_directory = '../VariableData'
-	PS_solver = Power_Spectrum(k, file_directory)
-	PS_solver.Compute_P()
+	#PS_solver = Power_Spectrum(k, file_directory)
+	#PS_solver.Compute_P()
+	
+
+	Bessel = special.spherical_jn(1, np.array([1,2,3,4,5,6]))
+	Bessel2 = special.spherical_jn(2, np.array([1,2,3,4,5,6]))
+	Bessel3 = special.spherical_jn([[1],[2],[3]], np.array([1,2,3,4,5,6]))
+	print Bessel
+	print Bessel2
+	print ' '
+	print Bessel3
+	
