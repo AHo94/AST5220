@@ -669,7 +669,10 @@ class Power_Spectrum():
 		self.vbDeriv = []
 		self.PhiDeriv = []
 
-		self.CHECK = 0
+		self.l_values = []
+		for i in range(1200):
+			self.l_values.append([i])
+		
 
 	def read_file(self, filename):	
 		datafile = open(os.path.join(self.fildir, filename), 'r')
@@ -879,8 +882,6 @@ class Power_Spectrum():
 	def Spline_Derivative(self, x_values, y_values, xgrid, derivative):
 		""" Spline derivative for any functions. Using natural spline for the second derivative """
 		Temp_interp = interpolate.splrep(x_values, y_values)
-		if self.CHECK == 1:
-			print Temp_interp
 		yDerivative = interpolate.splev(xgrid, Temp_interp, der=derivative)
 		if derivative == 2:
 			yDerivative[0] = 0
@@ -921,40 +922,50 @@ class Power_Spectrum():
 		self.X_grids = []
 
 		for ks in self.k_LargeGrid:
-			X_TT = self.Get_x_grid_with_TC(ks, largeGrid=0)
+			X_TT = self.Get_x_grid_with_TC(ks, largeGrid=1)
 			ETA = self.Spline_Derivative(self.x_LargeGrid, self.Eta, X_TT, derivative=0)
 			self.X_grids.append(X_TT)
 			self.BesselArgs.append(ks*(ETA[-1] - ETA))
 
 		print 'Interpolation time: ', time.clock() - start2, 's'
-		
 
-		#return BesselArgs
-		
+		TransferFunctions = []
+		textfil = open("../ThetaData/Transferfuncs.txt", "w")
+		for k_id in range(len(self.k_LargeGrid)):
+			Besselfunc = special.spherical_jn(self.l_values, self.BesselArgs[k_id])
+			Integrand = self.Interpolated_SourceFunction[k_id]*Besselfunc
+			Integral = integrate.trapz(Integrand, self.X_grids[k_id])
+			#TransferFunctions.append(np.array(Integral))
+			for i in range(len(Integral)):
+				textfil.write("%.8e " %(Integral[i]))
+			textfil.write("\n")
+		"""
+		for kss in range(30):
+			for i in PS_solver.l_values:
+				textfil.write(("%.8e \n") %(TransferFunctions[kss][i]))
+			textfil.write("\n")		
+		"""
+		#return self.BesselArgs
+		"""
+		#return self.BesselArgs
 		# Compute transfer function
 		print 'Starting transferfunc calculation'
 
 		start11 = time.clock()
 		a11 = special.spherical_jn(100, self.BesselArgs[1733])
-
 		print "time: ", time.clock() - start11, "s"
-		
-		self.CHECK=1
+
 		XX = self.Get_x_grid_with_TC(self.k_LargeGrid[1733], largeGrid=1)
 		XX2 = self.Get_x_grid_with_TC(self.k_LargeGrid[1733])
-		b = self.Spline_Derivative(self.x_t, a11, XX, derivative=0)
 		
-
-		SUPER = self.Spline_Derivative(self.x_LargeGrid, self.Eta, XX, derivative=0)
-		BB = self.k_LargeGrid[1733]*(SUPER[-1] - SUPER)
-		CC = special.spherical_jn(100, BB)
-
+		b = self.Spline_Derivative(XX2, a11, XX, derivative=0)
+		
+		
 		plt.plot(XX2, a11)
 		plt.hold("on")
 		plt.plot(XX, b, 'r-')
-		plt.plot(XX, CC, 'g-')
 		plt.show()
-		
+		"""
 		"""
 		Sourcefunc = Interpolated_SourceFunction*special.spherical_jn(100, BesselArgs)
 		print 'Computing transfer func time: ', time.clock() - start3, 's'
@@ -973,11 +984,21 @@ class Power_Spectrum():
 		#plt.ylabel(r'$\tilde{S(x,k)j_n[k(\eta_0 - \eta(x))]}/10^{-3}$')
 		#plt.show()
 
-	def Compute_transfer_function(self, l):
+	def Compute_transfer_function(self, k_index):
+		"""
 		BesselFunc = special.spherical_jn(l, self.BesselArgs)
 		Integrand = self.Interpolated_SourceFunction*BesselFunc
 		Transferfunc = integrate.trapz(Integrand, x=self.X_grids)
-		return Transferfunc
+		"""
+		Transferfunc = []
+		BESS = special.spherical_jn(100, self.BesselArgs[k_index])
+		#for l in l_values:
+		Integrand = self.Interpolated_SourceFunction[k_index]*BESS#[l]
+		Integral = integrate.trapz(Integrand, x=self.X_grids[k_index])
+		#Transfer_temp.append(Integral)
+		Transferfunc.append(Integral)
+		#print Transferfunc
+		return Transferfunc[0]
 
 def SolveEquations(k):
 	""" Function used to call the solver class for different values of k """
@@ -985,13 +1006,14 @@ def SolveEquations(k):
 	ComputedVariables = solver.Compute_Results(100)
 	return ComputedVariables
 
-def Solve_TransferFunction(l):
-	Computed_Theta_l = PS_solver.Compute_transfer_function(l)
+def Solve_TransferFunction(k_id):
+	#print k_id, type(k_id)
+	Computed_Theta_l = PS_solver.Compute_transfer_function(k_id)
 	return Computed_Theta_l
 
-if __name__ == '__main__':
-	# Defines the range of k
+if __name__ == '__main__':		
 	print 'Starting program'
+	# Defines the range of k
 	k_min = 0.1*H_0/c
 	k_max = 1000.0*H_0/c
 	k_N = 100
@@ -1007,22 +1029,43 @@ if __name__ == '__main__':
 	PlotInstance = Plotter(savefile=1, k_array=k, variables=Solution)
 	PlotInstance.Plot_results()
 	"""
-	
+
 	file_directory = '../VariableData'
 	PS_solver = Power_Spectrum(k, file_directory)
 	PS_solver.Compute_P()
 	"""
-	l_values = [i for i in range(5401)]
+	Theta_dir = '../ThetaData'
+	datafile = open(os.path.join(Theta_dir, "file1.txt"), 'r')
+	ay = []
+	for line in datafile:
+		data_set = line.split()
+		for j in range(len(data_set)):
+			ay.append(float(data_set[j]))
+		print np.array(ay)	
+	"""
+	"""
+	k_large_grid = np.array([i for i in range(1)])
 	timer = time.clock()
 	p = mp.Pool(num_processes)
-	Transfer_function = p.map(Solve_TransferFunction, l_values)
+	Transfer_function = p.map(Solve_TransferFunction, k_large_grid)
 	print "TIMEE : ", time.clock() - timer, "s"
-	
-	print Transfer_function[0]
+	print Transfer_function
+	plt.plot(k_large_grid*c/H_0, np.array(Transfer_function[0])**2/(k_large_grid*c)/(1e-6*H_0**(-1)))
+	plt.show()
+	"""
+	"""
+	print special.spherical_jn(0, [1,2,3])
+	print special.spherical_jn(1, [1,2,3])
+	print special.spherical_jn(2, [1,2,3])
+	print ' '
+	Bes = special.spherical_jn([[0],[1],[2]], [1,2,3])
+	print Bes
+	"""
+	"""
 	textfil = open("../ThetaData/file1.txt", "w")
-	for ks in range(len(Transfer_function[0])):
-		for i in l_values:
-			textfil.write(("%.8e ") %(Transfer_function[i][ks]))
-		textfil.write("\n")
+	#for ks in range(len(Transfer_function[0])):
+	for i in PS_solver.l_values:
+		textfil.write(("%.8e ") %(Transfer_function[i[0]][0]))
+	textfil.write("\n")
 	"""
 	
