@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import scipy
 from scipy import interpolate
 from scipy import integrate
 from scipy import special
@@ -670,6 +669,8 @@ class Power_Spectrum():
 		self.vbDeriv = []
 		self.PhiDeriv = []
 
+		self.CHECK = 0
+
 	def read_file(self, filename):	
 		datafile = open(os.path.join(self.fildir, filename), 'r')
 		SkipFirstLine = 0
@@ -842,8 +843,9 @@ class Power_Spectrum():
 		# Interpolate x grid
 		Interpolated_SourceFunc = []
 		for i in range(len(Interpolated_k_grid)):
+			x_grid = self.Get_x_grid_with_TC(self.k_LargeGrid[i], largeGrid=1)	
 			Temp_interp = interpolate.splrep(self.x_t, Interpolated_k_grid[i])
-			SourceFunc_x_new = interpolate.splev(self.x_LargeGrid, Temp_interp, der=0)
+			SourceFunc_x_new = interpolate.splev(x_grid, Temp_interp, der=0)
 			Interpolated_SourceFunc.append(np.array(SourceFunc_x_new))
 		return Interpolated_SourceFunc
 
@@ -877,6 +879,8 @@ class Power_Spectrum():
 	def Spline_Derivative(self, x_values, y_values, xgrid, derivative):
 		""" Spline derivative for any functions. Using natural spline for the second derivative """
 		Temp_interp = interpolate.splrep(x_values, y_values)
+		if self.CHECK == 1:
+			print Temp_interp
 		yDerivative = interpolate.splev(xgrid, Temp_interp, der=derivative)
 		if derivative == 2:
 			yDerivative[0] = 0
@@ -915,35 +919,42 @@ class Power_Spectrum():
 		# Interpolate Etas over larger K grid
 		self.BesselArgs = []
 		self.X_grids = []
+
 		for ks in self.k_LargeGrid:
-			X_TT = self.Get_x_grid_with_TC(ks, largeGrid=1)
+			X_TT = self.Get_x_grid_with_TC(ks, largeGrid=0)
 			ETA = self.Spline_Derivative(self.x_LargeGrid, self.Eta, X_TT, derivative=0)
 			self.X_grids.append(X_TT)
 			self.BesselArgs.append(ks*(ETA[-1] - ETA))
-		
+
 		print 'Interpolation time: ', time.clock() - start2, 's'
+		
+
 		#return BesselArgs
-		"""
+		
 		# Compute transfer function
 		print 'Starting transferfunc calculation'
 
-		start3 = time.clock()
-		TransferFunc_array = []
-		#for l in range(0, 10):
-		ls = []
-		for i in range(0, 100):
-			ls.append([i])
-
-		#Tes = special.spherical_jn(3000, BesselArgs[5])
 		start11 = time.clock()
-		print " bessells!"
-		#Tes = special.spherical_jn(1200, BesselArgs)
-		for l in range(0, self.l_max):
-			Tes2 = special.spherical_jn(5400, BesselArgs)
-		#print Tes
-		print Tes2
+		a11 = special.spherical_jn(100, self.BesselArgs[1733])
+
 		print "time: ", time.clock() - start11, "s"
-		"""
+		
+		self.CHECK=1
+		XX = self.Get_x_grid_with_TC(self.k_LargeGrid[1733], largeGrid=1)
+		XX2 = self.Get_x_grid_with_TC(self.k_LargeGrid[1733])
+		b = self.Spline_Derivative(self.x_t, a11, XX, derivative=0)
+		
+
+		SUPER = self.Spline_Derivative(self.x_LargeGrid, self.Eta, XX, derivative=0)
+		BB = self.k_LargeGrid[1733]*(SUPER[-1] - SUPER)
+		CC = special.spherical_jn(100, BB)
+
+		plt.plot(XX2, a11)
+		plt.hold("on")
+		plt.plot(XX, b, 'r-')
+		plt.plot(XX, CC, 'g-')
+		plt.show()
+		
 		"""
 		Sourcefunc = Interpolated_SourceFunction*special.spherical_jn(100, BesselArgs)
 		print 'Computing transfer func time: ', time.clock() - start3, 's'
@@ -1000,6 +1011,7 @@ if __name__ == '__main__':
 	file_directory = '../VariableData'
 	PS_solver = Power_Spectrum(k, file_directory)
 	PS_solver.Compute_P()
+	"""
 	l_values = [i for i in range(5401)]
 	timer = time.clock()
 	p = mp.Pool(num_processes)
@@ -1012,4 +1024,5 @@ if __name__ == '__main__':
 		for i in l_values:
 			textfil.write(("%.8e ") %(Transfer_function[i][ks]))
 		textfil.write("\n")
+	"""
 	
