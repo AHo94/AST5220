@@ -650,6 +650,12 @@ class Power_Spectrum():
 		self.x_LargeGrid = np.linspace(self.x_init, self.x_0, 5000)
 		self.k_LargeGrid = np.linspace(self.k[0], self.k[-1], 5000)
 
+		# Values of l, used for the Bessel function
+		self.l_values = []
+		stuff = [2,3,4,6,8,10,12,15,20,30,40,50,60,70,80,90,100,120,140,160,180,200,225,250,275,300,350,400,450,500,550,600,650,700,750,800,850,900,950,1000,1050,1100,1150,1200]
+		for ls in stuff:
+			self.l_values.append([ls])	
+
 		self.Theta0 = []
 		self.Theta1 = []
 		self.Theta2 = []
@@ -668,10 +674,6 @@ class Power_Spectrum():
 		self.Theta3Deriv = []
 		self.vbDeriv = []
 		self.PhiDeriv = []
-
-		self.l_values = []
-		for i in range(1200):
-			self.l_values.append([i])
 		
 
 	def read_file(self, filename):	
@@ -823,7 +825,7 @@ class Power_Spectrum():
 					- ThirdTermDerivative/(c*k) + 3.0*LastTermDerivative/(4.0*c_Squared*k_squared)
 		
 		return S_tilde[0]
-
+ 
 	def Interpolate_LargerGrid(self, SourceFunctions):
 		""" Interpolates the k grid of the computed source functions.  """
 		# Interpolate k grid
@@ -888,7 +890,7 @@ class Power_Spectrum():
 			yDerivative[-1] = 0
 		return yDerivative
 
-	def Compute_P(self):
+	def Compute_transfer_function(self, theta_directory):
 		""" Computes the power spectrum """
 		# Get optical depth and visibility function from time_mod class
 		self.timemod_instance = time_mod(l_max=6, kVAL=self.k)
@@ -926,9 +928,74 @@ class Power_Spectrum():
 			ETA = self.Spline_Derivative(self.x_LargeGrid, self.Eta, X_TT, derivative=0)
 			self.X_grids.append(X_TT)
 			self.BesselArgs.append(ks*(ETA[-1] - ETA))
-
 		print 'Interpolation time: ', time.clock() - start2, 's'
 
+		# compute bessel spline
+		
+		time_Bess = time.clock()
+		x_bessel_grid = np.linspace(0, 5400, 10000)
+		BB = special.spherical_jn(self.l_values, x_bessel_grid)
+		print "Bessel comp: ", time.clock() - time_Bess, "s"
+		l_val = np.linspace(0, 1200, 1201)
+		splinetime = time.clock()
+		SPLINES = []
+		#for ls in self.l_values:
+		#lss = ls*len(self.k_LargeGrid)
+		#Bessel_spline = interpolate.RectBivariateSpline(self.l_values, x_bessel_grid, BB)
+		for i in range(len(self.l_values)):
+			B_spline = interpolate.splrep(x_bessel_grid, BB[i])
+			SPLINES.append(B_spline)
+
+		#SPLINES.append(Bessel_spline)
+		print "spline creation time: ", time.clock() - splinetime, "s"
+		Transfer_funcs_k = []
+		AY = time.clock()
+		for ls in range(len(self.l_values)):
+			Integrals = []
+			Bessel_spline = SPLINES[ls]
+			for ks in range(len(self.k_LargeGrid)):
+				BTIME = time.clock()
+				New_bessel = interpolate.splev(self.BesselArgs[ks], Bessel_spline)
+				Integrand = self.Interpolated_SourceFunction[ks]*New_bessel
+				TransferFunc_integral = integrate.trapz(Integrand, self.X_grids[ks])
+				Integrals.append(TransferFunc_integral)
+
+			Transfer_funcs_k.append(np.array(Integrals))
+		print "fintime: ", time.clock() - AY, "s"
+		plt.plot(self.k_LargeGrid*c/H_0, Transfer_funcs_k[16]**2/(c*self.k_LargeGrid)/(1e-6*H_0**(-1)))
+		plt.show()
+		
+		
+		textfile = open(os.path.join(theta_directory, 'Theta_data.txt'), 'w')
+		textfile.write("# Values along the columns are Theta_l. Different value of l along the rows \n")
+		for j in range(len(self.l_values)):
+			for i in range(len(Transfer_funcs_k)):
+				textfile.write("%.8e " %(Transfer_funcs_k[j][i]))
+			textfile.write("\n")
+		
+		#B_new = InterpShit.ev(l_val[100], self.BesselArgs[1733])
+		#Sfunc = self.Interpolated_SourceFunction[1733]*B_new
+		#plt.plot(self.X_grids[1733], Sfunc/1e-3)
+		#plt.show()
+		"""
+		Temp_Bess = []
+		for i in range(len(l_val)):
+			Interp = interpolate.splrep(x_bessel_grid, BB[i])
+			Temp_bess.append(Interp)
+		Bess_k = []
+		for ks in range(len(self.k_large_grid)):
+			BS_ktemp =  []
+			for ls in range(len(l_val))
+				Bk = interpolate.splev(self.BesselArgs[ks], Temp_Bess_interp[ls])
+				BS_ktemp.append(Bk)
+		"""
+		"""
+		# Spline bessel func
+		Temp_Bess_interp = interpolate.bisplrep(x_bessel_grid, l_val, BB)
+		#Interpolate along one k grid 
+		Bess_k = interpolate.splev(self.BesselArgs[0], l_val, Temp_Bess_interp, der=0)
+		"""
+		"""
 		TransferFunctions = []
 		textfil = open("../ThetaData/Transferfuncs.txt", "w")
 		for k_id in range(len(self.k_LargeGrid)):
@@ -939,6 +1006,7 @@ class Power_Spectrum():
 			for i in range(len(Integral)):
 				textfil.write("%.8e " %(Integral[i]))
 			textfil.write("\n")
+		"""
 		"""
 		for kss in range(30):
 			for i in PS_solver.l_values:
@@ -984,32 +1052,12 @@ class Power_Spectrum():
 		#plt.ylabel(r'$\tilde{S(x,k)j_n[k(\eta_0 - \eta(x))]}/10^{-3}$')
 		#plt.show()
 
-	def Compute_transfer_function(self, k_index):
-		"""
-		BesselFunc = special.spherical_jn(l, self.BesselArgs)
-		Integrand = self.Interpolated_SourceFunction*BesselFunc
-		Transferfunc = integrate.trapz(Integrand, x=self.X_grids)
-		"""
-		Transferfunc = []
-		BESS = special.spherical_jn(100, self.BesselArgs[k_index])
-		#for l in l_values:
-		Integrand = self.Interpolated_SourceFunction[k_index]*BESS#[l]
-		Integral = integrate.trapz(Integrand, x=self.X_grids[k_index])
-		#Transfer_temp.append(Integral)
-		Transferfunc.append(Integral)
-		#print Transferfunc
-		return Transferfunc[0]
 
 def SolveEquations(k):
 	""" Function used to call the solver class for different values of k """
 	solver = time_mod(l_max=6, kVAL=k)
 	ComputedVariables = solver.Compute_Results(100)
 	return ComputedVariables
-
-def Solve_TransferFunction(k_id):
-	#print k_id, type(k_id)
-	Computed_Theta_l = PS_solver.Compute_transfer_function(k_id)
-	return Computed_Theta_l
 
 if __name__ == '__main__':		
 	print 'Starting program'
@@ -1031,8 +1079,23 @@ if __name__ == '__main__':
 	"""
 
 	file_directory = '../VariableData'
+	Theta_dir = '../ThetaData'
 	PS_solver = Power_Spectrum(k, file_directory)
-	PS_solver.Compute_P()
+	PS_solver.Compute_transfer_function(Theta_dir)
+	"""
+	ls = [[0],[1],[2],[3]]
+	print special.spherical_jn(0, [1,2,3,4])
+	print special.spherical_jn(1, [1,2,3,4])
+	print special.spherical_jn(2, [1,2,3,4])
+	print special.spherical_jn(3, [1,2,3,4])
+	x = [[1,2,3,4], [1,2,3,4], [1,2,3,4], [2,3,4,5]]
+	y = [1,2,3,4]
+	testdata = special.spherical_jn(ls, x)
+	print testdata
+	"""
+	#f = interpolate.RectBivariateSpline(x,y,testdata)
+	#print f([1,2,3],[1,2])
+	
 	"""
 	Theta_dir = '../ThetaData'
 	datafile = open(os.path.join(Theta_dir, "file1.txt"), 'r')
@@ -1043,16 +1106,7 @@ if __name__ == '__main__':
 			ay.append(float(data_set[j]))
 		print np.array(ay)	
 	"""
-	"""
-	k_large_grid = np.array([i for i in range(1)])
-	timer = time.clock()
-	p = mp.Pool(num_processes)
-	Transfer_function = p.map(Solve_TransferFunction, k_large_grid)
-	print "TIMEE : ", time.clock() - timer, "s"
-	print Transfer_function
-	plt.plot(k_large_grid*c/H_0, np.array(Transfer_function[0])**2/(k_large_grid*c)/(1e-6*H_0**(-1)))
-	plt.show()
-	"""
+	
 	"""
 	print special.spherical_jn(0, [1,2,3])
 	print special.spherical_jn(1, [1,2,3])
