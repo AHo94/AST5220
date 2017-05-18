@@ -20,7 +20,7 @@ Omega_r = 8.3e-5
 Omega_nu = 0.0
 Omega_lambda = 1.0 - Omega_m - Omega_b - Omega_r - Omega_nu
 T_0 = 2.725
-n_s = 1.0
+n_s = 0.96
 A_s = 1.0
 h0 = 0.7
 H_0 = h0*100.0*1e3/Mpc
@@ -652,8 +652,8 @@ class Power_Spectrum():
 
 		# Values of l, used for the Bessel function
 		self.l_values = []
-		stuff = [2,3,4,6,8,10,12,15,20,30,40,50,60,70,80,90,100,120,140,160,180,200,225,250,275,300,350,400,450,500,550,600,650,700,750,800,850,900,950,1000,1050,1100,1150,1200]
-		for ls in stuff:
+		self.l_val_grid = np.array([2,3,4,6,8,10,12,15,20,30,40,50,60,70,80,90,100,120,140,160,180,200,225,250,275,300,350,400,450,500,550,600,650,700,750,800,850,900,950,1000,1050,1100,1150,1200])
+		for ls in self.l_val_grid:
 			self.l_values.append([ls])	
 
 		self.Theta0 = []
@@ -675,6 +675,12 @@ class Power_Spectrum():
 		self.vbDeriv = []
 		self.PhiDeriv = []
 		
+
+		read_start = time.clock()
+		for i in range(len(k)):
+			filename = "../VariableData/BoltzmannVariables_k" + str(i) + ".txt"
+			self.read_file(filename)
+		print 'Read file time: ', time.clock() - read_start, 's'
 
 	def read_file(self, filename):	
 		datafile = open(os.path.join(self.fildir, filename), 'r')
@@ -853,25 +859,18 @@ class Power_Spectrum():
 			yDerivative[-1] = 0
 		return yDerivative
 
-	def Compute_transfer_function(self, theta_directory):
-		""" Computes the power spectrum """
+	def Compute_transfer_function(self, theta_directory, filename_theta):
+		""" Computes the transfer function and saves the computed values to a text file """
 		# Get optical depth and visibility function from time_mod class
 		self.timemod_instance = time_mod(l_max=6, kVAL=self.k)
 		self.Tau, self.g_tilde, self.Eta_smallgrid = self.timemod_instance.Compute_tau_and_g()
-
 		Eta_Temp_interp = interpolate.splrep(self.x_t, self.Eta_smallgrid)
 		self.Eta = interpolate.splev(self.x_LargeGrid, Eta_Temp_interp, der=0)
 		
-		read_start = time.clock()
-		for i in range(len(k)):
-			filename = "../VariableData/BoltzmannVariables_k" + str(i) + ".txt"
-			self.read_file(filename)
-		print 'Read file time: ', time.clock() - read_start, 's'
-		Source_functions_smallgrid = []
-		start = time.clock()
-
 		# Compute source function
+		Source_functions_smallgrid = []
 		Stemp = []
+		start = time.clock()
 		for j in range(len(k)):
 			X_grid_w_TC = self.Get_x_grid_with_TC(self.k[j])
 			S_tilde = self.Get_SourceFunction(self.x_t, self.k[j], j)
@@ -885,7 +884,6 @@ class Power_Spectrum():
 		# Interpolate Etas over larger K grid
 		self.BesselArgs = []
 		self.X_grids = []
-
 		for ks in self.k_LargeGrid:
 			X_TT = self.Get_x_grid_with_TC(ks, largeGrid=1)
 			ETA = self.Spline_Derivative(self.x_LargeGrid, self.Eta, X_TT, derivative=0)
@@ -893,19 +891,19 @@ class Power_Spectrum():
 			self.BesselArgs.append(ks*(ETA[-1] - ETA))
 		print 'Interpolation time: ', time.clock() - start2, 's'
 
-		# compute bessel spline
+		# Compute Bessel splines
 		time_Bess = time.clock()
 		x_bessel_grid = np.linspace(0, 5400, 10000)
 		BB = special.spherical_jn(self.l_values, x_bessel_grid)
 		print "Bessel comp: ", time.clock() - time_Bess, "s"
-		
 		splinetime = time.clock()
 		SPLINES = []
 		for i in range(len(self.l_values)):
 			B_spline = interpolate.splrep(x_bessel_grid, BB[i])
 			SPLINES.append(B_spline)
-
 		print "spline creation time: ", time.clock() - splinetime, "s"
+
+		# Compute transfer functions
 		Transfer_funcs_k = []
 		TrTime = time.clock()
 		for ls in range(len(self.l_values)):
@@ -920,16 +918,62 @@ class Power_Spectrum():
 
 			Transfer_funcs_k.append(np.array(Integrals))
 		print "fintime: ", time.clock() - TrTime, "s"
-		plt.plot(self.k_LargeGrid*c/H_0, Transfer_funcs_k[16]**2/(c*self.k_LargeGrid)/(1e-6*H_0**(-1)))
-		plt.show()
 		
 		
-		textfile = open(os.path.join(theta_directory, 'Theta_data.txt'), 'w')
+		textfile = open(os.path.join(theta_directory, filename_theta), 'w')
 		textfile.write("# Values along the columns are Theta_l. Different value of l along the rows \n")
 		for j in range(len(self.l_values)):
-			for i in range(len(Transfer_funcs_k)):
+			for i in range(len(Transfer_funcs_k[j])):
 				textfile.write("%.8e " %(Transfer_funcs_k[j][i]))
 			textfile.write("\n")
+
+		return Transfer_funcs_k
+
+	def Read_transfer_func_data(self, Theta_dir, filename_theta):
+		datafile = open(os.path.join(Theta_dir, filename_theta), 'r')
+		Transferfunctions = []
+		SkipFirstLine = 0
+		for line in datafile:
+			data_set = line.split()
+			if SkipFirstLine == 0:
+				SkipFirstLine = 1
+			else:
+				Temp_transfer_array = []
+				for i in range(len(data_set)):
+					Temp_transfer_array.append(float(data_set[i]))
+				Transferfunctions.append(np.array(Temp_transfer_array))
+
+		return Transferfunctions
+
+	def Compute_power_spectrum(self, Theta_dir, filename_theta, read_data=1, save_data=0):
+		""" 
+		Computes the power spectrum C_l 
+		If read_data = 0, then program computes the transfer function from scratch. read_data = 1 by default
+		"""
+		if read_data == 0:
+			save_data = 1
+		else:
+		 	Transfer_functions = self.Read_transfer_func_data(Theta_dir, filename_theta)
+
+		if save_data == 1:
+			Transfer_functions = self.Compute_transfer_function(Theta_dir, filename_theta)
+		
+		Integrand_Factor = ((c*self.k_LargeGrid/H_0)**(n_s-1.0))/self.k_LargeGrid
+		Power_spectrum = []
+		for ls in range(len(self.l_values)):
+			Integrand = Integrand_Factor*Transfer_functions[ls]**2
+			Integral_Cl = integrate.trapz(Integrand, self.k_LargeGrid)
+			Power_spectrum.append(np.array(Integral_Cl))
+
+		plt.plot(self.l_val_grid, self.l_val_grid*(self.l_val_grid+1)*np.array(Power_spectrum))/(2.0*np.pi)
+		#plt.plot(self.k_LargeGrid*c/H_0, Transfer_functions[16]**2/(c*self.k_LargeGrid)/(1e-6*H_0**(-1)))
+		plt.show()			
+
+
+	def Plot_results(self):
+
+		plt.plot(self.k_LargeGrid*c/H_0, Transfer_funcs_k[16]**2/(c*self.k_LargeGrid)/(1e-6*H_0**(-1)))
+		plt.show()
 
 def SolveEquations(k):
 	""" Function used to call the solver class for different values of k """
@@ -947,16 +991,19 @@ if __name__ == '__main__':
 
 	# Sets number of proceses to compute in parallell
 	num_processes = 4
-	"""
-	print 'Computing ...'
-	p = mp.Pool(num_processes)
-	Solution = p.map(SolveEquations, k)
-	print "time elapsed: ",  time.clock() - time_start, "s"
-	PlotInstance = Plotter(savefile=1, k_array=k, variables=Solution)
-	PlotInstance.Plot_results()
-	"""
+	Compute_BoltzmannEquations = 0 	# Computes milestone 3 if set to 1
+	if Compute_BoltzmannEquations == 1:
+		print 'Computing Boltzmann equations ...'
+		p = mp.Pool(num_processes)
+		time_start = time.clock()
+		Solution = p.map(SolveEquations, k)
+		print "time elapsed: ",  time.clock() - time_start, "s"
+		PlotInstance = Plotter(savefile=1, k_array=k, variables=Solution)
+		PlotInstance.Plot_results()
+	
 
 	file_directory = '../VariableData'
 	Theta_dir = '../ThetaData'
 	PS_solver = Power_Spectrum(k, file_directory)
-	PS_solver.Compute_transfer_function(Theta_dir)
+	#PS_solver.Compute_transfer_function(Theta_dir, 'Theta_data.txt')
+	PS_solver.Compute_power_spectrum(Theta_dir, 'Theta_data.txt', read_data=1)
