@@ -789,43 +789,6 @@ class Power_Spectrum():
 					- ThirdTermDerivative/(c*k) + 3.0*LastTermDerivative/(4.0*c_Squared*k_squared)
 		return S_tilde
 
-	def Get_SourceFunction2(self, x, xid, k, k_index):
-		""" Computes the source function for a given k value """
-		Hprimed = self.timemod_instance.Get_Hubble_prime(x)
-		Hprimed_Derivative = self.timemod_instance.Get_Hubble_prime_derivative(x)
-		Hprimed_DoubleDer = self.timemod_instance.Spline_Derivative(self.x_t, self.timemod_instance.Get_Hubble_prime(self.x_t),\
-								 1, derivative=2, x_start=x, x_end=x)
-		InterTauDerivative = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, 1, derivative=1, x_start=x, x_end=x)
-		InterTauDoubleDer = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, 1, derivative=2, x_start=x, x_end=x)
-		TauInterp = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, 1, derivative=0, x_start=x, x_end=x)
-		ck_Hprimed = c*k/Hprimed
-		k_squared = k*k
-
-		HprimeDer_Hprime = Hprimed_Derivative/Hprimed
-		Pi = self.Theta2[k_index][xid]
-		Psi = -self.Phi[k_index][xid] - PsiPrefactor*Omega_r*self.Theta2[k_index][xid]/(np.exp(2.0*x)*k_squared)
-		PsiDer = -self.PhiDeriv[k_index][xid] -PsiPrefactor*Omega_r*np.exp(-2.0*x)*(-2.0*self.Theta2[k_index][xid] + self.Theta2Deriv[k_index][xid])/k_squared
-
-		self.g_tilde1 = self.timemod_instance.Spline_Derivative(self.x_t, self.g_tilde, 1, derivative=0, x_start=x, x_end=x)
-		g_tilde_derivative = self.timemod_instance.Spline_Derivative(self.x_t, self.g_tilde, 1, derivative=1, x_start=x, x_end=x)
-		g_tilde_doubleDer = self.timemod_instance.Spline_Derivative(self.x_t, self.g_tilde, 1, derivative=2, x_start=x, x_end=x)
-		Pi_derivative = self.Theta2Deriv[k_index][xid]
-		Pi_doubleDer = (2.0*ck_Hprimed/5.0)*(-HprimeDer_Hprime*self.Theta1[k_index][xid] + self.Theta1Deriv[k_index][xid]) \
-					+ 9.0*(InterTauDoubleDer*Pi + InterTauDerivative*Pi_derivative)/10.0\
-					- (3.0*ck_Hprimed/5.0)*(-HprimeDer_Hprime*self.Theta3[k_index][xid] + self.Theta3Deriv[k_index][xid])
-		
-		dHpHpderdx = (Hprimed_Derivative**2.0 + Hprimed*Hprimed_DoubleDer)
-
-		ThirdTermDerivative = Hprimed_Derivative*self.g_tilde1*self.vb[k_index][xid] + Hprimed*g_tilde_derivative*self.vb[k_index][xid] \
-							+ Hprimed*self.g_tilde1*self.vbDeriv[k_index][xid]
-		LastTermDerivative = self.g_tilde1*Pi*dHpHpderdx + 3.0*Hprimed*Hprimed_Derivative*(g_tilde_derivative*Pi + self.g_tilde1*Pi_derivative) \
-							+ Hprimed**2.0*(g_tilde_doubleDer*Pi + 2.0*g_tilde_derivative*Pi_derivative + self.g_tilde1*Pi_doubleDer)
-
-		S_tilde = self.g_tilde1*(self.Theta0[k_index][xid] + Psi + Pi/4.0) + np.exp(-TauInterp)*(PsiDer - self.PhiDeriv[k_index][xid]) \
-					- ThirdTermDerivative/(c*k) + 3.0*LastTermDerivative/(4.0*c_Squared*k_squared)
-		
-		return S_tilde[0]
- 
 	def Interpolate_LargerGrid(self, SourceFunctions):
 		""" Interpolates the k grid of the computed source functions.  """
 		# Interpolate k grid
@@ -931,25 +894,20 @@ class Power_Spectrum():
 		print 'Interpolation time: ', time.clock() - start2, 's'
 
 		# compute bessel spline
-		
 		time_Bess = time.clock()
 		x_bessel_grid = np.linspace(0, 5400, 10000)
 		BB = special.spherical_jn(self.l_values, x_bessel_grid)
 		print "Bessel comp: ", time.clock() - time_Bess, "s"
-		l_val = np.linspace(0, 1200, 1201)
+		
 		splinetime = time.clock()
 		SPLINES = []
-		#for ls in self.l_values:
-		#lss = ls*len(self.k_LargeGrid)
-		#Bessel_spline = interpolate.RectBivariateSpline(self.l_values, x_bessel_grid, BB)
 		for i in range(len(self.l_values)):
 			B_spline = interpolate.splrep(x_bessel_grid, BB[i])
 			SPLINES.append(B_spline)
 
-		#SPLINES.append(Bessel_spline)
 		print "spline creation time: ", time.clock() - splinetime, "s"
 		Transfer_funcs_k = []
-		AY = time.clock()
+		TrTime = time.clock()
 		for ls in range(len(self.l_values)):
 			Integrals = []
 			Bessel_spline = SPLINES[ls]
@@ -961,7 +919,7 @@ class Power_Spectrum():
 				Integrals.append(TransferFunc_integral)
 
 			Transfer_funcs_k.append(np.array(Integrals))
-		print "fintime: ", time.clock() - AY, "s"
+		print "fintime: ", time.clock() - TrTime, "s"
 		plt.plot(self.k_LargeGrid*c/H_0, Transfer_funcs_k[16]**2/(c*self.k_LargeGrid)/(1e-6*H_0**(-1)))
 		plt.show()
 		
@@ -972,86 +930,6 @@ class Power_Spectrum():
 			for i in range(len(Transfer_funcs_k)):
 				textfile.write("%.8e " %(Transfer_funcs_k[j][i]))
 			textfile.write("\n")
-		
-		#B_new = InterpShit.ev(l_val[100], self.BesselArgs[1733])
-		#Sfunc = self.Interpolated_SourceFunction[1733]*B_new
-		#plt.plot(self.X_grids[1733], Sfunc/1e-3)
-		#plt.show()
-		"""
-		Temp_Bess = []
-		for i in range(len(l_val)):
-			Interp = interpolate.splrep(x_bessel_grid, BB[i])
-			Temp_bess.append(Interp)
-		Bess_k = []
-		for ks in range(len(self.k_large_grid)):
-			BS_ktemp =  []
-			for ls in range(len(l_val))
-				Bk = interpolate.splev(self.BesselArgs[ks], Temp_Bess_interp[ls])
-				BS_ktemp.append(Bk)
-		"""
-		"""
-		# Spline bessel func
-		Temp_Bess_interp = interpolate.bisplrep(x_bessel_grid, l_val, BB)
-		#Interpolate along one k grid 
-		Bess_k = interpolate.splev(self.BesselArgs[0], l_val, Temp_Bess_interp, der=0)
-		"""
-		"""
-		TransferFunctions = []
-		textfil = open("../ThetaData/Transferfuncs.txt", "w")
-		for k_id in range(len(self.k_LargeGrid)):
-			Besselfunc = special.spherical_jn(self.l_values, self.BesselArgs[k_id])
-			Integrand = self.Interpolated_SourceFunction[k_id]*Besselfunc
-			Integral = integrate.trapz(Integrand, self.X_grids[k_id])
-			#TransferFunctions.append(np.array(Integral))
-			for i in range(len(Integral)):
-				textfil.write("%.8e " %(Integral[i]))
-			textfil.write("\n")
-		"""
-		"""
-		for kss in range(30):
-			for i in PS_solver.l_values:
-				textfil.write(("%.8e \n") %(TransferFunctions[kss][i]))
-			textfil.write("\n")		
-		"""
-		#return self.BesselArgs
-		"""
-		#return self.BesselArgs
-		# Compute transfer function
-		print 'Starting transferfunc calculation'
-
-		start11 = time.clock()
-		a11 = special.spherical_jn(100, self.BesselArgs[1733])
-		print "time: ", time.clock() - start11, "s"
-
-		XX = self.Get_x_grid_with_TC(self.k_LargeGrid[1733], largeGrid=1)
-		XX2 = self.Get_x_grid_with_TC(self.k_LargeGrid[1733])
-		
-		b = self.Spline_Derivative(XX2, a11, XX, derivative=0)
-		
-		
-		plt.plot(XX2, a11)
-		plt.hold("on")
-		plt.plot(XX, b, 'r-')
-		plt.show()
-		"""
-		"""
-		Sourcefunc = Interpolated_SourceFunction*special.spherical_jn(100, BesselArgs)
-		print 'Computing transfer func time: ', time.clock() - start3, 's'
-		
-		print 'ok 1'
-		TransferFunc = integrate.trapz(Sourcefunc, x=X_grids)
-		print 'ok 2'
-		TransferFunc_array.append(TransferFunc)
-		print 'Computing transfer func time: ', time.clock() - start3, 's'
-		plt.plot(self.k_LargeGrid*c/H_0, TransferFunc**2/(self.k_LargeGrid*c)/(1e-6/H_0))
-		plt.show()
-		"""
-		#TEST = Interpolated_SourceFunction[1733]*special.spherical_jn(100, self.k_LargeGrid[1733]*(self.Eta[-1] - self.Eta))/(1.0e-3)
-		#plt.plot(self.x_LargeGrid, TEST)
-		#plt.xlabel('x')
-		#plt.ylabel(r'$\tilde{S(x,k)j_n[k(\eta_0 - \eta(x))]}/10^{-3}$')
-		#plt.show()
-
 
 def SolveEquations(k):
 	""" Function used to call the solver class for different values of k """
@@ -1082,44 +960,3 @@ if __name__ == '__main__':
 	Theta_dir = '../ThetaData'
 	PS_solver = Power_Spectrum(k, file_directory)
 	PS_solver.Compute_transfer_function(Theta_dir)
-	"""
-	ls = [[0],[1],[2],[3]]
-	print special.spherical_jn(0, [1,2,3,4])
-	print special.spherical_jn(1, [1,2,3,4])
-	print special.spherical_jn(2, [1,2,3,4])
-	print special.spherical_jn(3, [1,2,3,4])
-	x = [[1,2,3,4], [1,2,3,4], [1,2,3,4], [2,3,4,5]]
-	y = [1,2,3,4]
-	testdata = special.spherical_jn(ls, x)
-	print testdata
-	"""
-	#f = interpolate.RectBivariateSpline(x,y,testdata)
-	#print f([1,2,3],[1,2])
-	
-	"""
-	Theta_dir = '../ThetaData'
-	datafile = open(os.path.join(Theta_dir, "file1.txt"), 'r')
-	ay = []
-	for line in datafile:
-		data_set = line.split()
-		for j in range(len(data_set)):
-			ay.append(float(data_set[j]))
-		print np.array(ay)	
-	"""
-	
-	"""
-	print special.spherical_jn(0, [1,2,3])
-	print special.spherical_jn(1, [1,2,3])
-	print special.spherical_jn(2, [1,2,3])
-	print ' '
-	Bes = special.spherical_jn([[0],[1],[2]], [1,2,3])
-	print Bes
-	"""
-	"""
-	textfil = open("../ThetaData/file1.txt", "w")
-	#for ks in range(len(Transfer_function[0])):
-	for i in PS_solver.l_values:
-		textfil.write(("%.8e ") %(Transfer_function[i[0]][0]))
-	textfil.write("\n")
-	"""
-	
