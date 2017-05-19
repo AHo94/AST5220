@@ -531,7 +531,6 @@ class time_mod():
 
 		return Taus_smallerGrid, g_tilde_smallerGrid, Eta_smallerGrid
 		
-
 class Plotter:
 	def __init__(self, savefile, k_array, variables):
 		self.savefile = savefile	# If savefile = 0, plots the data. If savefile = 1, saves the plots into a pdf
@@ -610,27 +609,18 @@ class Plotter:
 		for i in range(len(self.k)):
 			filname = "../VariableData/BoltzmannVariables_k" + str(i) + ".txt"
 			self.Write_Outfile(filname, self.k[i], i)
-		"""
-		fig1 = plt.figure()
-		ax1 = plt.subplot(111)
-		plt.hold("on")
-		ax1.plot(self.x_t, self.PhiDeriv[0], label=r'$k = %.1f H_0/c$' %(self.k[0]*c/H_0))
-		#ax1.plot(self.x_t, self.PhiDeriv[5][0], label=r'$k = %.1f H_0/c$' %(self.k[5]*c/H_0))
-		ax1.plot(self.x_t, self.PhiDeriv[-1], label=r'$k = %.1f H_0/c$' %(self.k[-1]*c/H_0))
-		ax1.legend(loc='lower left', bbox_to_anchor=(0,0), ncol=1, fancybox=True)
-		plt.xlabel('$x$')
-		plt.ylabel('$\Phi$')
-		plt.title('Plot of $\Phi$ as a function of $x$')
-		"""
+		
+		print "Nothing to print here!"
 		if self.savefile == 1:
 			a=1
 		else:
 			plt.show()
 
 class Power_Spectrum():
-	def __init__(self, k_array, file_directory):
+	def __init__(self, save_figure, k_array, file_directory):
 		self.k = k_array
 		self.fildir = file_directory
+		self.save_figure = save_figure
 
 		self.l_max = 5400
 		self.n1 = 400
@@ -675,7 +665,6 @@ class Power_Spectrum():
 		self.vbDeriv = []
 		self.PhiDeriv = []
 		
-
 		read_start = time.clock()
 		for i in range(len(k)):
 			filename = "../VariableData/BoltzmannVariables_k" + str(i) + ".txt"
@@ -899,10 +888,17 @@ class Power_Spectrum():
 		splinetime = time.clock()
 		SPLINES = []
 		for i in range(len(self.l_values)):
-			B_spline = interpolate.splrep(x_bessel_grid, BB[i])
+			#B_spline = interpolate.splrep(x_bessel_grid, BB[i])
+			B_spline = interpolate.CubicSpline(x_bessel_grid, BB[i])
 			SPLINES.append(B_spline)
 		print "spline creation time: ", time.clock() - splinetime, "s"
 
+
+		#Bes = SPLINES[16]
+		#bb = interpolate.splev(self.BesselArgs[1733], Bes)
+		#plt.plot(self.X_grids[1733], self.Interpolated_SourceFunction[1733]*bb)
+		#plt.show()
+		
 		# Compute transfer functions
 		Transfer_funcs_k = []
 		TrTime = time.clock()
@@ -910,8 +906,8 @@ class Power_Spectrum():
 			Integrals = []
 			Bessel_spline = SPLINES[ls]
 			for ks in range(len(self.k_LargeGrid)):
-				BTIME = time.clock()
-				New_bessel = interpolate.splev(self.BesselArgs[ks], Bessel_spline)
+				#New_bessel = interpolate.splev(self.BesselArgs[ks], Bessel_spline)
+				New_bessel = Bessel_spline(self.BesselArgs[ks])
 				Integrand = self.Interpolated_SourceFunction[ks]*New_bessel
 				TransferFunc_integral = integrate.trapz(Integrand, self.X_grids[ks])
 				Integrals.append(TransferFunc_integral)
@@ -919,7 +915,7 @@ class Power_Spectrum():
 			Transfer_funcs_k.append(np.array(Integrals))
 		print "fintime: ", time.clock() - TrTime, "s"
 		
-		
+		# Saves data of the transfer functions to text file
 		textfile = open(os.path.join(theta_directory, filename_theta), 'w')
 		textfile.write("# Values along the columns are Theta_l. Different value of l along the rows \n")
 		for j in range(len(self.l_values)):
@@ -927,9 +923,10 @@ class Power_Spectrum():
 				textfile.write("%.8e " %(Transfer_funcs_k[j][i]))
 			textfile.write("\n")
 
-		return Transfer_funcs_k
+		return np.array(Transfer_funcs_k)
 
 	def Read_transfer_func_data(self, Theta_dir, filename_theta):
+		""" Reads transfer function data from a text file """
 		datafile = open(os.path.join(Theta_dir, filename_theta), 'r')
 		Transferfunctions = []
 		SkipFirstLine = 0
@@ -943,7 +940,7 @@ class Power_Spectrum():
 					Temp_transfer_array.append(float(data_set[i]))
 				Transferfunctions.append(np.array(Temp_transfer_array))
 
-		return Transferfunctions
+		return np.array(Transferfunctions)
 
 	def Compute_power_spectrum(self, Theta_dir, filename_theta, read_data=1, save_data=0):
 		""" 
@@ -957,21 +954,60 @@ class Power_Spectrum():
 
 		if save_data == 1:
 			Transfer_functions = self.Compute_transfer_function(Theta_dir, filename_theta)
-		
-		Integrand_Factor = ((c*self.k_LargeGrid/H_0)**(n_s-1.0))/self.k_LargeGrid
-		Integrand = Integrand_Factor*np.array(Transfer_functions)**2
+
+		Integrand = (((c*self.k_LargeGrid/H_0)**(n_s-1.0))/self.k_LargeGrid)*Transfer_functions**2
 		Power_spectrum = integrate.trapz(Integrand, self.k_LargeGrid)
-		print Power_spectrum
+		return Power_spectrum, Transfer_functions
 
-		#plt.plot(self.l_val_grid, self.l_val_grid*(self.l_val_grid+1)*np.array(Power_spectrum)/(2.0*np.pi))
-		plt.plot(self.k_LargeGrid*c/H_0, Transfer_functions[16]**2/(c*self.k_LargeGrid)/(1e-6*H_0**(-1)))
-		plt.show()			
+	def Plot_results(self, Theta_dir, filename_theta, r_data=1):
+		""" Plots the results """
+		Power_spectrum, Transfer_functions = self.Compute_power_spectrum(Theta_dir, filename_theta, read_data=r_data)
+		Transfer_funcs_l = np.transpose(Transfer_functions)
 
+		fig1 = plt.figure()
+		ax1 = plt.subplot(111)
+		ax1.plot(self.l_val_grid, self.l_val_grid*(self.l_val_grid+1)*Power_spectrum/(2.0*np.pi))
+		plt.xlabel('$l$')
+		plt.ylabel(r'$l(l+1)C_l/2\pi$')
+		plt.title('Plot of Power spectrum')
 
-	def Plot_results(self):
+		fig2 = plt.figure()
+		ax2 = plt.subplot(111)
+		ax2.plot(self.k_LargeGrid*c/H_0, Transfer_functions[16]**2/(c*self.k_LargeGrid)/(1e-6*H_0**(-1)))
+		plt.xlabel('$ck/H_0$')
+		plt.ylabel('$\Theta_l^2/ck/10^{-6}H_0^{-1}$')
+		plt.title('Plot of the transfer function squared for $l=100$')
 
-		plt.plot(self.k_LargeGrid*c/H_0, Transfer_funcs_k[16]**2/(c*self.k_LargeGrid)/(1e-6*H_0**(-1)))
-		plt.show()
+		fig3 = plt.figure()
+		ax3 = plt.subplot(111)
+		ax3.plot(self.l_val_grid, Transfer_funcs_l[0], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[0]*c/H_0))
+		ax3.plot(self.l_val_grid, Transfer_funcs_l[1000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[1000]*c/H_0))
+		ax3.plot(self.l_val_grid, Transfer_funcs_l[2000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[2000]*c/H_0))
+		ax3.plot(self.l_val_grid, Transfer_funcs_l[3000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[3000]*c/H_0))
+		ax3.plot(self.l_val_grid, Transfer_funcs_l[4000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[4000]*c/H_0))
+		ax3.plot(self.l_val_grid, Transfer_funcs_l[-1], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[-1]*c/H_0))
+		ax3.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.2), ncol=1, fancybox=True)
+		plt.xlabel('$l$')
+		plt.ylabel('$\Theta_l(k)$')
+		plt.title('Plot of transfer functions as a function of $l$ for different k_values')
+
+		fig4 = plt.figure()
+		ax4 = plt.subplot(111)
+		ax4.plot(self.l_val_grid, Transfer_funcs_l[0]**2/self.k_LargeGrid[0], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[0]*c/H_0))
+		ax4.plot(self.l_val_grid, Transfer_funcs_l[1000]**2/self.k_LargeGrid[1000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[1000]*c/H_0))
+		ax4.plot(self.l_val_grid, Transfer_funcs_l[2000]**2/self.k_LargeGrid[2000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[2000]*c/H_0))
+		ax4.plot(self.l_val_grid, Transfer_funcs_l[3000]**2/self.k_LargeGrid[3000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[3000]*c/H_0))
+		ax4.plot(self.l_val_grid, Transfer_funcs_l[4000]**2/self.k_LargeGrid[4000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[4000]*c/H_0))
+		ax4.plot(self.l_val_grid, Transfer_funcs_l[-1]**2/self.k_LargeGrid[-1], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[-1]*c/H_0))
+		ax4.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.2), ncol=1, fancybox=True)
+		plt.xlabel('$l$')
+		plt.ylabel('$\Theta_l(k)^2/k$')
+		plt.title('Plot of transfer functions squared as a function of $l$ \n for different k-values')
+
+		if self.save_figure == 1:
+			a=1
+		else:
+			plt.show()
 
 def SolveEquations(k):
 	""" Function used to call the solver class for different values of k """
@@ -998,10 +1034,11 @@ if __name__ == '__main__':
 		print "time elapsed: ",  time.clock() - time_start, "s"
 		PlotInstance = Plotter(savefile=1, k_array=k, variables=Solution)
 		PlotInstance.Plot_results()
-	
 
-	file_directory = '../VariableData'
+
+	Variable_dir = '../VariableData'
 	Theta_dir = '../ThetaData'
-	PS_solver = Power_Spectrum(k, file_directory)
+	PS_solver = Power_Spectrum(save_figure=0, k_array=k, file_directory=Variable_dir)
 	#PS_solver.Compute_transfer_function(Theta_dir, 'Theta_data.txt')
-	PS_solver.Compute_power_spectrum(Theta_dir, 'Theta_data.txt', read_data=1)
+	PS_solver.Plot_results(Theta_dir, 'Theta_data.txt', r_data=0)
+	#PS_solver.Compute_power_spectrum(Theta_dir, 'Theta_data.txt', read_data=1)
