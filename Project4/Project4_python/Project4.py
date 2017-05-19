@@ -959,14 +959,12 @@ class Power_Spectrum():
 			Transfer_functions = self.Compute_transfer_function(Theta_dir, filename_theta)
 		
 		Integrand_Factor = ((c*self.k_LargeGrid/H_0)**(n_s-1.0))/self.k_LargeGrid
-		Power_spectrum = []
-		for ls in range(len(self.l_values)):
-			Integrand = Integrand_Factor*Transfer_functions[ls]**2
-			Integral_Cl = integrate.trapz(Integrand, self.k_LargeGrid)
-			Power_spectrum.append(np.array(Integral_Cl))
+		Integrand = Integrand_Factor*np.array(Transfer_functions)**2
+		Power_spectrum = integrate.trapz(Integrand, self.k_LargeGrid)
+		print Power_spectrum
 
-		plt.plot(self.l_val_grid, self.l_val_grid*(self.l_val_grid+1)*np.array(Power_spectrum))/(2.0*np.pi)
-		#plt.plot(self.k_LargeGrid*c/H_0, Transfer_functions[16]**2/(c*self.k_LargeGrid)/(1e-6*H_0**(-1)))
+		#plt.plot(self.l_val_grid, self.l_val_grid*(self.l_val_grid+1)*np.array(Power_spectrum)/(2.0*np.pi))
+		plt.plot(self.k_LargeGrid*c/H_0, Transfer_functions[16]**2/(c*self.k_LargeGrid)/(1e-6*H_0**(-1)))
 		plt.show()			
 
 
