@@ -622,13 +622,9 @@ class Power_Spectrum():
 		self.fildir = file_directory
 		self.save_figure = save_figure
 
-		self.l_max = 1200
 		self.n1 = 400
 		self.n2 = 600
 		self.n_t = self.n1 + self.n2
-
-		#self.z_start_rec = 1630.4
-		#self.x_start_rec = -np.log(1.0 + self.z_start_rec)
 
 		self.a_init = 1e-8
 		self.x_init = np.log(self.a_init)
@@ -798,12 +794,15 @@ class Power_Spectrum():
 			Interpolated_SourceFunc_unsorted.append(SourceFunc_k_new)
 
 		# Sort interpolated k grid
+		"""
 		Interpolated_k_grid = []
 		for j in range(len(self.k_LargeGrid)):
 			Sgrid = []
 			for i in range(self.n_t):
 				Sgrid.append(Interpolated_SourceFunc_unsorted[i][j])
 			Interpolated_k_grid.append(np.array(Sgrid))
+		"""
+		Interpolated_k_grid = np.transpose(Interpolated_SourceFunc_unsorted)
 		
 		# Interpolate x grid
 		Interpolated_SourceFunc = []
@@ -817,7 +816,8 @@ class Power_Spectrum():
 		return Interpolated_SourceFunc
 
 	def Get_x_grid_with_TC(self, k, largeGrid=0):
-		TauDeriv = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, self.n_t, derivative=1, x_start=self.x_t[0], x_end=self.x_t[-1])
+		#TauDeriv = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, self.n_t, derivative=1, x_start=self.x_t[0], x_end=self.x_t[-1])
+		TauDeriv = self.Spline_Derivative(self.x_t, self.Tau, self.x_t, derivative=1)
 		kHprimedTau = c*k/(self.timemod_instance.Get_Hubble_prime(self.x_t)*TauDeriv)
 		
 		Condition1 = np.where(np.fabs(kHprimedTau)>0.1)[0]
