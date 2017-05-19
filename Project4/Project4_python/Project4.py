@@ -622,7 +622,7 @@ class Power_Spectrum():
 		self.fildir = file_directory
 		self.save_figure = save_figure
 
-		self.l_max = 5400
+		self.l_max = 1200
 		self.n1 = 400
 		self.n2 = 600
 		self.n_t = self.n1 + self.n2
@@ -758,7 +758,7 @@ class Power_Spectrum():
 		"""
 		self.g_tilde1 = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=0)
 		g_tilde_derivative = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=1)
-		g_tilde_doubleDer = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=1)
+		g_tilde_doubleDer = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=2)
 		
 		Pi_derivative = self.Theta2Deriv[k_index]
 		
@@ -791,8 +791,10 @@ class Power_Spectrum():
 		for i in range(self.n_t):
 			for j in range(len(k)):
 				S_x_grid = [Sfunc_values[i] for Sfunc_values in SourceFunctions]
-			Temp_interp = interpolate.splrep(self.k, S_x_grid)
-			SourceFunc_k_new = interpolate.splev(self.k_LargeGrid, Temp_interp, der=0)
+			#Temp_interp = interpolate.splrep(self.k, S_x_grid)
+			#SourceFunc_k_new = interpolate.splev(self.k_LargeGrid, Temp_interp, der=0)
+			Temp_spline = interpolate.CubicSpline(self.k, S_x_grid)
+			SourceFunc_k_new = Temp_spline(self.k_LargeGrid)
 			Interpolated_SourceFunc_unsorted.append(SourceFunc_k_new)
 
 		# Sort interpolated k grid
@@ -807,8 +809,10 @@ class Power_Spectrum():
 		Interpolated_SourceFunc = []
 		for i in range(len(Interpolated_k_grid)):
 			x_grid = self.Get_x_grid_with_TC(self.k_LargeGrid[i], largeGrid=1)	
-			Temp_interp = interpolate.splrep(self.x_t, Interpolated_k_grid[i])
-			SourceFunc_x_new = interpolate.splev(x_grid, Temp_interp, der=0)
+			#Temp_interp = interpolate.splrep(self.x_t, Interpolated_k_grid[i])
+			#SourceFunc_x_new = interpolate.splev(x_grid, Temp_interp, der=0)
+			Temp_spline_x = interpolate.CubicSpline(self.x_t, Interpolated_k_grid[i])
+			SourceFunc_x_new = Temp_spline_x(x_grid)
 			Interpolated_SourceFunc.append(np.array(SourceFunc_x_new))
 		return Interpolated_SourceFunc
 
@@ -840,22 +844,26 @@ class Power_Spectrum():
 		return X_grid_w_TC
 
 	def Spline_Derivative(self, x_values, y_values, xgrid, derivative):
-		""" Spline derivative for any functions. Using natural spline for the second derivative """
-		Temp_interp = interpolate.splrep(x_values, y_values)
-		yDerivative = interpolate.splev(xgrid, Temp_interp, der=derivative)
+		""" Cubic spline for any functions. Using natural spline for the second derivative """
+		#Temp_interp = interpolate.splrep(x_values, y_values)
+		#yDerivative = interpolate.splev(xgrid, Temp_interp, der=derivative)
+		Spline = interpolate.CubicSpline(x_values, y_values)
+		Interpolated_value = Spline(xgrid, derivative)
 		if derivative == 2:
-			yDerivative[0] = 0
-			yDerivative[-1] = 0
-		return yDerivative
+			Interpolated_value[0] = 0
+			Interpolated_value[-1] = 0
+		return Interpolated_value
 
 	def Compute_transfer_function(self, theta_directory, filename_theta):
 		""" Computes the transfer function and saves the computed values to a text file """
 		# Get optical depth and visibility function from time_mod class
 		self.timemod_instance = time_mod(l_max=6, kVAL=self.k)
 		self.Tau, self.g_tilde, self.Eta_smallgrid = self.timemod_instance.Compute_tau_and_g()
-		Eta_Temp_interp = interpolate.splrep(self.x_t, self.Eta_smallgrid)
-		self.Eta = interpolate.splev(self.x_LargeGrid, Eta_Temp_interp, der=0)
-		
+		#Eta_Temp_interp = interpolate.splrep(self.x_t, self.Eta_smallgrid)
+		Eta_Temp_interp = interpolate.CubicSpline(self.x_t, self.Eta_smallgrid)
+		#self.Eta = interpolate.splev(self.x_LargeGrid, Eta_Temp_interp, der=0)
+		self.Eta = Eta_Temp_interp(self.x_LargeGrid)
+
 		# Compute source function
 		Source_functions_smallgrid = []
 		Stemp = []
@@ -894,10 +902,10 @@ class Power_Spectrum():
 		print "spline creation time: ", time.clock() - splinetime, "s"
 
 
-		#Bes = SPLINES[16]
-		#bb = interpolate.splev(self.BesselArgs[1733], Bes)
-		#plt.plot(self.X_grids[1733], self.Interpolated_SourceFunction[1733]*bb)
-		#plt.show()
+		Bes = SPLINES[16]
+		bb = Bes(self.BesselArgs[1733])
+		plt.plot(self.X_grids[1733], self.Interpolated_SourceFunction[1733]*bb/1e-3)
+		plt.show()
 		
 		# Compute transfer functions
 		Transfer_funcs_k = []
@@ -955,7 +963,7 @@ class Power_Spectrum():
 		if save_data == 1:
 			Transfer_functions = self.Compute_transfer_function(Theta_dir, filename_theta)
 
-		Integrand = (((c*self.k_LargeGrid/H_0)**(n_s-1.0))/self.k_LargeGrid)*Transfer_functions**2
+		Integrand = (((c*self.k_LargeGrid/H_0)**(n_s-1.0))/self.k_LargeGrid)*Transfer_functions**2.0
 		Power_spectrum = integrate.trapz(Integrand, self.k_LargeGrid)
 		return Power_spectrum, Transfer_functions
 
@@ -973,7 +981,7 @@ class Power_Spectrum():
 
 		fig2 = plt.figure()
 		ax2 = plt.subplot(111)
-		ax2.plot(self.k_LargeGrid*c/H_0, Transfer_functions[16]**2/(c*self.k_LargeGrid)/(1e-6*H_0**(-1)))
+		ax2.plot(self.k_LargeGrid*c/H_0, Transfer_functions[16]**2.0/(c*self.k_LargeGrid)/(1e-6*H_0**(-1)))
 		plt.xlabel('$ck/H_0$')
 		plt.ylabel('$\Theta_l^2/ck/10^{-6}H_0^{-1}$')
 		plt.title('Plot of the transfer function squared for $l=100$')
@@ -993,12 +1001,12 @@ class Power_Spectrum():
 
 		fig4 = plt.figure()
 		ax4 = plt.subplot(111)
-		ax4.plot(self.l_val_grid, Transfer_funcs_l[0]**2/self.k_LargeGrid[0], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[0]*c/H_0))
-		ax4.plot(self.l_val_grid, Transfer_funcs_l[1000]**2/self.k_LargeGrid[1000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[1000]*c/H_0))
-		ax4.plot(self.l_val_grid, Transfer_funcs_l[2000]**2/self.k_LargeGrid[2000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[2000]*c/H_0))
-		ax4.plot(self.l_val_grid, Transfer_funcs_l[3000]**2/self.k_LargeGrid[3000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[3000]*c/H_0))
-		ax4.plot(self.l_val_grid, Transfer_funcs_l[4000]**2/self.k_LargeGrid[4000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[4000]*c/H_0))
-		ax4.plot(self.l_val_grid, Transfer_funcs_l[-1]**2/self.k_LargeGrid[-1], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[-1]*c/H_0))
+		ax4.plot(self.l_val_grid, Transfer_funcs_l[0]**2.0/self.k_LargeGrid[0], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[0]*c/H_0))
+		ax4.plot(self.l_val_grid, Transfer_funcs_l[1000]**2.0/self.k_LargeGrid[1000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[1000]*c/H_0))
+		ax4.plot(self.l_val_grid, Transfer_funcs_l[2000]**2.0/self.k_LargeGrid[2000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[2000]*c/H_0))
+		ax4.plot(self.l_val_grid, Transfer_funcs_l[3000]**2.0/self.k_LargeGrid[3000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[3000]*c/H_0))
+		ax4.plot(self.l_val_grid, Transfer_funcs_l[4000]**2.0/self.k_LargeGrid[4000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[4000]*c/H_0))
+		ax4.plot(self.l_val_grid, Transfer_funcs_l[-1]**2.0/self.k_LargeGrid[-1], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[-1]*c/H_0))
 		ax4.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.2), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel('$\Theta_l(k)^2/k$')
@@ -1023,7 +1031,7 @@ if __name__ == '__main__':
 	k_N = 100
 	k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(k_N)])
 
-	# Sets number of proceses to compute in parallell
+	# Sets number of proceses to compute in parallel
 	num_processes = 4
 	Compute_BoltzmannEquations = 0 	# Computes milestone 3 if set to 1
 	if Compute_BoltzmannEquations == 1:
