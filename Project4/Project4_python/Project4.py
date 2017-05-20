@@ -730,13 +730,24 @@ class Power_Spectrum():
 		self.vbDeriv.append(np.array(vbDer_temp))
 		self.PhiDeriv.append(np.array(PhiDer_temp))
 
-	def Get_SourceFunction(self, x, k, k_index):
+	def Get_SourceFunction(self, x_1, k, k_index):
 		""" Computes the source function for a given k value """
+		x = self.Get_x_grid_with_TC(k, largeGrid=0)
+		#x_s1, x_s2 = self.Get_x_grid_with_TC(k, largeGrid=0, split_grid=1)
 		Hprimed = self.timemod_instance.Get_Hubble_prime(x)
 		Hprimed_Derivative = self.timemod_instance.Get_Hubble_prime_derivative(x)
+		Hspline = interpolate.CubicSpline(self.x_t, Hprimed)
+		HprimedDoubleDer = Hspline(x)
+		
+		TauSpline = interpolate.CubicSpline(self.x_t, self.Tau)
+		TAUU = TauSpline(x)
+		InterTauDerivative = TauSpline(x, 1)
+		InterTauDoubleDer = TauSpline(x, 2)
+		"""
 		TAUU = self.Spline_Derivative(self.x_t, self.Tau, x, derivative=0)
 		InterTauDerivative = self.Spline_Derivative(self.x_t, self.Tau, x, derivative=1)
 		InterTauDoubleDer = self.Spline_Derivative(self.x_t, self.Tau, x, derivative=2)
+		"""
 		ck_Hprimed = c*k/Hprimed
 		HprimeDer_Hprime = Hprimed_Derivative/Hprimed
 		k_squared = k*k
@@ -747,25 +758,29 @@ class Power_Spectrum():
 		Theta2Der = self.Theta2Deriv[k_index]
 		PsiDer = -self.PhiDeriv[k_index] - PsiPrefactor*Omega_r*(-2.0*np.exp(-2.0*x)*self.Theta2[k_index] + self.Theta2Deriv[k_index]*np.exp(-2.0*x))/k_squared
 		
-		self.g_tilde1 = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=0)
+		g_spline = interpolate.CubicSpline(self.x_t, self.g_tilde)
+		g_tilde = g_spline(x)
+		g_tilde_derivative = g_spline(x, 1)
+		g_tilde_doubleDer = g_spline(x, 2)
+		"""
+		g_tilde = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=0)
 		g_tilde_derivative = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=1)
 		g_tilde_doubleDer = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=2)
-		
+		"""
 		Pi_derivative = self.Theta2Deriv[k_index]
-		
 		Pi_doubleDer = (2.0*ck_Hprimed/5.0)*(-HprimeDer_Hprime*self.Theta1[k_index] + self.Theta1Deriv[k_index]) \
 					+ 3.0*(InterTauDoubleDer*Pi + InterTauDerivative*Pi_derivative)/10.0\
 					- (3.0*ck_Hprimed/5.0)*(-HprimeDer_Hprime*self.Theta3[k_index] + self.Theta3Deriv[k_index])
 		
-		HprimedDoubleDer = self.Spline_Derivative(self.x_t, Hprimed, x, derivative=2)
+		#HprimedDoubleDer = self.Spline_Derivative(self.x_t, Hprimed, x, derivative=2)
 		dHpHpderdx = (Hprimed_Derivative**2.0 + Hprimed*HprimedDoubleDer)
 		
-		ThirdTermDerivative = Hprimed_Derivative*self.g_tilde1*self.vb[k_index] + Hprimed*g_tilde_derivative*self.vb[k_index] \
-							+ Hprimed*self.g_tilde1*self.vbDeriv[k_index]
-		LastTermDerivative = self.g_tilde1*Pi*dHpHpderdx + 3.0*Hprimed*Hprimed_Derivative*(g_tilde_derivative*Pi + self.g_tilde1*Pi_derivative) \
-							+ (Hprimed**2.0)*(g_tilde_doubleDer*Pi + 2.0*g_tilde_derivative*Pi_derivative + self.g_tilde1*Pi_doubleDer)
+		ThirdTermDerivative = Hprimed_Derivative*g_tilde*self.vb[k_index] + Hprimed*g_tilde_derivative*self.vb[k_index] \
+							+ Hprimed*g_tilde*self.vbDeriv[k_index]
+		LastTermDerivative = g_tilde*Pi*dHpHpderdx + 3.0*Hprimed*Hprimed_Derivative*(g_tilde_derivative*Pi + g_tilde*Pi_derivative) \
+							+ (Hprimed**2.0)*(g_tilde_doubleDer*Pi + 2.0*g_tilde_derivative*Pi_derivative + g_tilde*Pi_doubleDer)
 
-		S_tilde = self.g_tilde1*(self.Theta0[k_index] + Psi + Pi/4.0) + np.exp(-TAUU)*(PsiDer - self.PhiDeriv[k_index]) \
+		S_tilde = g_tilde*(self.Theta0[k_index] + Psi + Pi/4.0) + np.exp(-TAUU)*(PsiDer - self.PhiDeriv[k_index]) \
 					- ThirdTermDerivative/(c*k) + 3.0*LastTermDerivative/(4.0*c_Squared*k_squared)
 		return S_tilde
 
