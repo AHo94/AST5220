@@ -638,7 +638,8 @@ class Power_Spectrum():
 
 		# Values of l, used for the Bessel function
 		self.l_values = []
-		self.l_val_grid = np.array([2,3,4,6,8,10,12,15,20,30,40,50,60,70,80,90,100,120,140,160,180,200,225,250,275,300,350,400,450,500,550,600,650,700,750,800,850,900,950,1000,1050,1100,1150,1200])
+		self.l_val_grid = np.array([2,3,4,6,8,10,12,15,20,30,40,50,60,70,80,90,100,120,140,160\
+					,180,200,225,250,275,300,350,400,450,500,550,600,650,700,750,800,850,900,950,1000,1050,1100,1150,1200])
 		for ls in self.l_val_grid:
 			self.l_values.append([ls])	
 
@@ -783,12 +784,28 @@ class Power_Spectrum():
 	def Interpolate_LargerGrid(self, SourceFunctions):
 		""" Interpolates the k grid of the computed source functions.  """
 		# Interpolate k grid
+		"""
+		Interpolated_x_grid = []
+		for ks in range(len(self.k)):
+			Sx = SourceFunctions[ks]
+			x_grid = self.Get_x_grid_with_TC(self.k[ks])
+			x_grid_large = self.Get_x_grid_with_TC(self.k[ks], largeGrid=1)
+			Spline = interpolate.CubicSpline(self.x_t, Sx)
+			Interpolated_x_grid.append(Spline(x_grid_large))
+
+		NewGrid = np.transpose(np.array(Interpolated_x_grid))
+
+		Interpolated_SourceFunc = []
+		for xs in range(len(self.x_LargeGrid)):
+			Sk = NewGrid[xs]
+			Spline = interpolate.CubicSpline(self.k, Sk)
+			Interpolated_SourceFunc.append(Spline(self.k_LargeGrid))
+
+		"""
 		Interpolated_SourceFunc_unsorted = []
 		for i in range(self.n_t):
 			for j in range(len(k)):
 				S_x_grid = [Sfunc_values[i] for Sfunc_values in SourceFunctions]
-			#Temp_interp = interpolate.splrep(self.k, S_x_grid)
-			#SourceFunc_k_new = interpolate.splev(self.k_LargeGrid, Temp_interp, der=0)
 			Temp_spline = interpolate.CubicSpline(self.k, S_x_grid)
 			SourceFunc_k_new = Temp_spline(self.k_LargeGrid)
 			Interpolated_SourceFunc_unsorted.append(SourceFunc_k_new)
@@ -807,18 +824,26 @@ class Power_Spectrum():
 		# Interpolate x grid
 		Interpolated_SourceFunc = []
 		for i in range(len(Interpolated_k_grid)):
-			x_grid = self.Get_x_grid_with_TC(self.k_LargeGrid[i], largeGrid=1)	
-			#Temp_interp = interpolate.splrep(self.x_t, Interpolated_k_grid[i])
-			#SourceFunc_x_new = interpolate.splev(x_grid, Temp_interp, der=0)
-			Temp_spline_x = interpolate.CubicSpline(self.x_t, Interpolated_k_grid[i])
-			SourceFunc_x_new = Temp_spline_x(x_grid)
+			xgrid_s1, xgrid_s2 = self.Get_x_grid_with_TC(self.k_LargeGrid[i], largeGrid=0, split_grid=1)
+			x_grid_s1, x_grid_s2 = self.Get_x_grid_with_TC(self.k_LargeGrid[i], largeGrid=1, split_grid=1)	
+			#print len(Interpolated_k_grid[i][0:self.n1])
+			#print len(Interpolated_k_grid[i][self.n1:])
+			
+			Spline_s1 = interpolate.CubicSpline(xgrid_s1, Interpolated_k_grid[i][0:self.n1])
+			Spline_s2 = interpolate.CubicSpline(xgrid_s2, Interpolated_k_grid[i][self.n1:])
+			SourceFunc_x_new_s1 = Spline_s1(x_grid_s1)
+			SourceFunc_x_new_s2 = Spline_s2(x_grid_s2)
+			#Temp_spline = interpolate.splrep(x_grid_small, Interpolated_k_grid[i])
+			#SourceFunc_x_new = interpolate.splev(x_grid, Temp_spline)
+			SourceFunc_x_new = np.concatenate([SourceFunc_x_new_s1, SourceFunc_x_new_s2])
 			Interpolated_SourceFunc.append(np.array(SourceFunc_x_new))
-		return Interpolated_SourceFunc
 
-	def Get_x_grid_with_TC(self, k, largeGrid=0):
+		return np.array(Interpolated_SourceFunc)
+
+	def Get_x_grid_with_TC(self, k, largeGrid=0, split_grid = 0):
 		#TauDeriv = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, self.n_t, derivative=1, x_start=self.x_t[0], x_end=self.x_t[-1])
-		TauDeriv = self.Spline_Derivative(self.x_t, self.Tau, self.x_t, derivative=1)
-		kHprimedTau = c*k/(self.timemod_instance.Get_Hubble_prime(self.x_t)*TauDeriv)
+		TauDeriv = self.Spline_Derivative(self.x_t, self.Tau, self.x_LargeGrid, derivative=1)
+		kHprimedTau = c*k/(self.timemod_instance.Get_Hubble_prime(self.x_LargeGrid)*TauDeriv)
 		
 		Condition1 = np.where(np.fabs(kHprimedTau)>0.1)[0]
 		Condition2 = np.where(np.fabs(TauDeriv) > 10.0)[0]
@@ -828,10 +853,10 @@ class Power_Spectrum():
 		else:
 			index = indexList[0]
 
-		if self.x_t[index] > self.timemod_instance.x_start_rec:
+		if self.x_LargeGrid[index] > self.timemod_instance.x_start_rec:
 			x_tc_end = self.timemod_instance.x_start_rec
 		else:
-			x_tc_end = self.x_t[index]
+			x_tc_end = self.x_LargeGrid[index]
 
 		if largeGrid == 0:
 			Xinit_TC = np.linspace(self.x_init, x_tc_end, self.n1)
@@ -841,12 +866,13 @@ class Power_Spectrum():
 			Xinit_TC = np.linspace(self.x_init, x_tc_end, 2000)
 			Xend_TC = np.linspace(x_tc_end, self.x_0, 3000)
 			X_grid_w_TC = np.concatenate([Xinit_TC, Xend_TC])
-		return X_grid_w_TC
 
+		if split_grid == 0:
+			return X_grid_w_TC
+		else:
+			return Xinit_TC, Xend_TC 
 	def Spline_Derivative(self, x_values, y_values, xgrid, derivative):
 		""" Cubic spline for any functions. Using natural spline for the second derivative """
-		#Temp_interp = interpolate.splrep(x_values, y_values)
-		#yDerivative = interpolate.splev(xgrid, Temp_interp, der=derivative)
 		Spline = interpolate.CubicSpline(x_values, y_values)
 		Interpolated_value = Spline(xgrid, derivative)
 		if derivative == 2:
@@ -859,10 +885,8 @@ class Power_Spectrum():
 		# Get optical depth and visibility function from time_mod class
 		self.timemod_instance = time_mod(l_max=6, kVAL=self.k)
 		self.Tau, self.g_tilde, self.Eta_smallgrid = self.timemod_instance.Compute_tau_and_g()
-		#Eta_Temp_interp = interpolate.splrep(self.x_t, self.Eta_smallgrid)
-		Eta_Temp_interp = interpolate.CubicSpline(self.x_t, self.Eta_smallgrid)
-		#self.Eta = interpolate.splev(self.x_LargeGrid, Eta_Temp_interp, der=0)
-		self.Eta = Eta_Temp_interp(self.x_LargeGrid)
+		Eta_spline = interpolate.CubicSpline(self.x_t, self.Eta_smallgrid)
+		self.Eta = Eta_spline(self.x_LargeGrid)
 
 		# Compute source function
 		Source_functions_smallgrid = []
@@ -870,38 +894,34 @@ class Power_Spectrum():
 		start = time.clock()
 		for j in range(len(k)):
 			X_grid_w_TC = self.Get_x_grid_with_TC(self.k[j])
-			S_tilde = self.Get_SourceFunction(self.x_t, self.k[j], j)
+			S_tilde = self.Get_SourceFunction(X_grid_w_TC, self.k[j], j)
 			Source_functions_smallgrid.append(S_tilde)
 		print 'Computing source function time: ', time.clock() - start, 's'
 		
 		# Interpolate source function over larger grid
 		start2 = time.clock()
 		self.Interpolated_SourceFunction = self.Interpolate_LargerGrid(Source_functions_smallgrid)
+		print 'Interpolation time: ', time.clock() - start2, 's'
 		
-		# Interpolate Etas over larger K grid
+		# Save Bessel arguments
 		self.BesselArgs = []
 		self.X_grids = []
 		for ks in self.k_LargeGrid:
 			X_TT = self.Get_x_grid_with_TC(ks, largeGrid=1)
-			ETA = self.Spline_Derivative(self.x_LargeGrid, self.Eta, X_TT, derivative=0)
+			ETA = Eta_spline(X_TT)
 			self.X_grids.append(X_TT)
 			self.BesselArgs.append(ks*(ETA[-1] - ETA))
-		print 'Interpolation time: ', time.clock() - start2, 's'
 
 		# Compute Bessel splines
 		time_Bess = time.clock()
 		x_bessel_grid = np.linspace(0, 5400, 10000)
-		BB = special.spherical_jn(self.l_values, x_bessel_grid)
+		Bessel_functions = special.spherical_jn(self.l_values, x_bessel_grid)
 		print "Bessel comp: ", time.clock() - time_Bess, "s"
-		splinetime = time.clock()
 		SPLINES = []
 		for i in range(len(self.l_values)):
-			#B_spline = interpolate.splrep(x_bessel_grid, BB[i])
-			B_spline = interpolate.CubicSpline(x_bessel_grid, BB[i])
+			B_spline = interpolate.CubicSpline(x_bessel_grid, Bessel_functions[i])
 			SPLINES.append(B_spline)
-		print "spline creation time: ", time.clock() - splinetime, "s"
-
-
+		
 		Bes = SPLINES[16]
 		bb = Bes(self.BesselArgs[1733])
 		plt.plot(self.X_grids[1733], self.Interpolated_SourceFunction[1733]*bb/1e-3)
