@@ -590,9 +590,9 @@ class Plotter:
 			self.PhiDeriv.append(self.variables[i][1][3])
 			self.vbDeriv.append(self.variables[i][1][4])
 
-	def Write_Outfile(self, filename, k, k_index):
+	def Write_Outfile(self, filename, filedir, k, k_index):
 		""" Saves data to a text file """
-		text_file = open(filename, "w")
+		text_file = open(os.path.join(filedir, filename), "w")
 		text_file.write(("Theta0, Theta1, Theta2, Theta3, Theta4, Theta5, Theta6, delta, delta_b, v, v_b, phi, Theta1Der. Theta2Der, Theta3Der, vbDer, PhiDer, k=%.4e H_0/c\n")\
 					 %(self.k[k_index]*c/H_0))
 		for i in range(self.n_t):
@@ -603,12 +603,13 @@ class Plotter:
 				self.Theta1Deriv[k_index][i], self.Theta2Deriv[k_index][i], self.Theta3Deriv[k_index][i], self.vbDeriv[k_index][i], self.PhiDeriv[k_index][i]))
 		text_file.close()
 
-	def Plot_results(self):
+	def Plot_results(self, filename, filedir):
 		""" Plots the results """
 		self.Sort_Arrays()
 		for i in range(len(self.k)):
-			filname = "../VariableData/BoltzmannVariables_k" + str(i) + ".txt"
-			self.Write_Outfile(filname, self.k[i], i)
+			#filname = "../VariableData/BoltzmannVariables_k" + str(i) + ".txt"
+			filename2 = filename + str(i) + '.txt'
+			self.Write_Outfile(filename2, filedir, self.k[i], i)
 		
 		print "Nothing to print here!"
 		if self.savefile == 1:
@@ -617,7 +618,7 @@ class Plotter:
 			plt.show()
 
 class Power_Spectrum():
-	def __init__(self, save_figure, k_array, file_directory):
+	def __init__(self, save_figure, k_array, file_directory, variable_filename):
 		self.k = k_array
 		self.fildir = file_directory
 		self.save_figure = save_figure
@@ -637,6 +638,7 @@ class Power_Spectrum():
 		self.k_LargeGrid = np.linspace(self.k[0], self.k[-1], 5000)
 
 		# Values of l, used for the Bessel function
+		self.l_full_grid = np.linspace(0,1200, 1201)
 		self.l_values = []
 		self.l_val_grid = np.array([2,3,4,6,8,10,12,15,20,30,40,50,60,70,80,90,100,120,140,160\
 					,180,200,225,250,275,300,350,400,450,500,550,600,650,700,750,800,850,900,950,1000,1050,1100,1150,1200])
@@ -664,7 +666,8 @@ class Power_Spectrum():
 		
 		read_start = time.clock()
 		for i in range(len(k)):
-			filename = "../VariableData/BoltzmannVariables_k" + str(i) + ".txt"
+			#filename = "../VariableData/BoltzmannVariables_k" + str(i) + ".txt"
+			filename = variable_filename + str(i) + '.txt'
 			self.read_file(filename)
 		print 'Read file time: ', time.clock() - read_start, 's'
 
@@ -923,7 +926,7 @@ class Power_Spectrum():
 
 	def Compute_power_spectrum(self, Theta_dir, filename_theta, read_data=1, save_data=0):
 		""" 
-		Computes the power spectrum C_l 
+		Computes the power spectrum C_l. Returns a normalized and interpolated power spectrum over a large grid.
 		If read_data = 0, then program computes the transfer function from scratch. read_data = 1 by default
 		"""
 		if read_data == 0:
@@ -935,49 +938,90 @@ class Power_Spectrum():
 			Transfer_functions = self.Compute_transfer_function(Theta_dir, filename_theta)
 
 		Integrand = (((c*self.k_LargeGrid/H_0)**(n_s-1.0))/self.k_LargeGrid)*Transfer_functions**2.0
-		Power_spectrum = integrate.trapz(Integrand, self.k_LargeGrid)
-		return Power_spectrum, Transfer_functions
+		Power_spectrum_smallGrid = integrate.trapz(Integrand, self.k_LargeGrid)
+		Power_spec_spline = interpolate.CubicSpline(self.l_val_grid, Power_spectrum_smallGrid)
+		Power_spectrum = Power_spec_spline(self.l_full_grid)
+		Normalization_factor = 5775.0/np.max(self.l_full_grid*(self.l_full_grid+1)*Power_spectrum/(2.0*np.pi))
+
+		Transfer_func_splines = []
+		for ks in range(len(self.k_LargeGrid)):
+			T_spline = interpolate.CubicSpline(self.l_val_grid, np.transpose(Transfer_functions)[ks])
+			Transfer_func_splines.append(T_spline)
+
+		return Normalization_factor*Power_spectrum, Transfer_func_splines
+
+	def Read_planck_data(self):
+		CMB_data_filename = "COM_PowerSpect_CMB-TT-hiL-full_R2.02.txt"
+		datafile = open(os.path.join("../Planck_data", CMB_data_filename), 'r')
+		SkipLines = 0
+		PLanck_l_values = []
+		Planck_PS = []
+		Planck_PS_Err = []
+		for line in datafile:
+			if SkipLines <= 2:
+				SkipLines += 1
+			else:
+				data_set = line.split()
+				PLanck_l_values.append(float(data_set[0]))
+				Planck_PS.append(float(data_set[1]))
+				Planck_PS_Err.append(float(data_set[2]))
+
+		self.PLanck_l_values = np.array(PLanck_l_values)
+		self.Planck_PS = np.array(Planck_PS)
+		self.Planck_PS_Err = np.array(Planck_PS_Err)
 
 	def Plot_results(self, Theta_dir, filename_theta, r_data=1):
 		""" Plots the results """
-		Power_spectrum, Transfer_functions = self.Compute_power_spectrum(Theta_dir, filename_theta, read_data=r_data)
-		Transfer_funcs_l = np.transpose(Transfer_functions)
-
+		self.Read_planck_data()
+		Power_spectrum, Transfer_func_splines = self.Compute_power_spectrum(Theta_dir, filename_theta, read_data=r_data)
+		
 		fig1 = plt.figure()
 		ax1 = plt.subplot(111)
-		ax1.plot(self.l_val_grid, self.l_val_grid*(self.l_val_grid+1)*Power_spectrum/(2.0*np.pi))
+		plt.hold("on")
+		ax1.plot(self.l_full_grid, self.l_full_grid*(self.l_full_grid+1)*Power_spectrum/(2.0*np.pi), label="Theoretical data")
+		ax1.errorbar(self.PLanck_l_values, self.Planck_PS, yerr=self.Planck_PS_Err, ecolor='r', alpha=0.4, label="Planck data with errorbar")
+		ax1.legend(loc = 'lower left', bbox_to_anchor=(0.75,0.6), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel(r'$l(l+1)C_l/2\pi$')
-		plt.title('Plot of Power spectrum')
+		plt.title('Power spectrum from theoretical and Planck data, with errorbar.')
 
 		fig2 = plt.figure()
 		ax2 = plt.subplot(111)
-		ax2.plot(self.k_LargeGrid*c/H_0, Transfer_functions[16]**2.0/(c*self.k_LargeGrid)/(1e-6*H_0**(-1)))
-		plt.xlabel('$ck/H_0$')
-		plt.ylabel('$\Theta_l^2/ck/10^{-6}H_0^{-1}$')
-		plt.title('Plot of the transfer function squared for $l=100$')
-
+		plt.hold("on")
+		ax2.plot(self.l_full_grid, self.l_full_grid*(self.l_full_grid+1)*Power_spectrum/(2.0*np.pi), label="Theoretical data")
+		ax2.plot(self.PLanck_l_values, self.Planck_PS, 'g', alpha=0.5, label="Planck data")
+		ax2.legend(loc = 'lower left', bbox_to_anchor=(0.75,0.6), ncol=1, fancybox=True)
+		plt.xlabel('$l$')
+		plt.ylabel(r'$l(l+1)C_l/2\pi$')
+		plt.title('Power spectrum from theoretical and Planck data. No errorbar.')
+		
 		fig3 = plt.figure()
 		ax3 = plt.subplot(111)
-		ax3.plot(self.l_val_grid, Transfer_funcs_l[0], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[0]*c/H_0))
-		ax3.plot(self.l_val_grid, Transfer_funcs_l[1000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[1000]*c/H_0))
-		ax3.plot(self.l_val_grid, Transfer_funcs_l[2000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[2000]*c/H_0))
-		ax3.plot(self.l_val_grid, Transfer_funcs_l[3000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[3000]*c/H_0))
-		ax3.plot(self.l_val_grid, Transfer_funcs_l[4000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[4000]*c/H_0))
-		ax3.plot(self.l_val_grid, Transfer_funcs_l[-1], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[-1]*c/H_0))
-		ax3.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.2), ncol=1, fancybox=True)
+		ax3.plot(self.l_full_grid, Transfer_func_splines[0](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[0]*c/H_0))
+		ax3.plot(self.l_full_grid, Transfer_func_splines[1000](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[1000]*c/H_0))
+		ax3.plot(self.l_full_grid, Transfer_func_splines[2000](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[2000]*c/H_0))
+		ax3.plot(self.l_full_grid, Transfer_func_splines[3000](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[3000]*c/H_0))
+		ax3.plot(self.l_full_grid, Transfer_func_splines[4000](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[4000]*c/H_0))
+		ax3.plot(self.l_full_grid, Transfer_func_splines[-1](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[-1]*c/H_0))
+		ax3.legend(loc = 'lower left', bbox_to_anchor=(0.75,0.3), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel('$\Theta_l(k)$')
 		plt.title('Plot of transfer functions as a function of $l$ for different k_values')
 
 		fig4 = plt.figure()
 		ax4 = plt.subplot(111)
-		ax4.plot(self.l_val_grid, Transfer_funcs_l[0]**2.0/self.k_LargeGrid[0], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[0]*c/H_0))
-		ax4.plot(self.l_val_grid, Transfer_funcs_l[1000]**2.0/self.k_LargeGrid[1000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[1000]*c/H_0))
-		ax4.plot(self.l_val_grid, Transfer_funcs_l[2000]**2.0/self.k_LargeGrid[2000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[2000]*c/H_0))
-		ax4.plot(self.l_val_grid, Transfer_funcs_l[3000]**2.0/self.k_LargeGrid[3000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[3000]*c/H_0))
-		ax4.plot(self.l_val_grid, Transfer_funcs_l[4000]**2.0/self.k_LargeGrid[4000], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[4000]*c/H_0))
-		ax4.plot(self.l_val_grid, Transfer_funcs_l[-1]**2.0/self.k_LargeGrid[-1], label='$k= %.2f H_0/c$' %(self.k_LargeGrid[-1]*c/H_0))
+		ax4.semilogy(self.l_full_grid, (Transfer_func_splines[0](self.l_full_grid))**2.0/(self.k_LargeGrid[0]),\
+				 label='$k= %.2f H_0/c$' %(self.k_LargeGrid[0]*c/H_0))
+		ax4.semilogy(self.l_full_grid, (Transfer_func_splines[1000](self.l_full_grid))**2.0/(self.k_LargeGrid[1000]),\
+				 label='$k= %.2f H_0/c$' %(self.k_LargeGrid[1000]*c/H_0))
+		ax4.semilogy(self.l_full_grid, (Transfer_func_splines[2000](self.l_full_grid))**2.0/(self.k_LargeGrid[2000]),\
+				 label='$k= %.2f H_0/c$' %(self.k_LargeGrid[2000]*c/H_0))
+		ax4.semilogy(self.l_full_grid, (Transfer_func_splines[3000](self.l_full_grid))**2.0/(self.k_LargeGrid[3000]),\
+				 label='$k= %.2f H_0/c$' %(self.k_LargeGrid[3000]*c/H_0))
+		ax4.semilogy(self.l_full_grid, (Transfer_func_splines[4000](self.l_full_grid))**2.0/(self.k_LargeGrid[4000]),\
+				 label='$k= %.2f H_0/c$' %(self.k_LargeGrid[4000]*c/H_0))
+		ax4.semilogy(self.l_full_grid, (Transfer_func_splines[-1](self.l_full_grid))**2.0/(self.k_LargeGrid[-1]),\
+				 label='$k= %.2f H_0/c$' %(self.k_LargeGrid[-1]*c/H_0))
 		ax4.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.2), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel('$\Theta_l(k)^2/k$')
@@ -1004,7 +1048,12 @@ if __name__ == '__main__':
 
 	# Sets number of proceses to compute in parallel
 	num_processes = 4
-	Compute_BoltzmannEquations = 0 	# Computes milestone 3 if set to 1
+	
+
+	Variable_dir = '../VariableDataTest'
+	Variable_filename = '/BoltzmanTesting'
+
+	Compute_BoltzmannEquations = 1 	# Computes milestone 3 if set to 1
 	if Compute_BoltzmannEquations == 1:
 		print 'Computing Boltzmann equations ...'
 		p = mp.Pool(num_processes)
@@ -1012,10 +1061,8 @@ if __name__ == '__main__':
 		Solution = p.map(SolveEquations, k)
 		print "time elapsed: ",  time.clock() - time_start, "s"
 		PlotInstance = Plotter(savefile=1, k_array=k, variables=Solution)
-		PlotInstance.Plot_results()
+		PlotInstance.Plot_results(Variable_dir, Variable_filename)
 
-
-	Variable_dir = '../VariableData'
 	Theta_dir = '../ThetaData'
-	PS_solver = Power_Spectrum(save_figure=0, k_array=k, file_directory=Variable_dir)
+	PS_solver = Power_Spectrum(save_figure=0, k_array=k, file_directory=Variable_dir, variable_filename=Variable_filename)
 	PS_solver.Plot_results(Theta_dir, 'Theta_data.txt', r_data=1)
