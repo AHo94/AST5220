@@ -733,21 +733,14 @@ class Power_Spectrum():
 	def Get_SourceFunction(self, x_1, k, k_index):
 		""" Computes the source function for a given k value """
 		x = self.Get_x_grid_with_TC(k, largeGrid=0)
-		#x_s1, x_s2 = self.Get_x_grid_with_TC(k, largeGrid=0, split_grid=1)
 		Hprimed = self.timemod_instance.Get_Hubble_prime(x)
 		Hprimed_Derivative = self.timemod_instance.Get_Hubble_prime_derivative(x)
 		Hspline = interpolate.CubicSpline(self.x_t, Hprimed)
 		HprimedDoubleDer = Hspline(x)
-		
 		TauSpline = interpolate.CubicSpline(self.x_t, self.Tau)
 		TAUU = TauSpline(x)
 		InterTauDerivative = TauSpline(x, 1)
 		InterTauDoubleDer = TauSpline(x, 2)
-		"""
-		TAUU = self.Spline_Derivative(self.x_t, self.Tau, x, derivative=0)
-		InterTauDerivative = self.Spline_Derivative(self.x_t, self.Tau, x, derivative=1)
-		InterTauDoubleDer = self.Spline_Derivative(self.x_t, self.Tau, x, derivative=2)
-		"""
 		ck_Hprimed = c*k/Hprimed
 		HprimeDer_Hprime = Hprimed_Derivative/Hprimed
 		k_squared = k*k
@@ -758,23 +751,17 @@ class Power_Spectrum():
 		Theta2Der = self.Theta2Deriv[k_index]
 		PsiDer = -self.PhiDeriv[k_index] - PsiPrefactor*Omega_r*(-2.0*np.exp(-2.0*x)*self.Theta2[k_index] + self.Theta2Deriv[k_index]*np.exp(-2.0*x))/k_squared
 		
-		g_spline = interpolate.CubicSpline(self.x_t, self.g_tilde)
-		g_tilde = g_spline(x)
-		g_tilde_derivative = g_spline(x, 1)
-		g_tilde_doubleDer = g_spline(x, 2)
-		"""
-		g_tilde = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=0)
-		g_tilde_derivative = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=1)
-		g_tilde_doubleDer = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=2)
-		"""
 		Pi_derivative = self.Theta2Deriv[k_index]
 		Pi_doubleDer = (2.0*ck_Hprimed/5.0)*(-HprimeDer_Hprime*self.Theta1[k_index] + self.Theta1Deriv[k_index]) \
 					+ 3.0*(InterTauDoubleDer*Pi + InterTauDerivative*Pi_derivative)/10.0\
 					- (3.0*ck_Hprimed/5.0)*(-HprimeDer_Hprime*self.Theta3[k_index] + self.Theta3Deriv[k_index])
 		
-		#HprimedDoubleDer = self.Spline_Derivative(self.x_t, Hprimed, x, derivative=2)
+		g_spline = interpolate.CubicSpline(self.x_t, self.g_tilde)
+		g_tilde = g_spline(x)
+		g_tilde_derivative = g_spline(x, 1)
+		g_tilde_doubleDer = g_spline(x, 2)
+
 		dHpHpderdx = (Hprimed_Derivative**2.0 + Hprimed*HprimedDoubleDer)
-		
 		ThirdTermDerivative = Hprimed_Derivative*g_tilde*self.vb[k_index] + Hprimed*g_tilde_derivative*self.vb[k_index] \
 							+ Hprimed*g_tilde*self.vbDeriv[k_index]
 		LastTermDerivative = g_tilde*Pi*dHpHpderdx + 3.0*Hprimed*Hprimed_Derivative*(g_tilde_derivative*Pi + g_tilde*Pi_derivative) \
@@ -785,26 +772,8 @@ class Power_Spectrum():
 		return S_tilde
 
 	def Interpolate_LargerGrid(self, SourceFunctions):
-		""" Interpolates the k grid of the computed source functions.  """
+		""" Interpolates the source function to a larger grid.  """
 		# Interpolate k grid
-		"""
-		Interpolated_x_grid = []
-		for ks in range(len(self.k)):
-			Sx = SourceFunctions[ks]
-			x_grid = self.Get_x_grid_with_TC(self.k[ks])
-			x_grid_large = self.Get_x_grid_with_TC(self.k[ks], largeGrid=1)
-			Spline = interpolate.CubicSpline(self.x_t, Sx)
-			Interpolated_x_grid.append(Spline(x_grid_large))
-
-		NewGrid = np.transpose(np.array(Interpolated_x_grid))
-
-		Interpolated_SourceFunc = []
-		for xs in range(len(self.x_LargeGrid)):
-			Sk = NewGrid[xs]
-			Spline = interpolate.CubicSpline(self.k, Sk)
-			Interpolated_SourceFunc.append(Spline(self.k_LargeGrid))
-
-		"""
 		Interpolated_SourceFunc_unsorted = []
 		for i in range(self.n_t):
 			for j in range(len(k)):
@@ -812,16 +781,6 @@ class Power_Spectrum():
 			Temp_spline = interpolate.CubicSpline(self.k, S_x_grid)
 			SourceFunc_k_new = Temp_spline(self.k_LargeGrid)
 			Interpolated_SourceFunc_unsorted.append(SourceFunc_k_new)
-
-		# Sort interpolated k grid
-		"""
-		Interpolated_k_grid = []
-		for j in range(len(self.k_LargeGrid)):
-			Sgrid = []
-			for i in range(self.n_t):
-				Sgrid.append(Interpolated_SourceFunc_unsorted[i][j])
-			Interpolated_k_grid.append(np.array(Sgrid))
-		"""
 		Interpolated_k_grid = np.transpose(Interpolated_SourceFunc_unsorted)
 		
 		# Interpolate x grid
@@ -829,22 +788,17 @@ class Power_Spectrum():
 		for i in range(len(Interpolated_k_grid)):
 			xgrid_s1, xgrid_s2 = self.Get_x_grid_with_TC(self.k_LargeGrid[i], largeGrid=0, split_grid=1)
 			x_grid_s1, x_grid_s2 = self.Get_x_grid_with_TC(self.k_LargeGrid[i], largeGrid=1, split_grid=1)	
-			#print len(Interpolated_k_grid[i][0:self.n1])
-			#print len(Interpolated_k_grid[i][self.n1:])
 			
 			Spline_s1 = interpolate.CubicSpline(xgrid_s1, Interpolated_k_grid[i][0:self.n1])
 			Spline_s2 = interpolate.CubicSpline(xgrid_s2, Interpolated_k_grid[i][self.n1:])
 			SourceFunc_x_new_s1 = Spline_s1(x_grid_s1)
 			SourceFunc_x_new_s2 = Spline_s2(x_grid_s2)
-			#Temp_spline = interpolate.splrep(x_grid_small, Interpolated_k_grid[i])
-			#SourceFunc_x_new = interpolate.splev(x_grid, Temp_spline)
 			SourceFunc_x_new = np.concatenate([SourceFunc_x_new_s1, SourceFunc_x_new_s2])
 			Interpolated_SourceFunc.append(np.array(SourceFunc_x_new))
 
 		return np.array(Interpolated_SourceFunc)
 
 	def Get_x_grid_with_TC(self, k, largeGrid=0, split_grid = 0):
-		#TauDeriv = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, self.n_t, derivative=1, x_start=self.x_t[0], x_end=self.x_t[-1])
 		TauDeriv = self.Spline_Derivative(self.x_t, self.Tau, self.x_LargeGrid, derivative=1)
 		kHprimedTau = c*k/(self.timemod_instance.Get_Hubble_prime(self.x_LargeGrid)*TauDeriv)
 		
@@ -925,11 +879,6 @@ class Power_Spectrum():
 			B_spline = interpolate.CubicSpline(x_bessel_grid, Bessel_functions[i])
 			SPLINES.append(B_spline)
 		
-		Bes = SPLINES[16]
-		bb = Bes(self.BesselArgs[1733])
-		plt.plot(self.X_grids[1733], self.Interpolated_SourceFunction[1733]*bb/1e-3)
-		plt.show()
-		
 		# Compute transfer functions
 		Transfer_funcs_k = []
 		TrTime = time.clock()
@@ -937,7 +886,6 @@ class Power_Spectrum():
 			Integrals = []
 			Bessel_spline = SPLINES[ls]
 			for ks in range(len(self.k_LargeGrid)):
-				#New_bessel = interpolate.splev(self.BesselArgs[ks], Bessel_spline)
 				New_bessel = Bessel_spline(self.BesselArgs[ks])
 				Integrand = self.Interpolated_SourceFunction[ks]*New_bessel
 				TransferFunc_integral = integrate.trapz(Integrand, self.X_grids[ks])
@@ -1070,6 +1018,4 @@ if __name__ == '__main__':
 	Variable_dir = '../VariableData'
 	Theta_dir = '../ThetaData'
 	PS_solver = Power_Spectrum(save_figure=0, k_array=k, file_directory=Variable_dir)
-	#PS_solver.Compute_transfer_function(Theta_dir, 'Theta_data.txt')
-	PS_solver.Plot_results(Theta_dir, 'Theta_data.txt', r_data=0)
-	#PS_solver.Compute_power_spectrum(Theta_dir, 'Theta_data.txt', read_data=1)
+	PS_solver.Plot_results(Theta_dir, 'Theta_data.txt', r_data=1)
