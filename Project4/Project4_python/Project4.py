@@ -734,8 +734,6 @@ class Power_Spectrum():
 		""" Computes the source function for a given k value """
 		Hprimed = self.timemod_instance.Get_Hubble_prime(x)
 		Hprimed_Derivative = self.timemod_instance.Get_Hubble_prime_derivative(x)
-		#InterTauDerivative = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, self.n_t, derivative=1, x_start=self.x_init, x_end=self.x_0)
-		#InterTauDoubleDer = self.timemod_instance.Spline_Derivative(self.x_t, self.Tau, self.n_t, derivative=2, x_start=self.x_init, x_end=self.x_0)
 		TAUU = self.Spline_Derivative(self.x_t, self.Tau, x, derivative=0)
 		InterTauDerivative = self.Spline_Derivative(self.x_t, self.Tau, x, derivative=1)
 		InterTauDoubleDer = self.Spline_Derivative(self.x_t, self.Tau, x, derivative=2)
@@ -748,11 +746,7 @@ class Power_Spectrum():
 
 		Theta2Der = self.Theta2Deriv[k_index]
 		PsiDer = -self.PhiDeriv[k_index] - PsiPrefactor*Omega_r*(-2.0*np.exp(-2.0*x)*self.Theta2[k_index] + self.Theta2Deriv[k_index]*np.exp(-2.0*x))/k_squared
-		"""
-		self.g_tilde1 = self.g_tilde
-		g_tilde_derivative = self.timemod_instance.Spline_Derivative(self.x_t, self.g_tilde, self.n_t, derivative=1)
-		g_tilde_doubleDer = self.timemod_instance.Spline_Derivative(self.x_t, self.g_tilde, self.n_t, derivative=2)
-		"""
+		
 		self.g_tilde1 = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=0)
 		g_tilde_derivative = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=1)
 		g_tilde_doubleDer = self.Spline_Derivative(self.x_t, self.g_tilde, x, derivative=2)
@@ -762,13 +756,7 @@ class Power_Spectrum():
 		Pi_doubleDer = (2.0*ck_Hprimed/5.0)*(-HprimeDer_Hprime*self.Theta1[k_index] + self.Theta1Deriv[k_index]) \
 					+ 3.0*(InterTauDoubleDer*Pi + InterTauDerivative*Pi_derivative)/10.0\
 					- (3.0*ck_Hprimed/5.0)*(-HprimeDer_Hprime*self.Theta3[k_index] + self.Theta3Deriv[k_index])
-		#Pi_doubleDer = (ck_Hprimed/5.0)*(2.0*self.Theta1Deriv[k_index] - 3.0*self.Theta3Deriv[k_index]) \
-		#			- (ck_Hprimed*Hprimed_Derivative/(5.0*Hprimed))*(2.0*self.Theta1[k_index] - 3.0*self.Theta3[k_index])\
-		#			+ 9.0*(InterTauDoubleDer*self.Theta2[k_index] + InterTauDerivative*self.Theta2Deriv[k_index])/10.0
-
-		#dHpHpderdx = self.timemod_instance.Spline_Derivative(self.x_t, Hprimed*Hprimed_Derivative, self.n_t, derivative=1)
-		#dHpHpderdx = self.Spline_Derivative(self.x_t, Hprimed*Hprimed_Derivative, x, derivative=1)
-		#HprimedDoubleDer = self.timemod_instance.Spline_Derivative(self.x_t, Hprimed, self.n_t, derivative=2)
+		
 		HprimedDoubleDer = self.Spline_Derivative(self.x_t, Hprimed, x, derivative=2)
 		dHpHpderdx = (Hprimed_Derivative**2.0 + Hprimed*HprimedDoubleDer)
 		
