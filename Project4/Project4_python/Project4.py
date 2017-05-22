@@ -278,6 +278,7 @@ class time_mod():
 		v_b = c*k*Phi/(2.0*HPrime_0)
 		Theta_0 = 0.5*Phi
 		Theta_1 = -c*k*Phi/(6.0*HPrime_0)
+
 		self.BoltzmannTightCoupling = np.array([Theta_0, Theta_1, delta_b, delta_b, v_b, v_b, Phi])
 		self.NumVarTightCoupling = len(self.BoltzmannTightCoupling)
 
@@ -313,8 +314,10 @@ class time_mod():
 		Hprimed_Squared = Hprimed*Hprimed
 		ck_Hprimed = c*k/Hprimed
 		# Interpolating Conformal time and Optical depth at the point x_0
-		InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
-		InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
+		#InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
+		#InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
+		InterTauDerivative = self.TauSpline(x_0, 1)[0]
+		InterEta = self.EtaSpline(x_0)[0]
 
 		R = 4.0*Omega_r/(3.0*Omega_b*np.exp(x_0))
 		Psi = -Phi - PsiPrefactor*(np.exp(-2.0*x_0)/(k*k))*Omega_r*Theta_2
@@ -353,9 +356,12 @@ class time_mod():
 		Hprimed_Squared = Hprimed*Hprimed
 		ck_Hprimed = c*k/Hprimed
 		# Interpolating Conformal time and Optical depth (its derivatives) at the point x_0
-		InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
-		InterTauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=2, x_start=x_0, x_end=x_0)
-		InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
+		#InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
+		#InterTauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=2, x_start=x_0, x_end=x_0)
+		#InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
+		InterTauDerivative = self.TauSpline(x_0, 1)[0]
+		InterTauDoubleDer = self.TauSpline(x_0, 2)[0]
+		InterEta = self.EtaSpline(x_0)[0]
 
 		Theta_2 = -20.0*ck_Hprimed*Theta_1/(45.0*InterTauDerivative)
 		R = 4.0*Omega_r/(3.0*Omega_b*np.exp(x_0))
@@ -432,9 +438,12 @@ class time_mod():
 		Hprimed_Squared = Hprimed*Hprimed
 		ck_Hprimed = c*k/Hprimed
 		# Interpolating Conformal time and Optical depth (its derivatives) at the point x_0
-		InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, self.n1, derivative=1, x_start=x_0[0], x_end=x_0[-1])
-		InterTauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, self.n1, derivative=2, x_start=x_0[0], x_end=x_0[-1])
-		InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
+		#InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, self.n1, derivative=1, x_start=x_0[0], x_end=x_0[-1])
+		#InterTauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, self.n1, derivative=2, x_start=x_0[0], x_end=x_0[-1])
+		#InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
+		InterTauDerivative = np.transpose(self.TauSpline(x_0, 1))[0]
+		InterTauDoubleDer = np.transpose(self.TauSpline(x_0, 2))[0]
+		InterEta = np.transpose(self.EtaSpline(x_0))[0]
 
 		Theta_2 = -20.0*ck_Hprimed*self.Theta1TC/(45.0*InterTauDerivative)
 		R = 4.0*Omega_r/(3.0*Omega_b*np.exp(x_0))
@@ -447,7 +456,8 @@ class time_mod():
 			 (1.0-HprimeDer_Hprime)*ck_Hprimed*(-self.Theta0TC + 2.0*self.Theta2TC) - ck_Hprimed*dTheta0dx)/((1.0+R)*InterTauDerivative + HprimeDer_Hprime -1.0)
 		dvbdx = (-self.vbTC - ck_Hprimed*Psi + R*(q + ck_Hprimed*(-self.Theta0TC + 2.0*self.Theta2TC) - ck_Hprimed*Psi))/(1.0+R)
 		dTheta1dx = (q-dvbdx)/3.0
-		
+
+
 		self.Theta1Der[0:len(x_0)] = dTheta1dx
 		self.Theta2Der[0:len(x_0)] = dTheta1dx
 		self.Theta3Der[0:len(x_0)] = dTheta1dx
@@ -461,9 +471,11 @@ class time_mod():
 		Hprimed_Squared = Hprimed*Hprimed
 		ck_Hprimed = c*k/Hprimed
 		# Interpolating Conformal time and Optical depth at the point x_0
-		InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, len(x_0), derivative=1, x_start=x_0[0], x_end=x_0[-1])
-		InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
-		
+		#InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, len(x_0), derivative=1, x_start=x_0[0], x_end=x_0[-1])
+		#InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
+		InterTauDerivative = np.transpose(self.TauSpline(x_0, 1))[0]
+		InterEta = np.transpose(self.EtaSpline(x_0))[0]
+
 		R = 4.0*Omega_r/(3.0*Omega_b*np.exp(x_0))
 		Psi = -np.array(self.Phi[0][self.n1:]) - PsiPrefactor*(np.exp(-2.0*x_0)/(k*k))*Omega_r*np.array(self.Theta2[0][self.n1:])
 		ck_HprimedPsi = ck_Hprimed*Psi
@@ -492,12 +504,14 @@ class time_mod():
 	def Compute_Results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
 		""" Computes all the relevant results """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
+		self.EtaSpline = interpolate.CubicSpline(self.x_eta, self.ScipyEta)
 		# Calculate X_e, and n_e
 		self.Calculate_Xe()
 		self.n_e = self.X_e_array*self.Get_n_b(self.x_eta)
 		# Calculates tau
 		self.Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]	# Calculate tau and reverse array
-		
+		self.TauSpline = interpolate.CubicSpline(self.x_eta, self.Taus)
+
 		self.BoltzmannEinstein_InitConditions(self.kVal)
 		x_tc_end = self.Get_TC_end(self.kVal)
 		self.x_TC_grid = np.linspace(self.x_eta_init, x_tc_end, self.n1)
@@ -590,9 +604,13 @@ class Plotter:
 			self.PhiDeriv.append(self.variables[i][1][3])
 			self.vbDeriv.append(self.variables[i][1][4])
 
-	def Write_Outfile(self, filename, filedir, k, k_index):
+	def Write_Outfile(self, filedir, filename, k, k_index):
 		""" Saves data to a text file """
-		text_file = open(os.path.join(filedir, filename), "w")
+		results_dir = filedir
+		if not os.path.exists(results_dir):
+			os.makedirs(results_dir)
+
+		text_file = open(os.path.join(results_dir, filename), "w")
 		text_file.write(("Theta0, Theta1, Theta2, Theta3, Theta4, Theta5, Theta6, delta, delta_b, v, v_b, phi, Theta1Der. Theta2Der, Theta3Der, vbDer, PhiDer, k=%.4e H_0/c\n")\
 					 %(self.k[k_index]*c/H_0))
 		for i in range(self.n_t):
@@ -603,13 +621,13 @@ class Plotter:
 				self.Theta1Deriv[k_index][i], self.Theta2Deriv[k_index][i], self.Theta3Deriv[k_index][i], self.vbDeriv[k_index][i], self.PhiDeriv[k_index][i]))
 		text_file.close()
 
-	def Plot_results(self, filename, filedir):
+	def Plot_results(self, filedir, filename):
 		""" Plots the results """
 		self.Sort_Arrays()
 		for i in range(len(self.k)):
 			#filname = "../VariableData/BoltzmannVariables_k" + str(i) + ".txt"
 			filename2 = filename + str(i) + '.txt'
-			self.Write_Outfile(filename2, filedir, self.k[i], i)
+			self.Write_Outfile(filedir, filename2, self.k[i], i)
 		
 		print "Nothing to print here!"
 		if self.savefile == 1:
@@ -620,7 +638,7 @@ class Plotter:
 class Power_Spectrum():
 	def __init__(self, save_figure, k_array, file_directory, variable_filename):
 		self.k = k_array
-		self.fildir = file_directory
+		self.filedir = file_directory
 		self.save_figure = save_figure
 
 		self.n1 = 400
@@ -672,7 +690,8 @@ class Power_Spectrum():
 		print 'Read file time: ', time.clock() - read_start, 's'
 
 	def read_file(self, filename):	
-		datafile = open(os.path.join(self.fildir, filename), 'r')
+		#datafile = open(os.path.join(self.filedir, filename), 'r')
+		datafile = open(self.filedir+filename,'r')
 		SkipFirstLine = 0
 		Theta0_temp = []
 		Theta1_temp = []
@@ -898,7 +917,11 @@ class Power_Spectrum():
 		print "fintime: ", time.clock() - TrTime, "s"
 		
 		# Saves data of the transfer functions to text file
-		textfile = open(os.path.join(theta_directory, filename_theta), 'w')
+		results_dir = theta_directory
+		if not os.path.exists(results_dir):
+			os.makedirs(results_dir)
+
+		textfile = open(os.path.join(results_dir, filename_theta), 'w')
 		textfile.write("# Values along the columns are Theta_l. Different value of l along the rows \n")
 		for j in range(len(self.l_values)):
 			for i in range(len(Transfer_funcs_k[j])):
@@ -909,6 +932,8 @@ class Power_Spectrum():
 
 	def Read_transfer_func_data(self, Theta_dir, filename_theta):
 		""" Reads transfer function data from a text file """
+		if not os.path.exists(Theta_dir):
+			raise ValueError('Filedirectory', Theta_dir, 'does not exist! Save the values first.')
 		datafile = open(os.path.join(Theta_dir, filename_theta), 'r')
 		Transferfunctions = []
 		SkipFirstLine = 0
@@ -970,7 +995,7 @@ class Power_Spectrum():
 		self.Planck_PS = np.array(Planck_PS)
 		self.Planck_PS_Err = np.array(Planck_PS_Err)
 
-	def Plot_results(self, Theta_dir, filename_theta, r_data=1):
+	def Plot_results(self, Theta_dir, filename_theta, PlotDir, r_data=1):
 		""" Plots the results """
 		self.Read_planck_data()
 		Power_spectrum, Transfer_func_splines = self.Compute_power_spectrum(Theta_dir, filename_theta, read_data=r_data)
@@ -1027,8 +1052,21 @@ class Power_Spectrum():
 		plt.ylabel('$\Theta_l(k)^2/k$')
 		plt.title('Plot of transfer functions squared as a function of $l$ \n for different k-values')
 
+		fig5 = plt.figure()
+		ax5 = plt.subplot(111)
+		ax5.plot(self.l_full_grid, self.l_full_grid*(self.l_full_grid+1)*Power_spectrum/(2.0*np.pi), label="Theoretical data")
+		plt.xlabel('$l$')
+		plt.ylabel(r'$l(l+1)C_l/2\pi$')
+		plt.title('Power spectrum of the theoretical data.')
+
+		if not os.path.exists(PlotDir):
+			os.makedirs(PlotDir)
 		if self.save_figure == 1:
-			a=1
+			fig1.savefig(PlotDir + 'PowerSpectrumVsPlacnkwError.png')
+			fig2.savefig(PlotDir + 'PowerSpectrumVsPlanck.png')
+			fig3.savefig(PlotDir + 'Thetal.png')
+			fig4.savefig(PlotDir + 'ThetaSquaredk.png')
+			fig5.savefig(PlotDir + 'PowerSpectrumTheoretical.png')
 		else:
 			plt.show()
 
@@ -1049,11 +1087,25 @@ if __name__ == '__main__':
 	# Sets number of proceses to compute in parallel
 	num_processes = 4
 	
+	Compute_BoltzmannEquations = 0 	# Computes all of Boltzmann equations from scratch if set to 1
+	BestFitModel = 0 	# Set to 1 if testing a best fit model by modifiying cosmological parameters. 
+						# Will compute Boltzmann variables from scratch if set to 1
 
-	Variable_dir = '../VariableDataTest'
-	Variable_filename = '/BoltzmanTesting'
+	if BestFitModel == 0:
+		# Directories for the standard, unchanged, model
+		Variable_dir = '../VariableData/'
+		Variable_filename = 'BoltzmannVariables_k'
+		Theta_dir = '../ThetaData/'
+		Plot_dir = '../Plots/'
+	elif BestFitModel == 1:
+		# Directories for the best fit model
+		Compute_BoltzmannEquations = 1
+		Variable_dir = '../VariableDataBestFit/'
+		Variable_filename = 'BoltzmannVariables_k'
+		Theta_dir = '../ThetaDataBestFit/'
+		Plot_dir = '../PlotsBestFit/'
+		### Change of cosmological parameters below
 
-	Compute_BoltzmannEquations = 1 	# Computes milestone 3 if set to 1
 	if Compute_BoltzmannEquations == 1:
 		print 'Computing Boltzmann equations ...'
 		p = mp.Pool(num_processes)
@@ -1063,6 +1115,5 @@ if __name__ == '__main__':
 		PlotInstance = Plotter(savefile=1, k_array=k, variables=Solution)
 		PlotInstance.Plot_results(Variable_dir, Variable_filename)
 
-	Theta_dir = '../ThetaData'
-	PS_solver = Power_Spectrum(save_figure=0, k_array=k, file_directory=Variable_dir, variable_filename=Variable_filename)
-	PS_solver.Plot_results(Theta_dir, 'Theta_data.txt', r_data=1)
+	PS_solver = Power_Spectrum(save_figure=1, k_array=k, file_directory=Variable_dir, variable_filename=Variable_filename)
+	PS_solver.Plot_results(Theta_dir, 'Theta_data.txt', Plot_dir, r_data=1)
