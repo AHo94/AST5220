@@ -995,7 +995,7 @@ class Power_Spectrum():
 		self.Planck_PS = np.array(Planck_PS)
 		self.Planck_PS_Err = np.array(Planck_PS_Err)
 
-	def Plot_results(self, Theta_dir, filename_theta, PlotDir, r_data=1):
+	def Plot_results(self, Theta_dir, filename_theta, PlotDir, BestFitModel, r_data=1):
 		""" Plots the results """
 		self.Read_planck_data()
 		Power_spectrum, Transfer_func_splines = self.Compute_power_spectrum(Theta_dir, filename_theta, read_data=r_data)
@@ -1005,20 +1005,26 @@ class Power_Spectrum():
 		plt.hold("on")
 		ax1.plot(self.l_full_grid, self.l_full_grid*(self.l_full_grid+1)*Power_spectrum/(2.0*np.pi), label="Theoretical data")
 		ax1.errorbar(self.PLanck_l_values, self.Planck_PS, yerr=self.Planck_PS_Err, ecolor='r', alpha=0.4, label="Planck data with errorbar")
-		ax1.legend(loc = 'lower left', bbox_to_anchor=(0.75,0.6), ncol=1, fancybox=True)
+		ax1.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.6), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel(r'$l(l+1)C_l/2\pi$')
-		plt.title('Power spectrum from theoretical and Planck data, with errorbar.')
-
+		
 		fig2 = plt.figure()
 		ax2 = plt.subplot(111)
 		plt.hold("on")
 		ax2.plot(self.l_full_grid, self.l_full_grid*(self.l_full_grid+1)*Power_spectrum/(2.0*np.pi), label="Theoretical data")
 		ax2.plot(self.PLanck_l_values, self.Planck_PS, 'g', alpha=0.5, label="Planck data")
-		ax2.legend(loc = 'lower left', bbox_to_anchor=(0.75,0.6), ncol=1, fancybox=True)
+		ax2.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.6), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel(r'$l(l+1)C_l/2\pi$')
-		plt.title('Power spectrum from theoretical and Planck data. No errorbar.')
+		#plt.title('Power spectrum from theoretical and Planck data. No errorbar.')
+		
+		if BestFitModel == 0:
+			ax1.set_title('Power spectrum from theoretical and Planck data, with errorbar.')
+			ax2.set_title('Power spectrum from theoretical and Planck data. No errorbar.')
+		elif BestFitModel == 1:
+			ax1.set_title('Power spectrum from theoretical and Planck data, with errorbar. \n Best fit model')
+			ax2.set_title('Power spectrum from theoretical and Planck data. No errorbar. \n Best fit model')
 		
 		fig3 = plt.figure()
 		ax3 = plt.subplot(111)
@@ -1028,7 +1034,7 @@ class Power_Spectrum():
 		ax3.plot(self.l_full_grid, Transfer_func_splines[3000](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[3000]*c/H_0))
 		ax3.plot(self.l_full_grid, Transfer_func_splines[4000](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[4000]*c/H_0))
 		ax3.plot(self.l_full_grid, Transfer_func_splines[-1](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[-1]*c/H_0))
-		ax3.legend(loc = 'lower left', bbox_to_anchor=(0.75,0.3), ncol=1, fancybox=True)
+		ax3.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.3), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel('$\Theta_l(k)$')
 		plt.title('Plot of transfer functions as a function of $l$ for different k_values')
@@ -1062,8 +1068,12 @@ class Power_Spectrum():
 		if not os.path.exists(PlotDir):
 			os.makedirs(PlotDir)
 		if self.save_figure == 1:
-			fig1.savefig(PlotDir + 'PowerSpectrumVsPlacnkwError.png')
-			fig2.savefig(PlotDir + 'PowerSpectrumVsPlanck.png')
+			if BestFitModel == 0:
+				fig1.savefig(PlotDir + 'PowerSpectrumVsPlacnkwError.png')
+				fig2.savefig(PlotDir + 'PowerSpectrumVsPlanck.png')
+			elif BestFitModel == 1:
+				fig1.savefig(PlotDir + 'PowerSpectrumVsPlacnkwErrorBestFit.png')
+				fig2.savefig(PlotDir + 'PowerSpectrumVsPlanckBestFit.png')
 			fig3.savefig(PlotDir + 'Thetal.png')
 			fig4.savefig(PlotDir + 'ThetaSquaredk.png')
 			fig5.savefig(PlotDir + 'PowerSpectrumTheoretical.png')
@@ -1116,4 +1126,4 @@ if __name__ == '__main__':
 		PlotInstance.Plot_results(Variable_dir, Variable_filename)
 
 	PS_solver = Power_Spectrum(save_figure=1, k_array=k, file_directory=Variable_dir, variable_filename=Variable_filename)
-	PS_solver.Plot_results(Theta_dir, 'Theta_data.txt', Plot_dir, r_data=1)
+	PS_solver.Plot_results(Theta_dir, 'Theta_data.txt', Plot_dir, BestFitModel, r_data=1)
