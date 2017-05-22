@@ -314,8 +314,6 @@ class time_mod():
 		Hprimed_Squared = Hprimed*Hprimed
 		ck_Hprimed = c*k/Hprimed
 		# Interpolating Conformal time and Optical depth at the point x_0
-		#InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
-		#InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
 		InterTauDerivative = self.TauSpline(x_0, 1)[0]
 		InterEta = self.EtaSpline(x_0)[0]
 
@@ -356,9 +354,6 @@ class time_mod():
 		Hprimed_Squared = Hprimed*Hprimed
 		ck_Hprimed = c*k/Hprimed
 		# Interpolating Conformal time and Optical depth (its derivatives) at the point x_0
-		#InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=1, x_start=x_0, x_end=x_0)
-		#InterTauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, 1, derivative=2, x_start=x_0, x_end=x_0)
-		#InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
 		InterTauDerivative = self.TauSpline(x_0, 1)[0]
 		InterTauDoubleDer = self.TauSpline(x_0, 2)[0]
 		InterEta = self.EtaSpline(x_0)[0]
@@ -438,9 +433,6 @@ class time_mod():
 		Hprimed_Squared = Hprimed*Hprimed
 		ck_Hprimed = c*k/Hprimed
 		# Interpolating Conformal time and Optical depth (its derivatives) at the point x_0
-		#InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, self.n1, derivative=1, x_start=x_0[0], x_end=x_0[-1])
-		#InterTauDoubleDer = self.Spline_Derivative(self.x_eta, self.Taus, self.n1, derivative=2, x_start=x_0[0], x_end=x_0[-1])
-		#InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
 		InterTauDerivative = np.transpose(self.TauSpline(x_0, 1))[0]
 		InterTauDoubleDer = np.transpose(self.TauSpline(x_0, 2))[0]
 		InterEta = np.transpose(self.EtaSpline(x_0))[0]
@@ -471,8 +463,6 @@ class time_mod():
 		Hprimed_Squared = Hprimed*Hprimed
 		ck_Hprimed = c*k/Hprimed
 		# Interpolating Conformal time and Optical depth at the point x_0
-		#InterTauDerivative = self.Spline_Derivative(self.x_eta, self.Taus, len(x_0), derivative=1, x_start=x_0[0], x_end=x_0[-1])
-		#InterEta = self.Cubic_Spline_OnePoint(self.x_eta, self.ScipyEta, x_0)
 		InterTauDerivative = np.transpose(self.TauSpline(x_0, 1))[0]
 		InterEta = np.transpose(self.EtaSpline(x_0))[0]
 
@@ -502,7 +492,7 @@ class time_mod():
 		self.vbDer[self.n1:] = dvbdx
 
 	def Compute_Results(self, n_interp_points, x_start = -np.log(1.0 + 1630.4), x_end = -np.log(1.0 + 614.2)):
-		""" Computes all the relevant results """
+		""" Computes all the relevant results of the Boltzmann-Einstein equations """
 		self.ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
 		self.EtaSpline = interpolate.CubicSpline(self.x_eta, self.ScipyEta)
 		# Calculate X_e, and n_e
@@ -530,14 +520,13 @@ class time_mod():
 		return self.AllVariables, [self.Theta1Der, self.Theta2Der, self.Theta3Der, self.PhiDer, self.vbDer]
 
 	def Compute_tau_and_g(self):
+		""" Computes optical depth and visibility function and returns it to Power spectrum class """
 		ScipyEta = integrate.odeint(self.Diff_eq_eta, 0, self.x_eta)
-		# Calculate X_e and n_e
 		self.Calculate_Xe()
 		self.n_e = self.X_e_array*self.Get_n_b(self.x_eta)
-		# Calculates tau and interpolates the first derivative
 		Taus = integrate.odeint(self.Diff_eq_tau, 0, self.x_tau)[::-1]
 		TauDerivative = self.Spline_Derivative(self.x_eta, Taus, self.n_eta, derivative=1)
-		# Calculate g
+		
 		g_tilde = self.Visibility_func(self.x_eta, Taus, TauDerivative)
 		new_x_grid, Taus_smallerGrid = self.Cubic_Spline(self.x_eta, Taus, self.n_t)
 		new_x_grid, g_tilde_smallerGrid = self.Cubic_Spline(self.x_eta, g_tilde, self.n_t)
@@ -625,11 +614,10 @@ class Plotter:
 		""" Plots the results """
 		self.Sort_Arrays()
 		for i in range(len(self.k)):
-			#filname = "../VariableData/BoltzmannVariables_k" + str(i) + ".txt"
 			filename2 = filename + str(i) + '.txt'
 			self.Write_Outfile(filedir, filename2, self.k[i], i)
 		
-		print "Nothing to print here!"
+		print "Nothing to plot here!"
 		if self.savefile == 1:
 			a=1
 		else:
@@ -645,10 +633,10 @@ class Power_Spectrum():
 		self.n2 = 600
 		self.n_t = self.n1 + self.n2
 
+		# Set up x grid
 		self.a_init = 1e-8
 		self.x_init = np.log(self.a_init)
 		self.x_0 = 0.0
-		# Set up x grid
 		self.x_t = np.linspace(self.x_init, self.x_0, self.n_t)
 
 		# Set up larger grid
@@ -684,13 +672,12 @@ class Power_Spectrum():
 		
 		read_start = time.clock()
 		for i in range(len(k)):
-			#filename = "../VariableData/BoltzmannVariables_k" + str(i) + ".txt"
 			filename = variable_filename + str(i) + '.txt'
-			self.read_file(filename)
+			self.read_Boltzmann_variables(filename)
 		print 'Read file time: ', time.clock() - read_start, 's'
 
-	def read_file(self, filename):	
-		#datafile = open(os.path.join(self.filedir, filename), 'r')
+	def read_Boltzmann_variables(self, filename):
+		""" Reads data computed from the Boltzmann-Einstein equations """
 		datafile = open(self.filedir+filename,'r')
 		SkipFirstLine = 0
 		Theta0_temp = []
@@ -817,7 +804,6 @@ class Power_Spectrum():
 			SourceFunc_x_new_s2 = Spline_s2(x_grid_s2)
 			SourceFunc_x_new = np.concatenate([SourceFunc_x_new_s1, SourceFunc_x_new_s2])
 			Interpolated_SourceFunc.append(np.array(SourceFunc_x_new))
-
 		return np.array(Interpolated_SourceFunc)
 
 	def Get_x_grid_with_TC(self, k, largeGrid=0, split_grid = 0):
@@ -927,7 +913,6 @@ class Power_Spectrum():
 			for i in range(len(Transfer_funcs_k[j])):
 				textfile.write("%.8e " %(Transfer_funcs_k[j][i]))
 			textfile.write("\n")
-
 		return np.array(Transfer_funcs_k)
 
 	def Read_transfer_func_data(self, Theta_dir, filename_theta):
@@ -946,7 +931,6 @@ class Power_Spectrum():
 				for i in range(len(data_set)):
 					Temp_transfer_array.append(float(data_set[i]))
 				Transferfunctions.append(np.array(Temp_transfer_array))
-
 		return np.array(Transferfunctions)
 
 	def Compute_power_spectrum(self, Theta_dir, filename_theta, read_data=1, save_data=0):
@@ -976,6 +960,7 @@ class Power_Spectrum():
 		return Normalization_factor*Power_spectrum, Transfer_func_splines
 
 	def Read_planck_data(self):
+		""" Reads data from Planck """
 		CMB_data_filename = "COM_PowerSpect_CMB-TT-hiL-full_R2.02.txt"
 		datafile = open(os.path.join("../Planck_data", CMB_data_filename), 'r')
 		SkipLines = 0
@@ -1017,7 +1002,6 @@ class Power_Spectrum():
 		ax2.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.6), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel(r'$l(l+1)C_l/2\pi$')
-		#plt.title('Power spectrum from theoretical and Planck data. No errorbar.')
 		
 		if BestFitModel == 0:
 			ax1.set_title('Power spectrum from theoretical and Planck data, with errorbar.')
@@ -1094,9 +1078,7 @@ if __name__ == '__main__':
 	k_N = 100
 	k = np.array([k_min + (k_max-k_min)*(i/100.0)**2 for i in range(k_N)])
 
-	# Sets number of proceses to compute in parallel
-	num_processes = 4
-	
+	num_processes = 4 	# Sets number of proceses to compute in parallel
 	Compute_BoltzmannEquations = 0 	# Computes all of Boltzmann equations from scratch if set to 1
 	BestFitModel = 0 	# Set to 1 if testing a best fit model by modifiying cosmological parameters. 
 						# Will compute Boltzmann variables from scratch if set to 1
