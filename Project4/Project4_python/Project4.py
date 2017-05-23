@@ -989,8 +989,8 @@ class Power_Spectrum():
 		fig1 = plt.figure()
 		ax1 = plt.subplot(111)
 		plt.hold("on")
-		ax1.plot(self.l_full_grid, self.l_full_grid*(self.l_full_grid+1)*Power_spectrum/(2.0*np.pi), label="Theoretical data")
-		ax1.errorbar(self.PLanck_l_values, self.Planck_PS, yerr=self.Planck_PS_Err, ecolor='r', alpha=0.4, label="Planck data")
+		ax1.plot(self.l_full_grid, self.l_full_grid*(self.l_full_grid+1)*Power_spectrum/(2.0*np.pi), 'r-', label="Theoretical data")
+		ax1.errorbar(self.PLanck_l_values, self.Planck_PS, yerr=self.Planck_PS_Err, ecolor='g', alpha=0.4, label="Planck data")
 		ax1.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.6), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel(r'$l(l+1)C_l/2\pi$')
@@ -998,7 +998,7 @@ class Power_Spectrum():
 		fig2 = plt.figure()
 		ax2 = plt.subplot(111)
 		plt.hold("on")
-		ax2.plot(self.l_full_grid, self.l_full_grid*(self.l_full_grid+1)*Power_spectrum/(2.0*np.pi), label="Theoretical data")
+		ax2.plot(self.l_full_grid, self.l_full_grid*(self.l_full_grid+1)*Power_spectrum/(2.0*np.pi), 'r-', label="Theoretical data")
 		ax2.plot(self.PLanck_l_values, self.Planck_PS, 'g', alpha=0.5, label="Planck data")
 		ax2.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.6), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
@@ -1007,30 +1007,30 @@ class Power_Spectrum():
 		fig3 = plt.figure()
 		ax3 = plt.subplot(111)
 		plt.hold("on")
-		ax3.plot(self.l_full_grid, Transfer_func_splines[0](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[0]*c/H_0))
-		ax3.plot(self.l_full_grid, Transfer_func_splines[1000](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[1000]*c/H_0))
-		ax3.plot(self.l_full_grid, Transfer_func_splines[2000](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[2000]*c/H_0))
-		ax3.plot(self.l_full_grid, Transfer_func_splines[3000](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[3000]*c/H_0))
-		ax3.plot(self.l_full_grid, Transfer_func_splines[4000](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[4000]*c/H_0))
-		ax3.plot(self.l_full_grid, Transfer_func_splines[-1](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[-1]*c/H_0))
-		ax3.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.2), ncol=1, fancybox=True)
+		ax3.plot(self.l_full_grid[5:], Transfer_func_splines[0](self.l_full_grid[5:]), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[0]*c/H_0))
+		ax3.plot(self.l_full_grid[5:], Transfer_func_splines[1000](self.l_full_grid[5:]), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[1000]*c/H_0))
+		ax3.plot(self.l_full_grid[5:], Transfer_func_splines[2000](self.l_full_grid[5:]), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[2000]*c/H_0))
+		ax3.plot(self.l_full_grid[5:], Transfer_func_splines[3000](self.l_full_grid[5:]), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[3000]*c/H_0))
+		ax3.plot(self.l_full_grid[5:], Transfer_func_splines[4000](self.l_full_grid[5:]), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[4000]*c/H_0))
+		ax3.plot(self.l_full_grid[5:], Transfer_func_splines[-1](self.l_full_grid[5:]), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[-1]*c/H_0))
+		ax3.legend(loc = 'lower left', bbox_to_anchor=(0.3,0.75), ncol=2, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel('$\Theta_l(k)$')
 
 		fig4 = plt.figure()
 		ax4 = plt.subplot(111)
 		plt.hold("on")
-		ax4.semilogy(self.l_full_grid, (Transfer_func_splines[0](self.l_full_grid))**2.0/(self.k_LargeGrid[0]),\
+		ax4.semilogy(self.l_full_grid[5:], (Transfer_func_splines[0](self.l_full_grid[5:]))**2.0/(self.k_LargeGrid[0]),\
 				 label='$k= %.2f H_0/c$' %(self.k_LargeGrid[0]*c/H_0))
-		ax4.semilogy(self.l_full_grid, (Transfer_func_splines[1000](self.l_full_grid))**2.0/(self.k_LargeGrid[1000]),\
+		ax4.semilogy(self.l_full_grid[5:], (Transfer_func_splines[1000](self.l_full_grid[5:]))**2.0/(self.k_LargeGrid[1000]),\
 				 label='$k= %.2f H_0/c$' %(self.k_LargeGrid[1000]*c/H_0))
-		ax4.semilogy(self.l_full_grid, (Transfer_func_splines[2000](self.l_full_grid))**2.0/(self.k_LargeGrid[2000]),\
+		ax4.semilogy(self.l_full_grid[5:], (Transfer_func_splines[2000](self.l_full_grid[5:]))**2.0/(self.k_LargeGrid[2000]),\
 				 label='$k= %.2f H_0/c$' %(self.k_LargeGrid[2000]*c/H_0))
-		ax4.semilogy(self.l_full_grid, (Transfer_func_splines[3000](self.l_full_grid))**2.0/(self.k_LargeGrid[3000]),\
+		ax4.semilogy(self.l_full_grid[5:], (Transfer_func_splines[3000](self.l_full_grid[5:]))**2.0/(self.k_LargeGrid[3000]),\
 				 label='$k= %.2f H_0/c$' %(self.k_LargeGrid[3000]*c/H_0))
-		ax4.semilogy(self.l_full_grid, (Transfer_func_splines[4000](self.l_full_grid))**2.0/(self.k_LargeGrid[4000]),\
+		ax4.semilogy(self.l_full_grid[5:], (Transfer_func_splines[4000](self.l_full_grid[5:]))**2.0/(self.k_LargeGrid[4000]),\
 				 label='$k= %.2f H_0/c$' %(self.k_LargeGrid[4000]*c/H_0))
-		ax4.semilogy(self.l_full_grid, (Transfer_func_splines[-1](self.l_full_grid))**2.0/(self.k_LargeGrid[-1]),\
+		ax4.semilogy(self.l_full_grid[5:], (Transfer_func_splines[-1](self.l_full_grid[5:]))**2.0/(self.k_LargeGrid[-1]),\
 				 label='$k= %.2f H_0/c$' %(self.k_LargeGrid[-1]*c/H_0))
 		ax4.legend(loc = 'lower left', bbox_to_anchor=(0.0,0.0), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
@@ -1087,7 +1087,7 @@ if __name__ == '__main__':
 
 	num_processes = 4 	# Sets number of proceses to compute in parallel
 	Compute_BoltzmannEquations = 0 	# Computes all of Boltzmann equations from scratch if set to 1
-	BestFitModel = 1 	# Set to 1 if testing a best fit model by modifiying cosmological parameters. 
+	BestFitModel = 0 	# Set to 1 if testing a best fit model by modifiying cosmological parameters. 
 						# Will compute Boltzmann variables from scratch if set to 1
 	Read_theta_data = 1 # Reads from saved theta data from Power_Spectrum class. Set to 1 if data is pre-computed
 
