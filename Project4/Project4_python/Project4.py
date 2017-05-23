@@ -644,7 +644,7 @@ class Power_Spectrum():
 		self.k_LargeGrid = np.linspace(self.k[0], self.k[-1], 5000)
 
 		# Values of l, used for the Bessel function
-		self.l_full_grid = np.linspace(0,1200, 1201)
+		self.l_full_grid = np.linspace(0,1200, 3000)
 		self.l_values = []
 		self.l_val_grid = np.array([2,3,4,6,8,10,12,15,20,30,40,50,60,70,80,90,100,120,140,160\
 					,180,200,225,250,275,300,350,400,450,500,550,600,650,700,750,800,850,900,950,1000,1050,1100,1150,1200])
@@ -990,7 +990,7 @@ class Power_Spectrum():
 		plt.hold("on")
 		ax1.plot(self.l_full_grid, self.l_full_grid*(self.l_full_grid+1)*Power_spectrum/(2.0*np.pi), label="Theoretical data")
 		ax1.errorbar(self.PLanck_l_values, self.Planck_PS, yerr=self.Planck_PS_Err, ecolor='r', alpha=0.4, label="Planck data with errorbar")
-		ax1.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.6), ncol=1, fancybox=True)
+		ax1.legend(loc = 'lower left', bbox_to_anchor=(0.5,0.6), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel(r'$l(l+1)C_l/2\pi$')
 		
@@ -999,7 +999,7 @@ class Power_Spectrum():
 		plt.hold("on")
 		ax2.plot(self.l_full_grid, self.l_full_grid*(self.l_full_grid+1)*Power_spectrum/(2.0*np.pi), label="Theoretical data")
 		ax2.plot(self.PLanck_l_values, self.Planck_PS, 'g', alpha=0.5, label="Planck data")
-		ax2.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.6), ncol=1, fancybox=True)
+		ax2.legend(loc = 'lower left', bbox_to_anchor=(0.5,0.6), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel(r'$l(l+1)C_l/2\pi$')
 		
@@ -1053,10 +1053,10 @@ class Power_Spectrum():
 			os.makedirs(PlotDir)
 		if self.save_figure == 1:
 			if BestFitModel == 0:
-				fig1.savefig(PlotDir + 'PowerSpectrumVsPlacnkwError.png')
+				fig1.savefig(PlotDir + 'PowerSpectrumVsPlanckwError.png')
 				fig2.savefig(PlotDir + 'PowerSpectrumVsPlanck.png')
 			elif BestFitModel == 1:
-				fig1.savefig(PlotDir + 'PowerSpectrumVsPlacnkwErrorBestFit.png')
+				fig1.savefig(PlotDir + 'PowerSpectrumVsPlanckwErrorBestFit.png')
 				fig2.savefig(PlotDir + 'PowerSpectrumVsPlanckBestFit.png')
 			fig3.savefig(PlotDir + 'Thetal.png')
 			fig4.savefig(PlotDir + 'ThetaSquaredk.png')
