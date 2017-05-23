@@ -881,7 +881,7 @@ class Power_Spectrum():
 		time_Bess = time.clock()
 		x_bessel_grid = np.linspace(0, 5400, 10000)
 		Bessel_functions = special.spherical_jn(self.l_values, x_bessel_grid)
-		print "Bessel comp: ", time.clock() - time_Bess, "s"
+		print "Computing Bessel function time: ", time.clock() - time_Bess, "s"
 		SPLINES = []
 		for i in range(len(self.l_values)):
 			B_spline = interpolate.CubicSpline(x_bessel_grid, Bessel_functions[i])
@@ -900,7 +900,7 @@ class Power_Spectrum():
 				Integrals.append(TransferFunc_integral)
 
 			Transfer_funcs_k.append(np.array(Integrals))
-		print "fintime: ", time.clock() - TrTime, "s"
+		print "Computing transfer function time: ", time.clock() - TrTime, "s"
 		
 		# Saves data of the transfer functions to text file
 		results_dir = theta_directory
@@ -989,7 +989,7 @@ class Power_Spectrum():
 		ax1 = plt.subplot(111)
 		plt.hold("on")
 		ax1.plot(self.l_full_grid, self.l_full_grid*(self.l_full_grid+1)*Power_spectrum/(2.0*np.pi), label="Theoretical data")
-		ax1.errorbar(self.PLanck_l_values, self.Planck_PS, yerr=self.Planck_PS_Err, ecolor='r', alpha=0.4, label="Planck data with errorbar")
+		ax1.errorbar(self.PLanck_l_values, self.Planck_PS, yerr=self.Planck_PS_Err, ecolor='r', alpha=0.4, label="Planck data")
 		ax1.legend(loc = 'lower left', bbox_to_anchor=(0.5,0.6), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel(r'$l(l+1)C_l/2\pi$')
@@ -1012,6 +1012,7 @@ class Power_Spectrum():
 		
 		fig3 = plt.figure()
 		ax3 = plt.subplot(111)
+		plt.hold("on")
 		ax3.plot(self.l_full_grid, Transfer_func_splines[0](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[0]*c/H_0))
 		ax3.plot(self.l_full_grid, Transfer_func_splines[1000](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[1000]*c/H_0))
 		ax3.plot(self.l_full_grid, Transfer_func_splines[2000](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[2000]*c/H_0))
@@ -1025,6 +1026,7 @@ class Power_Spectrum():
 
 		fig4 = plt.figure()
 		ax4 = plt.subplot(111)
+		plt.hold("on")
 		ax4.semilogy(self.l_full_grid, (Transfer_func_splines[0](self.l_full_grid))**2.0/(self.k_LargeGrid[0]),\
 				 label='$k= %.2f H_0/c$' %(self.k_LargeGrid[0]*c/H_0))
 		ax4.semilogy(self.l_full_grid, (Transfer_func_splines[1000](self.l_full_grid))**2.0/(self.k_LargeGrid[1000]),\
@@ -1070,7 +1072,7 @@ def SolveEquations(k):
 	ComputedVariables = solver.Compute_Results(100)
 	return ComputedVariables
 
-if __name__ == '__main__':		
+if __name__ == '__main__':	
 	print 'Starting program'
 	# Defines the range of k
 	k_min = 0.1*H_0/c
@@ -1080,8 +1082,9 @@ if __name__ == '__main__':
 
 	num_processes = 4 	# Sets number of proceses to compute in parallel
 	Compute_BoltzmannEquations = 0 	# Computes all of Boltzmann equations from scratch if set to 1
-	BestFitModel = 0 	# Set to 1 if testing a best fit model by modifiying cosmological parameters. 
+	BestFitModel = 1 	# Set to 1 if testing a best fit model by modifiying cosmological parameters. 
 						# Will compute Boltzmann variables from scratch if set to 1
+	Read_theta_data = 1 # Reads from saved theta data from Power_Spectrum class. Set to 1 if data is pre-computed
 
 	if BestFitModel == 0:
 		# Directories for the standard, unchanged, model
@@ -1092,11 +1095,13 @@ if __name__ == '__main__':
 	elif BestFitModel == 1:
 		# Directories for the best fit model
 		Compute_BoltzmannEquations = 1
+		Read_theta_data = 0
 		Variable_dir = '../VariableDataBestFit/'
 		Variable_filename = 'BoltzmannVariables_k'
 		Theta_dir = '../ThetaDataBestFit/'
 		Plot_dir = '../PlotsBestFit/'
 		### Change of cosmological parameters below
+		Omega_m = 0.040
 
 	if Compute_BoltzmannEquations == 1:
 		print 'Computing Boltzmann equations ...'
@@ -1108,4 +1113,4 @@ if __name__ == '__main__':
 		PlotInstance.Plot_results(Variable_dir, Variable_filename)
 
 	PS_solver = Power_Spectrum(save_figure=1, k_array=k, file_directory=Variable_dir, variable_filename=Variable_filename)
-	PS_solver.Plot_results(Theta_dir, 'Theta_data.txt', Plot_dir, BestFitModel, r_data=1)
+	PS_solver.Plot_results(Theta_dir, 'Theta_data.txt', Plot_dir, BestFitModel, r_data=Read_theta_data)
