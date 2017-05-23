@@ -22,7 +22,8 @@ Omega_lambda = 1.0 - Omega_m - Omega_b - Omega_r - Omega_nu
 T_0 = 2.725
 n_s = 0.96
 A_s = 1.0
-h0 = 0.7
+#h0 = 0.7 	# Standard parameter
+h0 = 0.66	# Best fit parameter
 H_0 = h0*100.0*1e3/Mpc
 
 # General constants
@@ -881,15 +882,15 @@ class Power_Spectrum():
 		time_Bess = time.clock()
 		x_bessel_grid = np.linspace(0, 5400, 10000)
 		Bessel_functions = special.spherical_jn(self.l_values, x_bessel_grid)
-		print "Computing Bessel function time: ", time.clock() - time_Bess, "s"
+		print "Bessel function time: ", time.clock() - time_Bess, "s"
 		SPLINES = []
 		for i in range(len(self.l_values)):
 			B_spline = interpolate.CubicSpline(x_bessel_grid, Bessel_functions[i])
 			SPLINES.append(B_spline)
 		
 		# Compute transfer functions
-		Transfer_funcs_k = []
 		TrTime = time.clock()
+		Transfer_funcs_k = []
 		for ls in range(len(self.l_values)):
 			Integrals = []
 			Bessel_spline = SPLINES[ls]
@@ -900,7 +901,7 @@ class Power_Spectrum():
 				Integrals.append(TransferFunc_integral)
 
 			Transfer_funcs_k.append(np.array(Integrals))
-		print "Computing transfer function time: ", time.clock() - TrTime, "s"
+		print "Transfer function time: ", time.clock() - TrTime, "s"
 		
 		# Saves data of the transfer functions to text file
 		results_dir = theta_directory
@@ -990,7 +991,7 @@ class Power_Spectrum():
 		plt.hold("on")
 		ax1.plot(self.l_full_grid, self.l_full_grid*(self.l_full_grid+1)*Power_spectrum/(2.0*np.pi), label="Theoretical data")
 		ax1.errorbar(self.PLanck_l_values, self.Planck_PS, yerr=self.Planck_PS_Err, ecolor='r', alpha=0.4, label="Planck data")
-		ax1.legend(loc = 'lower left', bbox_to_anchor=(0.5,0.6), ncol=1, fancybox=True)
+		ax1.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.6), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel(r'$l(l+1)C_l/2\pi$')
 		
@@ -999,16 +1000,9 @@ class Power_Spectrum():
 		plt.hold("on")
 		ax2.plot(self.l_full_grid, self.l_full_grid*(self.l_full_grid+1)*Power_spectrum/(2.0*np.pi), label="Theoretical data")
 		ax2.plot(self.PLanck_l_values, self.Planck_PS, 'g', alpha=0.5, label="Planck data")
-		ax2.legend(loc = 'lower left', bbox_to_anchor=(0.5,0.6), ncol=1, fancybox=True)
+		ax2.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.6), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel(r'$l(l+1)C_l/2\pi$')
-		
-		if BestFitModel == 0:
-			ax1.set_title('Power spectrum from theoretical and Planck data, with errorbar.')
-			ax2.set_title('Power spectrum from theoretical and Planck data. No errorbar.')
-		elif BestFitModel == 1:
-			ax1.set_title('Power spectrum from theoretical and Planck data, with errorbar. \n Best fit model')
-			ax2.set_title('Power spectrum from theoretical and Planck data. No errorbar. \n Best fit model')
 		
 		fig3 = plt.figure()
 		ax3 = plt.subplot(111)
@@ -1019,10 +1013,9 @@ class Power_Spectrum():
 		ax3.plot(self.l_full_grid, Transfer_func_splines[3000](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[3000]*c/H_0))
 		ax3.plot(self.l_full_grid, Transfer_func_splines[4000](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[4000]*c/H_0))
 		ax3.plot(self.l_full_grid, Transfer_func_splines[-1](self.l_full_grid), label='$k= %.2f H_0/c$' %(self.k_LargeGrid[-1]*c/H_0))
-		ax3.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.3), ncol=1, fancybox=True)
+		ax3.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.2), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel('$\Theta_l(k)$')
-		plt.title('Plot of transfer functions as a function of $l$ for different k_values')
 
 		fig4 = plt.figure()
 		ax4 = plt.subplot(111)
@@ -1039,18 +1032,30 @@ class Power_Spectrum():
 				 label='$k= %.2f H_0/c$' %(self.k_LargeGrid[4000]*c/H_0))
 		ax4.semilogy(self.l_full_grid, (Transfer_func_splines[-1](self.l_full_grid))**2.0/(self.k_LargeGrid[-1]),\
 				 label='$k= %.2f H_0/c$' %(self.k_LargeGrid[-1]*c/H_0))
-		ax4.legend(loc = 'lower left', bbox_to_anchor=(0.6,0.2), ncol=1, fancybox=True)
+		ax4.legend(loc = 'lower left', bbox_to_anchor=(0.0,0.0), ncol=1, fancybox=True)
 		plt.xlabel('$l$')
 		plt.ylabel('$\Theta_l(k)^2/k$')
-		plt.title('Plot of transfer functions squared as a function of $l$ \n for different k-values')
 
 		fig5 = plt.figure()
 		ax5 = plt.subplot(111)
 		ax5.plot(self.l_full_grid, self.l_full_grid*(self.l_full_grid+1)*Power_spectrum/(2.0*np.pi), label="Theoretical data")
 		plt.xlabel('$l$')
 		plt.ylabel(r'$l(l+1)C_l/2\pi$')
-		plt.title('Power spectrum of the theoretical data.')
 
+		if BestFitModel == 0:
+			ax1.set_title('Power spectrum from theoretical and Planck data, with errorbar.')
+			ax2.set_title('Power spectrum from theoretical and Planck data. No errorbar.')
+			ax3.set_title('Plot of transfer functions as a function of $l$ for different k_values')
+			ax4.set_title('Plot of transfer functions squared as a function of $l$ \n for different k-values')
+			ax5.set_title('Power spectrum of the theoretical data.')
+
+		elif BestFitModel == 1:
+			ax1.set_title('Power spectrum from theoretical and Planck data, with errorbar. \n Best fit model')
+			ax2.set_title('Power spectrum from theoretical and Planck data. No errorbar. \n Best fit model')
+			ax3.set_title('Plot of transfer functions as a function of $l$ for different k_values. \n Best fit model')
+			ax4.set_title('Plot of transfer functions squared as a function of $l$ \n for different k-values. Best fit model')
+			ax5.set_title('Power spectrum of the theoretical data. Best fit model')
+		
 		if not os.path.exists(PlotDir):
 			os.makedirs(PlotDir)
 		if self.save_figure == 1:
@@ -1100,8 +1105,10 @@ if __name__ == '__main__':
 		Variable_filename = 'BoltzmannVariables_k'
 		Theta_dir = '../ThetaDataBestFit/'
 		Plot_dir = '../PlotsBestFit/'
-		### Change of cosmological parameters below
-		Omega_m = 0.040
+		### Change of Omegas parameters below. Other cosmological parameters to be changed at the top.
+		Omega_m = 0.24
+		Omega_b = 0.09
+		Omega_r = 8.8e-5
 
 	if Compute_BoltzmannEquations == 1:
 		print 'Computing Boltzmann equations ...'
